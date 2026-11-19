@@ -478,7 +478,7 @@ function renderList(){
   $('#ex-out').innerHTML = `<p class="muted" style="margin:0 0 8px">${fmt(xs.length)} ${TYPE[EX.type][1].toLowerCase()} match. ${EX.type==='company' ? 'Includes private companies, which the headline count leaves out.' : ''}</p>
   <div class="tablewrap"><table class="list"><thead><tr>${cols.map(([k,l]) => `<th data-k="${k}" scope="col" aria-sort="${EX.sort===k ? (EX.dir>0?'ascending':'descending') : 'none'}">${l}${ar(k)}</th>`).join('')}</tr></thead>
   <tbody>${rows.map(e => { const cs = checks(e), t = tally(cs), iy = iyear(e), hasI = e.it && e.it !== 'No target';
-    return `<tr class="rowlink" data-href="#/e/${e.s}"><td><a class="nm" href="#/e/${e.s}">${e.t==='country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</a></td><td>${esc(where(e))}</td><td>${esc(targetPhrase(e))}</td><td>${pill(e)}</td><td class="ms" data-s="${e.s}"${hasI ? ' tabindex="0"' : ''}>${hasI ? esc((e.ip ? e.ip + '% cut' : 'Target') + (iy ? ' by ' + iy : '')) + ((e.im && e.im.length > 1) ? ` <span class="more">+more</span>` : '') : '<span class="muted">None</span>'}</td>
+    return `<tr class="rowlink" data-href="#/e/${e.s}"><td><a class="nm" href="#/e/${e.s}">${e.t==='country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</a></td><td>${esc(where(e))}</td><td>${esc(targetPhrase(e))}</td><td>${pill(e)}</td><td class="ms" data-s="${e.s}"${hasI ? ' tabindex="0"' : ''}>${hasI ? esc((e.ip ? e.ip + '% cut' : 'Target') + (iy ? ' by ' + iy : '')) + ((() => { const L = msList(e); return L.length > 1 || (e.ms || []).length > 1 ? ' <span class="more">+more</span>' : ''; })()) : '<span class="muted">None</span>'}</td>
     <td class="chk" data-s="${e.s}"${isNZ(e) ? ' tabindex="0"' : ''}>${isNZ(e) ? `<span class="dots9">${cs.map(c => ICON[c.v]).join('')}</span><span class="score">${t.yes}/${cs.length}</span>` : '<span class="muted">n/a</span>'}</td>
     <td>${e.rev ? money(e.rev) : e.pop ? people(e.pop) : '<span class="muted">n/a</span>'}</td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>`}</tbody></table></div>
   <div class="pager"><span>Page ${EX.page + 1} of ${pages}</span><span class="flex"><span class="muted" style="font-size:13.5px">Checks key: ${ICON.yes} yes ${ICON.part} partly ${ICON.no} no ${ICON.unk} unknown</span><button class="btn btn-ghost btn-sm" id="pg-prev" ${EX.page?'':'disabled'}>← Previous</button><button class="btn btn-ghost btn-sm" id="pg-next" ${EX.page < pages-1 ? '' : 'disabled'}>Next →</button></span></div>`;
@@ -491,10 +491,17 @@ function checksTipHtml(e){
   const cs = checks(e), t = tally(cs);
   return `<div class="tipchecks"><b>${esc(e.n)}: ${t.yes} of ${cs.length} credibility checks met</b>${cs.map(c => `<div class="tc">${ICON[c.v]}<span>${esc(c.q.replace(/\?$/, ''))}<em> · ${VLAB[c.v]}</em></span></div>`).join('')}<span class="k" style="font-size:12.5px">Click the row for the full profile</span></div>`;
 }
+function msList(e){
+  const y = new Map(), iy = iyear(e);
+  (e.ms || []).forEach(([yr, l]) => { if (yr >= NOW) { if (!y.has(yr)) y.set(yr, []); if (!y.get(yr).includes(l)) y.get(yr).push(l); } });
+  if (!y.size && e.it && e.it !== 'No target' && iy) y.set(iy, [e.ip ? e.ip + '% cut' : 'Target']);
+  return [...y.entries()].sort((a, b) => a[0] - b[0]).map(([yr, ls]) => [yr, ls.length > 1 ? ls.slice(0, 3).map(l => l.replace(' cut', '')).join(', ') + ' cut' : ls[0]]);
+}
 function msTipHtml(e){
-  const iy = iyear(e), main = `${e.ip ? e.ip + '% cut' : (e.it || 'Target')}${iy ? ' by ' + iy : ''}${e.ib ? ' (vs ' + e.ib + ')' : ''}`;
-  const more = (e.im || []).map(l => `<div class="tc"><span class="dot"></span><span>${esc(l)}</span></div>`).join('');
-  return `<div class="tipchecks"><b>${esc(e.n)}: ${e.im && e.im.length > 1 ? 'milestones' : 'next milestone'}</b><div class="tc"><span class="dot hl"></span><span><strong>Headline: ${esc(main)}</strong>${iy && iy < NOW ? '<em> · year has passed</em>' : ''}</span></div>${more ? `<span class="k" style="margin:6px 0 2px">As written in the entry:</span>${more}` : ''}<span class="k" style="font-size:12.5px">Click the row for the full profile</span></div>`;
+  const L = msList(e), end = e.y && isNZ(e) ? [e.y, targetPhrase(e)] : null;
+  const rows = L.map(([yr, l], i) => `<div class="mrow"><span class="my">${yr}</span><span>${esc(l)}${i === 0 ? '<em> · next</em>' : ''}</span></div>`).join('')
+    + (end ? `<div class="mrow end"><span class="my">${esc(end[0])}</span><span>${esc(end[1])}<em> · end target</em></span></div>` : '');
+  return `<div class="tipms"><b>${esc(e.n)}: milestones</b>${rows}</div>`;
 }
 function wireMsTip(root){
   $$('td.ms[tabindex]', root).forEach(td => { const e = BY[td.dataset.s];
