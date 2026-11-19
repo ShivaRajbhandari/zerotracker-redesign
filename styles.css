@@ -550,3 +550,11 @@ ul.flags.plain li{margin-bottom:10px}
 .nzd-ctl output{font-weight:800;color:var(--purple);min-width:3ch;text-align:right}
 
 .nzd-cap a{white-space:nowrap;font-weight:600}
+
+.nzd-def{margin:0 0 14px;padding:12px 14px;background:#f7f3fa;border-left:4px solid var(--purple);border-radius:0 8px 8px 0;font-size:15.5px;line-height:1.5;color:var(--ink-2)}
+.nzd-def b{color:var(--purple)}
+.nzs{margin-bottom:14px}
+.nzs h4{display:flex;align-items:center;gap:9px;margin:0 0 6px;font-size:17px;color:var(--purple)}
+.nzs h4 i{font-style:normal;flex:none;width:24px;height:24px;border-radius:50%;background:var(--purple);color:#fff;font-size:13px;display:inline-flex;align-items:center;justify-content:center}
+.nzs svg{width:100%;height:auto;display:block}
+.nzs p{margin:6px 0 0;font-size:15px;line-height:1.45;color:var(--ink-2)}
