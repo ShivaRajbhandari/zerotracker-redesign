@@ -438,3 +438,7 @@ table.gmx{min-width:1160px}
 @media (max-width:980px){.gnwide{grid-template-columns:minmax(0,1fr)}}
 .viz .vmain{position:sticky;top:104px;align-self:start}
 @media (max-width:980px){.viz .vmain{position:static}}
+
+/* give the wide comparison table room on large screens */
+@media (min-width:1280px){#gn-full .wrap{max-width:1300px}}
+.gmwrap{scrollbar-width:thin}
