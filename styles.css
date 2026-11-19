@@ -483,3 +483,11 @@ td.ms .more{display:inline-block;margin-left:4px;padding:0 6px;border-radius:9px
 .tipms .my{flex:none;width:36px;font-weight:700;color:var(--purple)}
 .tipms em{font-style:normal;color:var(--muted)}
 .tipms .end{background:#f7f3fa;margin:3px -6px 0;padding:4px 6px;border-radius:5px}
+
+.nlbox{position:fixed;right:20px;bottom:20px;z-index:60;width:min(320px,calc(100vw - 32px));background:#fff;border:1px solid var(--line,#e2dde8);border-top:5px solid var(--red);border-radius:10px;box-shadow:0 8px 28px rgba(39,16,57,.22);padding:16px 18px 16px}
+.nlbox[hidden]{display:none}
+.nlbox h2{font-size:18px;margin:0 22px 6px 0;color:var(--purple)}
+.nlbox p{margin:0 0 12px;font-size:14.5px;color:var(--ink-2)}
+.nlx{position:absolute;top:6px;right:8px;width:30px;height:30px;border:0;background:none;font-size:24px;line-height:1;color:var(--muted);cursor:pointer;border-radius:6px}
+.nlx:hover{background:#f1edf5;color:var(--purple)}
+@media print{.nlbox{display:none}}

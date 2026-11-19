@@ -9,7 +9,7 @@
 <link rel="icon" href="favicon.ico">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css?v=20261119c">
+<link rel="stylesheet" href="styles.css?v=20261119d">
 </head>
 <body>
 <a class="sr" href="#main">Skip to main content</a>
@@ -28,7 +28,6 @@
       <a class="btn btn-red btn-sm" href="https://zerotracker.net/" target="_blank" rel="noopener" style="margin-left:6px">Download data</a>
     </nav>
   </div>
-  <div class="strip"><div class="wrap"><span><em>Intent to integrity:</em> we track who has promised net zero and whether the promise holds up.</span><span class="nl">Quarterly newsletter · <a href="https://chatnetzero.ai/" target="_blank" rel="noopener">ChatNetZero.ai</a></span></div></div>
 </header>
 <main id="main" tabindex="-1"></main>
 <div class="partners"><div class="wrap center">
@@ -46,10 +45,20 @@
 </div></footer>
 <div class="tip" id="tip"></div>
 <div class="toast" id="toast"></div>
-<script src="data.js?v=20261119c"></script>
+<aside class="nlbox" id="nlbox" role="region" aria-label="Newsletter sign-up" hidden>
+  <button class="nlx" type="button" aria-label="Close newsletter box">&times;</button>
+  <h2>Get the quarterly newsletter</h2>
+  <p>Net zero target updates, new analysis and data releases, four times a year.</p>
+  <a class="btn btn-red btn-sm" href="https://zerotracker.us21.list-manage.com/subscribe?u=57233fd91a0bcb24e192f29ca&amp;id=c00438965e" target="_blank" rel="noopener">Sign up</a>
+</aside>
+<script>
+(function(){var b=document.getElementById('nlbox'),k='nzt-nl-closed';try{if(sessionStorage.getItem(k))return}catch(e){}
+b.hidden=false;b.querySelector('.nlx').onclick=function(){b.hidden=true;try{sessionStorage.setItem(k,1)}catch(e){}};})();
+</script>
+<script src="data.js?v=20261119d"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
-<script src="goodnet.js?v=20261119c"></script>
-<script src="app.js?v=20261119c"></script>
+<script src="goodnet.js?v=20261119d"></script>
+<script src="app.js?v=20261119d"></script>
 </body>
 </html>

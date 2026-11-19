@@ -904,7 +904,7 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <ul class="flags">
         <li>Is the "X of Y checks met" summary acceptable, or should profiles show checks without a total?</li>
         <li>The brand font (franzSans) is licensed, so this prototype uses Outfit. The production site would use the real font.</li>
-        <li>The newsletter sign-up is a placeholder here.</li>
+        <li>The newsletter box links to the live Mailchimp sign-up page. It can be closed and stays closed for the rest of the visit.</li>
         <li>The map uses the live site's own boundary and city-location files. 16 regions and 1 city have no location in them yet, so they appear in the tables but not on the map.</li>
       </ul>
       <div class="note mt2">Prototype by Shiva Rajbhandari, ${META.generated || ''}. Data: Net Zero Tracker public dataset (entries updated to ${esc((META.source||'').split('to ').pop())}). Not indexed by search engines.</div>
