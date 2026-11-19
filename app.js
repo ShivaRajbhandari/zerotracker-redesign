@@ -148,14 +148,14 @@ const SEARCH = D.map(e => ({e, k:(e.n + ' ' + (e.cn||'')).toLowerCase()}));
 function searchBox(id, ph, onPick){
   return `<div class="search" id="${id}">${MAG}<input type="search" autocomplete="off" placeholder="${esc(ph)}" aria-label="${esc(ph)}"><div class="sugg" hidden></div></div>`;
 }
-function wireSearch(id, onPick){
+function wireSearch(id, onPick, filter){
   const box = $('#' + id); if (!box) return;
   const inp = $('input', box), sg = $('.sugg', box); let act = -1, res = [];
   const pick = e => onPick ? onPick(e) : (location.hash = '#/e/' + e.s);
   inp.addEventListener('input', () => {
     const q = inp.value.trim().toLowerCase(); act = -1;
     if (q.length < 2) { sg.hidden = true; return; }
-    res = SEARCH.filter(x => x.k.includes(q)).sort((a,b) => (b.e.n.toLowerCase().startsWith(q)) - (a.e.n.toLowerCase().startsWith(q)) || ['country','region','city','company'].indexOf(a.e.t) - ['country','region','city','company'].indexOf(b.e.t)).slice(0, 9).map(x => x.e);
+    res = SEARCH.filter(x => x.k.includes(q) && (!filter || filter(x.e))).sort((a,b) => (b.e.n.toLowerCase().startsWith(q)) - (a.e.n.toLowerCase().startsWith(q)) || ['country','region','city','company'].indexOf(a.e.t) - ['country','region','city','company'].indexOf(b.e.t)).slice(0, 9).map(x => x.e);
     sg.innerHTML = res.length ? res.map((e,i) => `<a href="#/e/${e.s}" data-i="${i}">${typeBadge(e.t)}<span>${esc(e.n)}</span><small>${esc(targetPhrase(e))}</small></a>`).join('') : '<div class="empty" style="padding:14px">No match. Try a country, city, region or company name.</div>';
     sg.hidden = false;
   });
@@ -567,11 +567,15 @@ function timelineSVG(e){
     ${y && hasAnyTarget(e) ? mk(y, (isNZ(e) ? 'Net zero ' : 'Target ') + y, y > NOW ? (y - NOW) + ' years away' : 'target year', '#3B7CC3', true) : ''}
   </svg>`;
 }
+const CITY_MIN = 500000;
 function peers(e){
   if (e.t === 'company') return {label: e.sec && e.sec !== 'NA' ? `${e.sec} companies` : 'all companies', xs: byType('company').filter(x => e.sec && e.sec !== 'NA' ? x.sec === e.sec : true)};
   if (e.t === 'country') return {label:`countries in ${e.g}`, xs: byType('country').filter(x => x.g === e.g)};
-  const same = byType(e.t).filter(x => x.c === e.c);
-  return same.length >= 5 ? {label:`${TYPE[e.t][1].toLowerCase()} in ${e.cn}`, xs: same} : {label:`${TYPE[e.t][1].toLowerCase()} in ${e.g}`, xs: byType(e.t).filter(x => x.g === e.g)};
+  // cities: the Tracker's coverage rule is 500,000+ people, so smaller cities never count as peers
+  const pool = e.t === 'city' ? byType('city').filter(x => x.pop >= CITY_MIN) : byType(e.t);
+  if (e.t === 'city' && !(e.pop >= CITY_MIN)) return {label:'', xs:[], small:true};
+  const same = pool.filter(x => x.c === e.c);
+  return same.length >= 5 ? {label:`${TYPE[e.t][1].toLowerCase()} in ${e.cn}`, xs: same} : {label:`${TYPE[e.t][1].toLowerCase()} in ${e.g}`, xs: pool.filter(x => x.g === e.g)};
 }
 function asks(e){
   const cs = checks(e), out = [], n = nm(e), gv = e.t !== 'company';
@@ -606,7 +610,7 @@ function briefing(e){
   if (isNZ(e)) b += ` Meets ${t.yes} of ${cs.length} Net Zero Tracker credibility checks${t.part ? `, partly meets ${t.part}` : ''}${t.unk ? `, ${t.unk} unclear` : ''}.`;
   const gaps = cs.filter(c => c.v === 'no').map(c => shortGap[c.id]);
   if (gaps.length && isNZ(e)) b += ` Gaps: ${gaps.join('; ')}.`;
-  b += ` For comparison, ${nz}% of ${pr.label} have a net zero target.`;
+  if (!pr.small) b += ` For comparison, ${nz}% of ${pr.label} have a net zero target.`;
   b += `\nSource: Net Zero Tracker, ${official(e)} (entry updated ${e.upd || 'n/a'}).`;
   return b;
 }
@@ -666,8 +670,9 @@ P.entity = (params, slug) => {
 
   <section class="tight band"><div class="wrap">
     <h2 class="h-brand" style="font-size:24px">How it compares</h2>
-    <p class="muted mt0">Compared with ${fmt(px.length)} ${esc(pr.label)}. Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
-    <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:110px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap">${me ? '✓ ' : '✗ '}${esc(e.n.length > 14 ? (e.t==='company'?'This company':'This entry') : e.n)}</td></tr>`; }).join('')}</table>
+    ${pr.small ? `<p class="muted mt0">${esc(e.n)} has about ${fmt(e.pop)} people. The Tracker's city coverage starts at 500,000, so there is no peer group for it. Choose a city to compare it with.</p>
+    <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <p class="muted mt0">Compared with ${fmt(px.length)} ${esc(pr.label)}. Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
+    <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:110px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap">${me ? '✓ ' : '✗ '}${esc(e.n.length > 14 ? (e.t==='company'?'This company':'This entry') : e.n)}</td></tr>`; }).join('')}</table>`}
   </div></section>
 
   <section class="tight"><div class="wrap grid2">
@@ -695,6 +700,7 @@ P.entity.after = (params, slug) => {
   $('#b-cmp').onclick = () => { let a = compareSet.get(); if (a.includes(e.s)) { location.hash = '#/compare'; return; } a = [...a, e.s].slice(-4); compareSet.set(a); $('#b-cmp').textContent = '✓ In comparison: view'; toast(`Added. ${a.length} in comparison.`); };
   $('#b-brief').onclick = $('#b-brief2').onclick = () => copy(briefing(e));
   $('#b-link').onclick = () => copy(location.href);
+  if ($('#s-peer')) wireSearch('s-peer', o => { if (o.s === e.s) return; compareSet.set([e.s, o.s]); location.hash = '#/compare'; }, x => x.t === 'city' && x.s !== slug);
 };
 
 /* ---------- COMPARE ---------- */
