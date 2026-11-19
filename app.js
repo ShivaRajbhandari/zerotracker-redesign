@@ -478,11 +478,11 @@ function renderList(){
   $('#ex-out').innerHTML = `<p class="muted" style="margin:0 0 8px">${fmt(xs.length)} ${TYPE[EX.type][1].toLowerCase()} match. ${EX.type==='company' ? 'Includes private companies, which the headline count leaves out.' : ''}</p>
   <div class="tablewrap"><table class="list"><thead><tr>${cols.map(([k,l]) => `<th data-k="${k}" scope="col" aria-sort="${EX.sort===k ? (EX.dir>0?'ascending':'descending') : 'none'}">${l}${ar(k)}</th>`).join('')}</tr></thead>
   <tbody>${rows.map(e => { const cs = checks(e), t = tally(cs), iy = iyear(e), hasI = e.it && e.it !== 'No target';
-    return `<tr class="rowlink" data-href="#/e/${e.s}"><td><a class="nm" href="#/e/${e.s}">${e.t==='country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</a></td><td>${esc(where(e))}</td><td>${esc(targetPhrase(e))}</td><td>${pill(e)}</td><td>${hasI ? esc((e.ip ? e.ip + '% cut' : 'Target') + (iy ? ' by ' + iy : '')) : '<span class="muted">None</span>'}</td>
+    return `<tr class="rowlink" data-href="#/e/${e.s}"><td><a class="nm" href="#/e/${e.s}">${e.t==='country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</a></td><td>${esc(where(e))}</td><td>${esc(targetPhrase(e))}</td><td>${pill(e)}</td><td class="ms" data-s="${e.s}"${hasI ? ' tabindex="0"' : ''}>${hasI ? esc((e.ip ? e.ip + '% cut' : 'Target') + (iy ? ' by ' + iy : '')) + ((e.im && e.im.length > 1) ? ` <span class="more">+more</span>` : '') : '<span class="muted">None</span>'}</td>
     <td class="chk" data-s="${e.s}"${isNZ(e) ? ' tabindex="0"' : ''}>${isNZ(e) ? `<span class="dots9">${cs.map(c => ICON[c.v]).join('')}</span><span class="score">${t.yes}/${cs.length}</span>` : '<span class="muted">n/a</span>'}</td>
     <td>${e.rev ? money(e.rev) : e.pop ? people(e.pop) : '<span class="muted">n/a</span>'}</td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>`}</tbody></table></div>
   <div class="pager"><span>Page ${EX.page + 1} of ${pages}</span><span class="flex"><span class="muted" style="font-size:13.5px">Checks key: ${ICON.yes} yes ${ICON.part} partly ${ICON.no} no ${ICON.unk} unknown</span><button class="btn btn-ghost btn-sm" id="pg-prev" ${EX.page?'':'disabled'}>← Previous</button><button class="btn btn-ghost btn-sm" id="pg-next" ${EX.page < pages-1 ? '' : 'disabled'}>Next →</button></span></div>`;
-  wireChecksTip($('#ex-out'));
+  wireChecksTip($('#ex-out')); wireMsTip($('#ex-out'));
   $$('#ex-out th').forEach(th => th.onclick = () => { const k = th.dataset.k; EX.dir = EX.sort === k ? -EX.dir : 1; EX.sort = k; renderList(); });
   $('#pg-prev').onclick = () => { EX.page--; renderList(); };
   $('#pg-next').onclick = () => { EX.page++; renderList(); };
@@ -490,6 +490,18 @@ function renderList(){
 function checksTipHtml(e){
   const cs = checks(e), t = tally(cs);
   return `<div class="tipchecks"><b>${esc(e.n)}: ${t.yes} of ${cs.length} credibility checks met</b>${cs.map(c => `<div class="tc">${ICON[c.v]}<span>${esc(c.q.replace(/\?$/, ''))}<em> · ${VLAB[c.v]}</em></span></div>`).join('')}<span class="k" style="font-size:12.5px">Click the row for the full profile</span></div>`;
+}
+function msTipHtml(e){
+  const iy = iyear(e), main = `${e.ip ? e.ip + '% cut' : (e.it || 'Target')}${iy ? ' by ' + iy : ''}${e.ib ? ' (vs ' + e.ib + ')' : ''}`;
+  const more = (e.im || []).map(l => `<div class="tc"><span class="dot"></span><span>${esc(l)}</span></div>`).join('');
+  return `<div class="tipchecks"><b>${esc(e.n)}: ${e.im && e.im.length > 1 ? 'milestones' : 'next milestone'}</b><div class="tc"><span class="dot hl"></span><span><strong>Headline: ${esc(main)}</strong>${iy && iy < NOW ? '<em> · year has passed</em>' : ''}</span></div>${more ? `<span class="k" style="margin:6px 0 2px">As written in the entry:</span>${more}` : ''}<span class="k" style="font-size:12.5px">Click the row for the full profile</span></div>`;
+}
+function wireMsTip(root){
+  $$('td.ms[tabindex]', root).forEach(td => { const e = BY[td.dataset.s];
+    td.addEventListener('mousemove', ev => showTip(msTipHtml(e), ev));
+    td.addEventListener('mouseleave', hideTip);
+    td.addEventListener('focus', () => { const r = td.getBoundingClientRect(); showTip(msTipHtml(e), {clientX:r.left, clientY:r.bottom}); });
+    td.addEventListener('blur', hideTip); });
 }
 function wireChecksTip(root){
   $$('td.chk', root).forEach(td => { const e = BY[td.dataset.s]; if (!isNZ(e)) return;

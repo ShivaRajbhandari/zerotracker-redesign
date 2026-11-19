@@ -471,3 +471,7 @@ td.chk{cursor:help}
 .partners .row a{display:block;line-height:0}
 .partners .row img{width:auto;max-width:240px;display:block}
 .partners .row a:hover img{opacity:.8}
+
+td.ms .more{display:inline-block;margin-left:4px;padding:0 6px;border-radius:9px;background:#efe8f5;color:var(--purple);font-size:11.5px;font-weight:600;white-space:nowrap}
+.tipchecks .dot{flex:none;width:7px;height:7px;margin:6px 5px 0 4px;border-radius:50%;background:#bdb5c6}
+.tipchecks .dot.hl{background:#c27a00}
