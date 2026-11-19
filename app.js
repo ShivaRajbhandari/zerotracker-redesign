@@ -809,30 +809,30 @@ const NZD = {
   net:['Net zero','Leftover emissions equal the carbon removed, so the net added to the atmosphere is zero.']
 };
 function netZeroDiagram(){
-  return `<div class="nzd" id="nzd"><svg viewBox="0 0 520 310" role="img" aria-label="Chart: emissions today, a deep cut, a small leftover, balanced by permanent removals to reach net zero" id="nzd-svg"></svg>
+  return `<div class="nzd" id="nzd"><svg viewBox="0 0 520 336" role="img" aria-label="Three steps shown as one bar: today’s emissions, a deep cut that leaves a small remainder, and permanent removal of that remainder to reach net zero" id="nzd-svg"></svg>
   <div class="nzd-cap" id="nzd-cap" aria-live="polite"></div>
   <label class="nzd-ctl" for="nzd-cut"><span>Try it: how much do emissions get cut?</span><input type="range" id="nzd-cut" min="40" max="98" value="90"><output id="nzd-out">90%</output></label></div>`;
 }
 function nzdDraw(cut, act){
-  const L = 100 - cut, k = 1.9, base = 250, top = base - 100 * k;
-  const bar = (key, x, y, h, col, val, lab, sub) => `<g class="nzp ${act && act !== key ? 'dim' : ''} ${act === key ? 'hot' : ''}" data-p="${key}" tabindex="0" role="button" aria-label="${esc(NZD[key][0])}">
-    <rect class="hit" x="${x - 12}" y="${top - 26}" width="94" height="${base - top + 70}" fill="transparent"/>
-    <rect class="b" x="${x}" y="${y}" width="70" height="${Math.max(h, 1.5)}" rx="4" fill="${col}"/>
-    <text x="${x + 35}" y="${y - 8}" text-anchor="middle" font-size="17" font-weight="800" fill="#271039">${val}</text>
-    <text x="${x + 35}" y="${base + 20}" text-anchor="middle" font-size="14" font-weight="700" fill="#271039">${lab}</text>
-    <text x="${x + 35}" y="${base + 37}" text-anchor="middle" font-size="12" fill="#5f5869">${sub}</text></g>`;
-  const ln = (x1, y) => `<line x1="${x1}" x2="${x1 + 60}" y1="${y}" y2="${y}" stroke="#bdb5c6" stroke-dasharray="3 3"/>`;
-  const x = [24, 128, 232, 336, 440];
-  $('#nzd-svg').innerHTML = `<line x1="10" x2="510" y1="${base}" y2="${base}" stroke="#d9d3df"/>
-    ${ln(x[0] + 70, top)}${ln(x[1] + 70, base - L * k)}${ln(x[2] + 70, base - L * k)}${ln(x[3] + 70, base)}
-    ${bar('today', x[0], top, 100 * k, '#A5865C', '100', 'Today', 'emissions')}
-    ${bar('cut', x[1], top, cut * k, '#E13B26', '−' + cut, 'Cut', 'reductions')}
-    ${bar('left', x[2], base - L * k, L * k, '#A5865C', L, 'Leftover', 'residual')}
-    ${bar('rem', x[3], base - L * k, L * k, '#5EA845', '−' + L, 'Removed', 'permanently')}
-    ${bar('net', x[4], base - 1.5, 1.5, '#3B7CC3', '0', 'Net zero', 'balanced')}
-    <circle cx="${x[4] + 35}" cy="${base - 14}" r="10" fill="none" stroke="#3B7CC3" stroke-width="2.5"/>`;
-  const ok = L <= 15;
-  const cap = act ? `<b>${esc(NZD[act][0])}.</b> ${esc(NZD[act][1])}` : (ok ? '<b>Cut deeply first, then remove only what is left.</b> Hover or tap any bar to see what it means.' : `<b class="bad">Too little cut.</b> With ${L}% left over, you would need to remove carbon equal to ${L}% of today’s emissions. Removal on that scale is not available with today’s technology, so targets like this tend to lean on offsets instead. <a href="#/learn/offsets">Why offsets can be greenwashing →</a>`);
+  const L = 100 - cut, X = 20, K = 4.8, ok = L <= 15, wL = Math.max(L * K, 3), wC = cut * K;
+  const G = (key, inner) => `<g class="nzp ${act && act !== key ? 'dim' : ''} ${act === key ? 'hot' : ''}" data-p="${key}" tabindex="0" role="button" aria-label="${esc(NZD[key][0])}">${inner}</g>`;
+  const head = (y, n, t) => `<circle cx="${X + 11}" cy="${y - 5}" r="11" fill="#271039"/><text x="${X + 11}" y="${y}" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">${n}</text><text x="${X + 30}" y="${y}" font-size="18" font-weight="800" fill="#271039">${t}</text>`;
+  const note = (y, t) => `<text x="${X}" y="${y}" font-size="14.5" fill="#5f5869">${t}</text>`;
+  const y1 = 42, y2 = 148, y3 = 254, h = 40;
+  $('#nzd-svg').innerHTML = `
+    ${head(26, 1, 'Today')}
+    ${G('today', `<rect x="${X}" y="${y1}" width="480" height="${h}" rx="5" fill="#A5865C"/><text x="${X + 12}" y="${y1 + 26}" font-size="17" font-weight="700" fill="#fff">100 units of emissions</text>`)}
+    ${note(y1 + h + 22, 'All the emissions released each year.')}
+    ${head(132, 2, 'Cut deeply first')}
+    ${G('left', `<rect x="${X}" y="${y2}" width="${wL}" height="${h}" rx="4" fill="#A5865C"/>${wL > 34 ? `<text x="${X + wL / 2}" y="${y2 + 26}" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">${L}</text>` : ''}`)}
+    ${G('cut', `<rect x="${X + wL}" y="${y2}" width="${wC}" height="${h}" rx="4" fill="#fbe3df" stroke="#E13B26" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${X + wL + wC / 2}" y="${y2 + 26}" text-anchor="middle" font-size="17" font-weight="800" fill="#c8331f">${cut}% cut</text>`)}
+    ${note(y2 + h + 22, `Clean energy and new processes shrink it. ${L} left.`)}
+    ${head(238, 3, 'Remove only what is left')}
+    <rect x="${X + wL}" y="${y3}" width="${wC}" height="${h}" rx="4" fill="none" stroke="#d9d3df" stroke-dasharray="3 4"/>
+    ${G('rem', `<rect x="${X}" y="${y3}" width="${wL}" height="${h}" rx="4" fill="${ok ? '#5EA845' : '#E13B26'}"/>${wL > 34 ? `<text x="${X + wL / 2}" y="${y3 + 26}" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">−${L}</text>` : ''}`)}
+    ${G('net', `<rect x="${ok ? 400 : 380}" y="${y3}" width="${ok ? 100 : 120}" height="${h}" rx="20" fill="${ok ? '#3B7CC3' : '#fff'}" stroke="${ok ? 'none' : '#E13B26'}" stroke-width="2"/><text x="${ok ? 450 : 440}" y="${y3 + 26}" text-anchor="middle" font-size="16" font-weight="800" fill="${ok ? '#fff' : '#c8331f'}">${ok ? '= net zero' : 'not net zero'}</text>`)}
+    ${note(y3 + h + 22, ok ? `Removal balances the ${L} left. Net emissions: 0.` : `Removing ${L} is beyond what is possible today.`)}`;
+  const cap = act ? `<b>${esc(NZD[act][0])}.</b> ${esc(NZD[act][1])}` : (ok ? '<b>Cut deeply first, then remove only what is left.</b> Hover or tap any part of the picture to see what it means.' : `<b class="bad">Too little cut.</b> With ${L}% left over, you would need to remove carbon equal to ${L}% of today’s emissions. Removal on that scale is not available with today’s technology, so targets like this tend to lean on offsets instead. <a href="#/learn/offsets">Why offsets can be greenwashing →</a>`);
   $('#nzd-cap').innerHTML = cap; $('#nzd-cap').classList.toggle('warn', !ok && !act);
 }
 function nzdWire(){
