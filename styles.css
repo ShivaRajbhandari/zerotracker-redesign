@@ -548,3 +548,5 @@ ul.flags.plain li{margin-bottom:10px}
 .nzd-ctl span{grid-column:1/-1;font-weight:600}
 .nzd-ctl input{width:100%;accent-color:var(--red)}
 .nzd-ctl output{font-weight:800;color:var(--purple);min-width:3ch;text-align:right}
+
+.nzd-cap a{white-space:nowrap;font-weight:600}

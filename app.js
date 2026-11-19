@@ -766,11 +766,35 @@ P.learn = (params, sub) => `
       <div class="card" style="border-top:5px solid var(--red)"><h3>See who says what</h3><p>Every criterion, every initiative, with quoted explanations and source pages.</p><a class="btn btn-purple btn-sm" href="#/goodnet">Open the full comparison →</a></div>
     </div>
   </div></section>
+  <section id="offsets"><div class="wrap">
+    <div class="center"><h2 class="h-brand">Offsets, removals and greenwashing</h2><p class="lede">Three different things often get blurred together. Telling them apart is the quickest way to spot a weak target.</p></div>
+    <div class="grid3 mt2">
+      <div class="card" style="border-top:5px solid var(--red)"><h3>Cuts</h3><p>Actually emitting less: efficiency, clean power, changed processes. This is the main job, and it is what “deep cuts first” means.</p></div>
+      <div class="card" style="border-top:5px solid var(--green)"><h3>Removals</h3><p>Taking carbon out of the air and storing it, in forests and soils or with engineered methods. Needed only for the small leftover that cannot be cut.</p></div>
+      <div class="card" style="border-top:5px solid var(--brown)"><h3>Offsets (credits)</h3><p>Paying someone else to cut or absorb emissions, then counting it against your own. Credits can fund cuts or removals, but they are a bookkeeping claim, not a cut at the source.</p></div>
+    </div>
+    <div class="grid2 mt2" style="align-items:start">
+      <div class="card"><h3>Why offsets can be greenwashing</h3><ul class="flags plain">
+        <li><b>Overstated benefit.</b> Many credits count emissions that would not have happened anyway, or measure against a baseline that flatters the project.</li>
+        <li><b>Not permanent.</b> Carbon stored in trees can be released by fire, disease or logging. Emitting today and “absorbing” later is not an equal trade.</li>
+        <li><b>Double counting.</b> The same reduction can be claimed by the seller, the buyer and a national government.</li>
+        <li><b>A way to avoid cutting.</b> If offsets replace cuts, emissions keep rising while the headline says “neutral”.</li>
+        <li><b>Vague labels.</b> “Carbon neutral” often means offsets for everything, not a plan to reach net zero.</li></ul></div>
+      <div class="card"><h3>Why removals cannot carry the load today</h3>
+        <p>Human activity emits about 40 billion tonnes of CO₂ a year from fossil fuels and industry. Engineered carbon removal today is a tiny fraction of one percent of that, and it is costly and energy hungry to scale. Forests help but can be undone, and the land they need is limited.</p>
+        <p>So removals are credible for a small, well-explained leftover, not as a way to keep emitting at today’s level.</p></div>
+    </div>
+    <div class="grid2 mt2" style="align-items:start">
+      <div class="card"><h3>What the experts say</h3><p>The UN Secretary-General’s High-Level Expert Group on net zero (2022) said credits should not be used in place of an organisation cutting its own emissions, and that any use should be disclosed openly. The Tracker records whether each target plans to use offsets and whether it sets quality conditions.</p><a href="https://www.un.org/en/climatechange/high-level-expert-group" target="_blank" rel="noopener">Read the expert group’s recommendations ↗</a></div>
+      <div class="card"><h3>What the data shows</h3>${(() => { const co = D.filter(e => e.t === 'company'), y = co.filter(e => e.off === 'Yes').length, n = co.filter(e => e.off === 'No').length, u = co.filter(e => e.off === 'Not Specified').length; return `<p>Of ${fmt(co.length)} companies in the dataset, <b>${fmt(y)}</b> say they plan to use offsets, <b>${fmt(n)}</b> say they will not, and <b>${fmt(u)}</b> do not say. Among those that answer, <b>${pct(y, y + n)}%</b> plan to use them.</p><a class="btn btn-purple btn-sm" href="#/explore?type=company">Explore companies</a>`; })()}</div>
+    </div>
+    <div class="note mt2"><b>Questions to ask any target.</b> How much of it depends on offsets? Are the credits independently verified and permanent? Are cuts and removals reported separately? Does it say when its leftover emissions will be removed, and how?</div>
+  </div></section>
   <section class="band"><div class="wrap">
     <h2 class="h-brand">Glossary</h2><p class="lede mt0">Every technical term on this site, in one line, plus why it matters.</p>
     <div class="gloss mt2">${GLOSS.map(([t,d,w]) => `<details><summary>${t}</summary><p class="plain">${d}</p><p>${w}</p></details>`).join('')}</div>
   </div></section>`;
-P.learn.after = (params, sub) => { nzdWire(); if (sub === 'method') setTimeout(() => $('#method')?.scrollIntoView(), 30); };
+P.learn.after = (params, sub) => { nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
   today:['Today’s emissions','Everything released into the air now. Shown as 100 units so the other bars read as percentages.'],
   cut:['Cut emissions first','Real reductions: using less energy, switching to clean power, changing industrial processes. Net zero standards ask for roughly 90% or more.'],
@@ -802,7 +826,7 @@ function nzdDraw(cut, act){
     ${bar('net', x[4], base - 1.5, 1.5, '#3B7CC3', '0', 'Net zero', 'balanced')}
     <circle cx="${x[4] + 35}" cy="${base - 14}" r="10" fill="none" stroke="#3B7CC3" stroke-width="2.5"/>`;
   const ok = L <= 15;
-  const cap = act ? `<b>${esc(NZD[act][0])}.</b> ${esc(NZD[act][1])}` : (ok ? '<b>Cut deeply first, then remove only what is left.</b> Hover or tap any bar to see what it means.' : `<b class="bad">Too little cut.</b> With ${L}% left over, the removals needed are as big as ${L}% of today’s emissions. That is what an offset-heavy target looks like, and it is not net zero.`);
+  const cap = act ? `<b>${esc(NZD[act][0])}.</b> ${esc(NZD[act][1])}` : (ok ? '<b>Cut deeply first, then remove only what is left.</b> Hover or tap any bar to see what it means.' : `<b class="bad">Too little cut.</b> With ${L}% left over, you would need to remove carbon equal to ${L}% of today’s emissions. Removal on that scale is not available with today’s technology, so targets like this tend to lean on offsets instead. <a href="#/learn/offsets">Why offsets can be greenwashing →</a>`);
   $('#nzd-cap').innerHTML = cap; $('#nzd-cap').classList.toggle('warn', !ok && !act);
 }
 function nzdWire(){
