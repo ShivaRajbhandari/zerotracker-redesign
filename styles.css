@@ -442,3 +442,32 @@ table.gmx{min-width:1160px}
 /* give the wide comparison table room on large screens */
 @media (min-width:1280px){#gn-full .wrap{max-width:1300px}}
 .gmwrap{scrollbar-width:thin}
+
+/* ===== round 3 ===== */
+/* country outlines stay visible even when the Countries layer is switched off */
+.mapbox path.base{fill:#f3f2f5;stroke:#b9b4c2;stroke-width:.6;vector-effect:non-scaling-stroke;pointer-events:none}
+/* whole table row is a link */
+tr.rowlink{cursor:pointer}
+tr.rowlink:hover td{background:#f1ecf7!important}
+tr.rowlink:focus-within td{background:#f1ecf7}
+td.chk{cursor:help}
+.tip:has(.tipchecks){max-width:380px}
+.tipchecks b{display:block;margin-bottom:6px;color:var(--purple)}
+.tipchecks .tc{display:flex;gap:7px;align-items:flex-start;padding:2px 0;font-size:13.5px;line-height:1.3}
+.tipchecks .tc .ck{width:16px;height:16px;margin-top:1px}
+.tipchecks .tc em{font-style:normal;color:var(--muted)}
+.tipchecks .k{display:block;margin-top:6px}
+/* Good net zero: explanation cards sit under their own cell and slide as more are opened */
+.gdetail{position:relative}
+.gdefslot:empty{display:none}
+.gdefslot .gdef{max-width:760px;margin-bottom:12px}
+.gstrip{position:relative;transition:height .25s ease}
+.gstrip .gcard{position:absolute;top:10px;margin:0;transition:left .3s ease,width .3s ease;box-shadow:var(--shadow)}
+.gstrip .gcard.fresh{transition:none}
+.gstrip .gcard:before{content:"";position:absolute;top:-8px;left:var(--ax,50%);width:14px;height:14px;background:#fff;border-left:1px solid var(--line);border-top:1px solid var(--line);transform:translateX(-50%) rotate(45deg);transition:left .3s ease}
+
+/* partners strip */
+.partners .row{gap:26px 56px}
+.partners .row a{display:block;line-height:0}
+.partners .row img{width:auto;max-width:240px;display:block}
+.partners .row a:hover img{opacity:.8}

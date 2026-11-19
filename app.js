@@ -372,13 +372,14 @@ async function drawMap(id){
   const rf = topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && f.geometry).map(fixWinding);
   const proj = d3.geoNaturalEarth1().fitExtent([[4,4],[W-4,H-4]], {type:'FeatureCollection', features:cf}), path = d3.geoPath(proj);
   const byIso = {}; D.forEach(e => { if (e.t === 'country' && e.iso) byIso[e.iso] = e; });
+  const cp = cf.map(f => path(f));
   const pins = D.filter(e => e.t === 'city' && e.ll).map(e => { const p = proj([e.ll[1], e.ll[0]]); return p ? {e, x:p[0], y:p[1]} : null; }).filter(Boolean);
   st.ents = {country:Object.values(byIso), region:rf.map(f => BY[f.properties.s]), city:pins.map(p => p.e)};
   st.n = {country:st.ents.country.length, region:st.ents.region.length, city:st.ents.city.length};
   box.innerHTML = `<aside class="vpanel"></aside><div class="vmain">
     <div class="mapbox"><div class="zoomctl"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset" aria-label="Reset zoom" style="font-size:13px">⟲</button></div>
     <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="World map of net zero targets for countries, regions and cities. The same information is in the tables below.">
-      <g class="zoomer"><g class="L-country">${cf.map(f => { const e = byIso[f.id]; return `<path class="land c" d="${path(f)}"${e ? ` data-s="${e.s}"` : ' fill="#ececec"'}></path>`; }).join('')}</g>
+      <g class="zoomer"><g class="L-base">${cp.map(d => `<path class="base" d="${d}"></path>`).join('')}</g><g class="L-country">${cf.map((f, i) => { const e = byIso[f.id]; return `<path class="land c" d="${cp[i]}"${e ? ` data-s="${e.s}"` : ' fill="#ececec"'}></path>`; }).join('')}</g>
       <g class="L-region">${rf.map(f => `<path class="land r" d="${path(f)}" data-s="${f.properties.s}"></path>`).join('')}</g>
       <g class="L-city">${pins.map(p => `<circle class="pin" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.4" data-s="${p.e.s}"></circle>`).join('')}</g></g>
     </svg></div>
@@ -477,14 +478,27 @@ function renderList(){
   $('#ex-out').innerHTML = `<p class="muted" style="margin:0 0 8px">${fmt(xs.length)} ${TYPE[EX.type][1].toLowerCase()} match. ${EX.type==='company' ? 'Includes private companies, which the headline count leaves out.' : ''}</p>
   <div class="tablewrap"><table class="list"><thead><tr>${cols.map(([k,l]) => `<th data-k="${k}" scope="col" aria-sort="${EX.sort===k ? (EX.dir>0?'ascending':'descending') : 'none'}">${l}${ar(k)}</th>`).join('')}</tr></thead>
   <tbody>${rows.map(e => { const cs = checks(e), t = tally(cs), iy = iyear(e), hasI = e.it && e.it !== 'No target';
-    return `<tr><td><a class="nm" href="#/e/${e.s}">${e.t==='country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</a></td><td>${esc(where(e))}</td><td>${esc(targetPhrase(e))}</td><td>${pill(e)}</td><td>${hasI ? esc((e.ip ? e.ip + '% cut' : 'Target') + (iy ? ' by ' + iy : '')) : '<span class="muted">None</span>'}</td>
-    <td>${isNZ(e) ? `<span class="dots9" title="${t.yes} yes · ${t.part} partly · ${t.no} no · ${t.unk} unknown">${cs.map(c => ICON[c.v]).join('')}</span><span class="score">${t.yes}/${cs.length}</span>` : '<span class="muted">n/a</span>'}</td>
+    return `<tr class="rowlink" data-href="#/e/${e.s}"><td><a class="nm" href="#/e/${e.s}">${e.t==='country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</a></td><td>${esc(where(e))}</td><td>${esc(targetPhrase(e))}</td><td>${pill(e)}</td><td>${hasI ? esc((e.ip ? e.ip + '% cut' : 'Target') + (iy ? ' by ' + iy : '')) : '<span class="muted">None</span>'}</td>
+    <td class="chk" data-s="${e.s}"${isNZ(e) ? ' tabindex="0"' : ''}>${isNZ(e) ? `<span class="dots9">${cs.map(c => ICON[c.v]).join('')}</span><span class="score">${t.yes}/${cs.length}</span>` : '<span class="muted">n/a</span>'}</td>
     <td>${e.rev ? money(e.rev) : e.pop ? people(e.pop) : '<span class="muted">n/a</span>'}</td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>`}</tbody></table></div>
   <div class="pager"><span>Page ${EX.page + 1} of ${pages}</span><span class="flex"><span class="muted" style="font-size:13.5px">Checks key: ${ICON.yes} yes ${ICON.part} partly ${ICON.no} no ${ICON.unk} unknown</span><button class="btn btn-ghost btn-sm" id="pg-prev" ${EX.page?'':'disabled'}>← Previous</button><button class="btn btn-ghost btn-sm" id="pg-next" ${EX.page < pages-1 ? '' : 'disabled'}>Next →</button></span></div>`;
+  wireChecksTip($('#ex-out'));
   $$('#ex-out th').forEach(th => th.onclick = () => { const k = th.dataset.k; EX.dir = EX.sort === k ? -EX.dir : 1; EX.sort = k; renderList(); });
   $('#pg-prev').onclick = () => { EX.page--; renderList(); };
   $('#pg-next').onclick = () => { EX.page++; renderList(); };
 }
+function checksTipHtml(e){
+  const cs = checks(e), t = tally(cs);
+  return `<div class="tipchecks"><b>${esc(e.n)}: ${t.yes} of ${cs.length} credibility checks met</b>${cs.map(c => `<div class="tc">${ICON[c.v]}<span>${esc(c.q.replace(/\?$/, ''))}<em> · ${VLAB[c.v]}</em></span></div>`).join('')}<span class="k" style="font-size:12.5px">Click the row for the full profile</span></div>`;
+}
+function wireChecksTip(root){
+  $$('td.chk', root).forEach(td => { const e = BY[td.dataset.s]; if (!isNZ(e)) return;
+    td.addEventListener('mousemove', ev => showTip(checksTipHtml(e), ev));
+    td.addEventListener('mouseleave', hideTip);
+    td.addEventListener('focus', () => { const r = td.getBoundingClientRect(); showTip(checksTipHtml(e), {clientX:r.left, clientY:r.bottom}); });
+    td.addEventListener('blur', hideTip); });
+}
+document.addEventListener('click', ev => { const tr = ev.target.closest('tr[data-href]'); if (tr && !ev.target.closest('a,button')) { hideTip(); location.hash = tr.dataset.href; } });
 function exportCSV(){
   const xs = filtered(), q = s => `"${String(s ?? '').replace(/"/g,'""')}"`;
   const head = ['Name','Type','Country','Region','Target','Target year','Commitment','Raw status','Interim target','Interim year','Interim % cut','Checks met','Checks partly','Checks unknown','Profile URL'];
@@ -774,7 +788,7 @@ P.policymakers = () => {
     <h2 class="h-brand">Learn from the strongest national targets</h2>
     <p class="lede mt0">Countries meeting the most credibility checks. Open a profile to see the law, the milestone and the source documents.</p>
     <div class="tablewrap mt2"><table class="list" style="min-width:600px"><thead><tr><th>Country</th><th>Target</th><th>How firm?</th><th>Next milestone</th><th>Checks met</th></tr></thead><tbody>
-      ${top.map(([e,s]) => `<tr><td><a class="nm" href="#/e/${e.s}">${flag(e.a2)} ${esc(e.n)}</a></td><td>${esc(targetPhrase(e))}</td><td>${pill(e)}</td><td>${e.it && e.it!=='No target' ? esc((e.ip?e.ip+'% cut':'Target') + (iyear(e)?' by '+iyear(e):'')) : '—'}</td><td><b>${s}</b> of ${checks(e).length}</td></tr>`).join('')}
+      ${top.map(([e,s]) => `<tr class="rowlink" data-href="#/e/${e.s}"><td><a class="nm" href="#/e/${e.s}">${flag(e.a2)} ${esc(e.n)}</a></td><td>${esc(targetPhrase(e))}</td><td>${pill(e)}</td><td>${e.it && e.it!=='No target' ? esc((e.ip?e.ip+'% cut':'Target') + (iyear(e)?' by '+iyear(e):'')) : '—'}</td><td><b>${s}</b> of ${checks(e).length}</td></tr>`).join('')}
     </tbody></table></div>
   </div></section>
   <section><div class="wrap">
@@ -871,7 +885,7 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <ul class="flags">
         <li>Is the "X of Y checks met" summary acceptable, or should profiles show checks without a total?</li>
         <li>The brand font (franzSans) is licensed, so this prototype uses Outfit. The production site would use the real font.</li>
-        <li>Partner logos and the newsletter form are placeholders here.</li>
+        <li>The newsletter sign-up is a placeholder here.</li>
         <li>The map uses the live site's own boundary and city-location files. 16 regions and 1 city have no location in them yet, so they appear in the tables but not on the map.</li>
       </ul>
       <div class="note mt2">Prototype by Shiva Rajbhandari, ${META.generated || ''}. Data: Net Zero Tracker public dataset (entries updated to ${esc((META.source||'').split('to ').pop())}). Not indexed by search engines.</div>
@@ -939,19 +953,54 @@ function gnCoverageChart(){
       <i class="pos" style="width:${c.pos / n * 100}%">${c.pos || ''}</i><i class="soft" style="width:${c.soft / n * 100}%">${c.soft || ''}</i><i class="none" style="width:${c.none / n * 100}%">${c.none || ''}</i></div></div>`).join('')}
     <div class="cvkey"><span><i class="pos"></i>Clear requirement or position</span><span><i class="soft"></i>Recommended or partial</span><span><i class="none"></i>Not addressed</span></div></div>`;
 }
-function gnDetail(row, js){
-  const cards = js.map(j => { const c = row.cells[j], it = GN.inst[j];
-    return `<div class="gcard"><div class="gch">${gnLogo(it, 22)}<b>${esc(it.org)}</b>${gnVal(row, c)}</div><p>${esc(c.x || 'No explanation recorded for this entry.')}</p>${c.r ? `<p class="gref">Source: ${esc(c.r)}</p>` : ''}</div>`; }).join('');
-  return `<div class="gdet">${GNS.def.has(row.id) && row.tip ? `<div class="gdef"><b>What this means.</b> ${esc(PLAIN[row.short] || '')}<br><span class="muted">${esc(row.tip)}</span></div>` : ''}<div class="gcards">${cards}</div></div>`;
-}
+const gnOpenCols = id => [0,1,2,3,4,5].filter(j => GNS.open.has(id + ':' + j));
+const gnCard = (row, j) => { const c = row.cells[j], it = GN.inst[j];
+  return `<div class="gcard" data-col="${j}"><div class="gch">${gnLogo(it, 22)}<b>${esc(it.org)}</b>${gnVal(row, c)}</div><p>${esc(c.x || 'No explanation recorded for this entry.')}</p>${c.r ? `<p class="gref">Source: ${esc(c.r)}</p>` : ''}</div>`; };
+const gnDef = row => `<div class="gdef"><b>What this means.</b> ${esc(PLAIN[row.short] || '')}<br><span class="muted">${esc(row.tip || '')}</span></div>`;
+const gnDetailRow = (row, open) => `<tr class="gdrow"><td colspan="${3 + GN.inst.length}"><div class="gdetail"><div class="gdefslot">${GNS.def.has(row.id) && row.tip ? gnDef(row) : ''}</div><div class="gstrip" data-row="${row.id}">${open.map(j => gnCard(row, j)).join('')}</div></div></td></tr>`;
 function gnMatrix(){
   const head = `<thead><tr><th class="c1">Criterion</th><th class="cc"><span>Agree on the “what”</span></th><th class="cc"><span>Agree on the “how”</span></th>${GN.inst.map(it => `<th class="ci">${gnLogo(it, 38)}<b>${esc(it.org)}</b><small>${esc(it.doc)} (${it.yr})</small>${it.summary ? '<em>Summary of 37 guidelines</em>' : ''}</th>`).join('')}</tr></thead>`;
   const body = GN.sections.map((s, si) => `<tr class="gsec"><td class="c1"><b>${esc(s.name)}</b></td><td class="cc">${convChip(s.p)}</td><td class="cc">${convChip(s.s)}</td>${INST_ABBR.map(a => `<td class="ab">${a}</td>`).join('')}</tr>` +
-    s.rows.map((r0, ri) => { const row = {...r0, si, ri, id:`gn-r${si}-${ri}`}; const open = [0,1,2,3,4,5].filter(j => GNS.open.has(row.id + ':' + j));
+    s.rows.map((r0, ri) => { const row = {...r0, si, ri, id:`gn-r${si}-${ri}`}; const open = gnOpenCols(row.id);
       return `<tr class="gcrit" id="${row.id}"><td class="c1"><button class="gname" data-def="${row.id}" aria-expanded="${GNS.def.has(row.id)}" title="What does this mean?"><span class="gi">i</span><span>${esc(row.name)}</span></button><small>${esc(PLAIN[row.short] || '')}</small></td><td class="cc">${convChip(row.p)}</td><td class="cc">${convChip(row.s)}</td>` +
         row.cells.map((c, j) => { const ex = !!c.x, on = GNS.open.has(row.id + ':' + j); return `<td class="gc"><button class="gcell ${gnCat(row, c)} ${on ? 'on' : ''}" data-cell="${row.id}:${j}" ${ex ? `aria-expanded="${on}"` : 'disabled'} title="${ex ? 'Show the explanation' : 'No explanation recorded'}">${esc(c.v)}${c.star ? '<sup>*</sup>' : ''}${ex ? '<svg viewBox="0 0 10 6" width="9" height="6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>' : ''}</button></td>`; }).join('') + '</tr>' +
-        (open.length || GNS.def.has(row.id) ? `<tr class="gdrow"><td colspan="${3 + GN.inst.length}">${gnDetail(row, open)}</td></tr>` : ''); }).join('')).join('');
+        (open.length || (GNS.def.has(row.id) && row.tip) ? gnDetailRow(row, open) : ''); }).join('')).join('');
   return `<div class="tablewrap gmwrap"><table class="gmx">${head}<tbody>${body}</tbody></table></div>`;
+}
+/* Each explanation card is centred under the cell it belongs to. When several are open in one row they
+   keep their column order and slide sideways just enough to avoid overlapping. */
+function gnLayout(){
+  $$('.gstrip').forEach(strip => {
+    const tr = document.getElementById(strip.dataset.row), cards = $$('.gcard', strip).sort((a, b) => a.dataset.col - b.dataset.col);
+    if (!tr || !cards.length) { strip.style.height = '0'; return; }
+    const sr = strip.getBoundingClientRect(), gap = 10, n = cards.length;
+    const W = Math.max(190, Math.min(290, (sr.width - gap * (n - 1)) / n));
+    const pos = cards.map(c => { const br = tr.querySelector(`[data-cell="${strip.dataset.row}:${c.dataset.col}"]`).getBoundingClientRect(); const cx = br.left + br.width / 2 - sr.left; return {c, cx, left:Math.max(0, Math.min(cx - W / 2, sr.width - W))}; });
+    for (let i = 1; i < n; i++) pos[i].left = Math.max(pos[i].left, pos[i - 1].left + W + gap);
+    for (let i = n - 1; i >= 0; i--) { const max = sr.width - W - (n - 1 - i) * (W + gap); if (pos[i].left > max) pos[i].left = Math.max(0, max); }
+    let h = 0;
+    pos.forEach(p => { p.c.style.width = W + 'px'; p.c.style.left = p.left + 'px'; p.c.style.setProperty('--ax', Math.max(16, Math.min(W - 16, p.cx - p.left)) + 'px'); });
+    pos.forEach(p => { h = Math.max(h, p.c.offsetHeight); });
+    strip.style.height = (h + 12) + 'px';
+    requestAnimationFrame(() => pos.forEach(p => p.c.classList.remove('fresh')));
+  });
+}
+/* update one row's explanations in place, so cards can animate instead of being rebuilt */
+function gnSyncRow(id){
+  const tr = document.getElementById(id), row = gnRows().find(r => r.id === id); if (!tr || !row) return;
+  const open = gnOpenCols(id), hasDef = GNS.def.has(id) && row.tip;
+  let dr = tr.nextElementSibling; if (dr && !dr.classList.contains('gdrow')) dr = null;
+  if (!open.length && !hasDef) { if (dr) dr.remove(); }
+  else {
+    if (!dr) { tr.insertAdjacentHTML('afterend', gnDetailRow(row, [])); dr = tr.nextElementSibling; }
+    $('.gdefslot', dr).innerHTML = hasDef ? gnDef(row) : '';
+    const strip = $('.gstrip', dr);
+    $$('.gcard', strip).forEach(c => { if (!open.includes(+c.dataset.col)) c.remove(); });
+    open.forEach(j => { if (!strip.querySelector(`[data-col="${j}"]`)) { strip.insertAdjacentHTML('beforeend', gnCard(row, j)); strip.lastElementChild.classList.add('fresh'); } });
+  }
+  $$(`[data-cell^="${id}:"]`, tr).forEach(b => { const on = GNS.open.has(b.dataset.cell); b.classList.toggle('on', on); b.setAttribute('aria-expanded', on); });
+  $('.gname', tr).setAttribute('aria-expanded', GNS.def.has(id));
+  gnLayout();
 }
 function gnByInitiative(){
   const j = GNS.inst, it = GN.inst[j];
@@ -964,10 +1013,12 @@ function gnRender(){
   box.innerHTML = GNS.view === 'matrix' ? gnMatrix() : gnByInitiative();
   $$('#gn-view button').forEach(b => b.classList.toggle('on', b.dataset.v === GNS.view));
   $('#gn-bulk').hidden = GNS.view !== 'matrix';
-  $$('[data-def]', box).forEach(b => b.onclick = () => { const id = b.dataset.def; GNS.def.has(id) ? GNS.def.delete(id) : GNS.def.add(id); gnRender(); });
-  $$('[data-cell]', box).forEach(b => b.onclick = () => { const id = b.dataset.cell; GNS.open.has(id) ? GNS.open.delete(id) : GNS.open.add(id); gnRender(); });
+  $$('[data-def]', box).forEach(b => b.onclick = () => { const id = b.dataset.def; GNS.def.has(id) ? GNS.def.delete(id) : GNS.def.add(id); gnSyncRow(id); });
+  $$('[data-cell]', box).forEach(b => b.onclick = () => { const key = b.dataset.cell, id = key.split(':')[0]; GNS.open.has(key) ? GNS.open.delete(key) : GNS.open.add(key); gnSyncRow(id); });
   $$('[data-inst]', box).forEach(b => b.onclick = () => { GNS.inst = +b.dataset.inst; gnRender(); });
+  gnLayout();
 }
+if (!window.__gnResize) { window.__gnResize = 1; let t; addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => { if ($('.gstrip')) gnLayout(); }, 120); }); }
 P.goodnet = () => {
   if (!GNS.view) GNS.view = innerWidth >= 900 ? 'matrix' : 'inst';
   const n = gnRows().length;
@@ -997,6 +1048,7 @@ P.goodnet = () => {
 };
 P.goodnet.after = () => {
   gnRender();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if ($('.gstrip')) gnLayout(); });
   $$('#gn-view button').forEach(b => b.onclick = () => { GNS.view = b.dataset.v; gnRender(); });
   $('#gn-bulk').onclick = () => { const all = gnRows(); const anyClosed = all.some(r => r.cells.some((c, j) => c.x && !GNS.open.has(r.id + ':' + j))); all.forEach(r => r.cells.forEach((c, j) => { if (c.x) anyClosed ? GNS.open.add(r.id + ':' + j) : GNS.open.delete(r.id + ':' + j); })); $('#gn-bulk').textContent = anyClosed ? 'Collapse all explanations' : 'Expand all explanations'; gnRender(); };
   $$('[data-goto]').forEach(b => b.onclick = () => { GNS.view = 'matrix'; gnRender(); const el = document.getElementById(b.dataset.goto); if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1800); } });
