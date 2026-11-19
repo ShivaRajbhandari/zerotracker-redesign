@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow,noarchive">
+<title>Net Zero Tracker — Redesign Prototype</title>
+<meta name="description" content="Design prototype for zerotracker.net: plain-language net zero profiles, credibility checklists, comparison and guides for policymakers and activists.">
+<link rel="icon" href="favicon.ico">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="sr" href="#main">Skip to main content</a>
+<div class="proto"><b>Design prototype</b> for the Net Zero Tracker team. Not the official site. Data copied from <a href="https://zerotracker.net/" target="_blank" rel="noopener">zerotracker.net</a> (entries updated to <span id="asof">Aug 2026</span>). <a href="#/notes">What changed and why →</a></div>
+<header class="site">
+  <div class="wrap hdr">
+    <a class="logo" href="#/" aria-label="Net Zero Tracker home"><img src="logo.svg" alt="Net Zero Tracker"></a>
+    <button class="menu-toggle" aria-label="Open menu" aria-expanded="false" onclick="toggleMenu(this)"><span></span><span></span><span></span></button>
+    <nav class="main" id="nav">
+      <a href="#/explore" data-r="explore">Explore</a>
+      <a href="#/compare" data-r="compare">Compare</a>
+      <a href="#/learn" data-r="learn">Net zero explained</a>
+      <a href="#/policymakers" data-r="policymakers">For policymakers</a>
+      <a href="#/activists" data-r="activists">For advocates</a>
+      <a class="btn btn-red btn-sm" href="https://zerotracker.net/" target="_blank" rel="noopener" style="margin-left:6px">Download data</a>
+    </nav>
+  </div>
+  <div class="strip"><div class="wrap"><span><em>Intent to integrity:</em> we track who has promised net zero and whether the promise holds up.</span><span class="nl">Quarterly newsletter · <a href="https://chatnetzero.ai/" target="_blank" rel="noopener">ChatNetZero.ai</a></span></div></div>
+</header>
+<main id="main" tabindex="-1"></main>
+<div class="partners"><div class="wrap center">
+  <h2 class="h-brand" style="font-size:22px">Net Zero Tracker partners</h2>
+  <div class="row"><span>Energy &amp; Climate Intelligence Unit</span><span>Data-Driven EnviroLab</span><span>NewClimate Institute</span><span>Net Zero Climate · University of Oxford</span></div>
+  <p class="muted" style="font-size:13.5px;margin-top:14px">Partner logos are left out of this prototype; the live site's logo row would sit here.</p>
+</div></div>
+<footer class="site"><div class="wrap cols">
+  <ul><li><a href="#/learn">Net zero explained &amp; glossary</a></li><li><a href="#/learn/method">How we assess targets</a></li><li><a href="https://zerotracker.net/frequently-asked-questions" target="_blank" rel="noopener">FAQs</a></li><li><a href="https://zerotracker.net/about" target="_blank" rel="noopener">About &amp; contact</a></li><li><a href="#/notes">About this prototype</a></li></ul>
+  <div><img src="logo-white.svg" alt="Net Zero Tracker"><p style="max-width:340px">Redesign prototype built from the Net Zero Tracker's public data. For current official figures, use zerotracker.net.</p></div>
+</div></footer>
+<div class="tip" id="tip"></div>
+<div class="toast" id="toast"></div>
+<script src="data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/topojson-client@3.1.0/dist/topojson-client.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
