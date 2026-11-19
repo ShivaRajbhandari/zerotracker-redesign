@@ -662,7 +662,7 @@ P.entity = (params, slug) => {
       ${e.cat ? `<div class="card"><h4>Climate Action Tracker</h4><p>Independent rating of this net zero target: <b>${esc(e.cat)}</b>.</p>${e.catu ? `<a href="${esc(e.catu)}" target="_blank" rel="noopener">See assessment ↗</a>` : ''}</div>` : ''}
       ${e.clw ? `<div class="card"><h4>Climate Change Laws of the World</h4><p>The country's climate laws and policies.</p><a href="${esc(e.clw)}" target="_blank" rel="noopener">Country profile ↗</a></div>` : ''}
       ${e.eciu ? `<div class="card"><h4>ECIU Net Zero Scorecard</h4><p>Status: <b>${esc(e.eciu)}</b>.</p></div>` : ''}
-      <div class="card"><h4>Is this out of date?</h4><p>Entry last updated ${esc(e.upd || 'n/a')}. Our researchers review submissions.</p><a href="${official(e)}" target="_blank" rel="noopener">Request an update ↗</a></div>
+      <div class="card"><h4>Is this out of date?</h4><p>Entry last updated ${esc(e.upd || 'n/a')}. Our researchers review submissions.</p><a href="https://form.typeform.com/to/ZyfGb9tZ" target="_blank" rel="noopener">Request an update ↗</a></div>
     </div>
     <div class="cite mt2"><b>Cite this entry:</b> Net Zero Tracker (${(e.upd||'').slice(0,4) || NOW}). <i>${esc(e.n)}</i>. Energy &amp; Climate Intelligence Unit, Data-Driven EnviroLab, NewClimate Institute and Oxford Net Zero. ${official(e)}</div>
   </div></section>`;
