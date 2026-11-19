@@ -527,3 +527,10 @@ ul.flags.plain li{margin-bottom:10px}
 .ckkey{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px 14px;font-size:14px}
 .ckkey>span{display:inline-flex;align-items:center;gap:5px}
 .ckkey .ck{width:18px;height:18px}
+
+.seg{display:inline-flex;flex-wrap:wrap;gap:0;border:2px solid var(--purple);border-radius:10px;overflow:hidden;background:#fff}
+.seg button{font:inherit;border:0;background:#fff;color:var(--purple);padding:10px 22px;cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:2px;min-width:200px}
+.seg button+button{border-left:2px solid var(--purple)}
+.seg button b{font-size:17px}.seg button span{font-size:13px;color:var(--muted)}
+.seg button.on{background:var(--purple);color:#fff}.seg button.on span{color:#e0d6ea}
+@media (max-width:560px){.seg{display:flex;width:100%}.seg button{flex:1;min-width:0;padding:10px 12px}}

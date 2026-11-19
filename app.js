@@ -435,11 +435,11 @@ P.explore = (params) => {
   const regions = [...new Set(D.map(e => e.g).filter(Boolean))].sort();
   return `<section class="tight band"><div class="wrap">
     <h1 class="h-brand" style="font-size:clamp(28px,4vw,40px)">Explore the data</h1>
-    <p class="lede mt0">Every target we track, in plain language. Explore the map, then filter the lists below, click any name for the full profile, or export what you see.</p>
-    <div class="mt2">${mapBlock('m-ex')}</div>
+    <p class="lede mt0">Every target we track, in plain language. Switch between governments and companies, explore the picture, then filter the list below, click any name for the full profile, or export what you see.</p>
+    <div class="seg mt2" id="ex-view" role="group" aria-label="What to show"><button data-v="gov" class="${EX.type==='company' ? '' : 'on'}"><b>Governments</b><span>Countries, regions and cities on a map</span></button><button data-v="co" class="${EX.type==='company' ? 'on' : ''}"><b>Companies</b><span>The largest companies, one box each</span></button></div>
+    <div class="mt2"><div id="ex-gviz" ${EX.type==='company' ? 'hidden' : ''}>${mapBlock('m-ex')}</div><div id="ex-cviz" ${EX.type==='company' ? '' : 'hidden'}>${vizShell('c-ex')}</div></div>
   </div></section>
   <section class="tight"><div class="wrap">
-    <div id="ex-cviz" ${EX.type==='company' ? '' : 'hidden'} style="margin-bottom:28px"><h2 class="h-brand" style="font-size:24px">Companies at a glance</h2>${vizShell('c-ex')}</div>
     <div class="tabs" id="ex-tabs">${Object.keys(TYPE).map(t => `<button data-t="${t}" class="${t===EX.type?'on':''}">${TYPE[t][1]} <span class="muted">(${fmt(byType(t).length)})</span></button>`).join('')}</div>
     <div class="filters">
       <label>Search<input type="search" id="ex-q" placeholder="Name or country" value="${esc(EX.q)}"></label>
@@ -454,8 +454,12 @@ P.explore = (params) => {
 };
 P.explore.after = () => {
   drawMap('m-ex'); drawCompanies('c-ex');
+  const showView = v => { $('#ex-gviz').hidden = v !== 'gov'; $('#ex-cviz').hidden = v !== 'co'; $$('#ex-view button').forEach(b => b.classList.toggle('on', b.dataset.v === v)); };
+  $$('#ex-view button').forEach(b => b.onclick = () => { const v = b.dataset.v; showView(v);
+    EX.type = v === 'co' ? 'company' : (EX.type === 'company' ? 'country' : EX.type); EX.sec = ''; const sel = $('#ex-sec'); if (sel) sel.value = '';
+    $$('#ex-tabs button').forEach(x => x.classList.toggle('on', x.dataset.t === EX.type)); $('#ex-sec-l').hidden = EX.type !== 'company'; EX.page = 0; renderList(); });
   const rer = () => { EX.page = 0; renderList(); };
-  $$('#ex-tabs button').forEach(b => b.onclick = () => { EX.type = b.dataset.t; EX.sec=''; $$('#ex-tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ex-sec-l').hidden = EX.type !== 'company'; $('#ex-cviz').hidden = EX.type !== 'company'; rer(); });
+  $$('#ex-tabs button').forEach(b => b.onclick = () => { EX.type = b.dataset.t; EX.sec=''; $$('#ex-tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ex-sec-l').hidden = EX.type !== 'company'; showView(EX.type === 'company' ? 'co' : 'gov'); rer(); });
   $('#ex-q').oninput = e => { EX.q = e.target.value; rer(); };
   $('#ex-g').onchange = e => { EX.g = e.target.value; rer(); };
   $('#ex-st').onchange = e => { EX.st = e.target.value; rer(); };
