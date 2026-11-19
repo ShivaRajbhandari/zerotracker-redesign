@@ -9,6 +9,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 const fmt = n => n.toLocaleString('en-US');
 const pct = (a,b) => b ? Math.round(100*a/b) : 0;
 const BY = Object.fromEntries(D.map(e => [e.s, e]));
+D.forEach(e => { if (e.rev >= 1e12) { e.revBad = e.rev; delete e.rev; } }); // data issue in the source: see the notes page
 const THE = /^(United |Netherlands|Philippines|Bahamas|Gambia|Maldives|Marshall Islands|Solomon Islands|Comoros|Seychelles|Czech Republic|Dominican Republic|Central African Republic|Dem\. Rep\.|Republic of|European Union)/;
 const nm = e => (e.t === 'country' && THE.test(e.n) ? 'the ' : '') + e.n;
 const Nm = e => { const s = nm(e); return s[0].toUpperCase() + s.slice(1); };
@@ -235,8 +236,13 @@ P.home = () => {
   </div></section>
 
   <section class="band"><div class="wrap">
-    <div class="center"><h2 class="h-brand">Where countries stand</h2><p class="lede">Darker green means a firmer commitment. Hover or tap a country for its target, and click through to the full profile.</p></div>
+    <div class="center"><h2 class="h-brand">Where net zero targets stand</h2><p class="lede">Countries, regions and cities on one map. Pick how to colour it, and the key sits right under your choice. Hover for a summary and click for the full profile.</p></div>
     <div class="mt2">${mapBlock('m-home')}</div>
+  </div></section>
+
+  <section><div class="wrap">
+    <div class="center"><h2 class="h-brand">The world's largest companies</h2><p class="lede">One box for each of the ${fmt(universe('company').length)} biggest public companies, grouped by sector. Bigger box, bigger revenue. Colour it the same ways as the map.</p></div>
+    <div class="mt2">${vizShell('c-home')}</div>
   </div></section>
 
   <section><div class="wrap">
@@ -254,7 +260,7 @@ P.home = () => {
     <p class="center mt2"><a class="btn btn-purple" href="#/learn">Net zero explained in 2 minutes</a></p>
   </div></section>`;
 };
-P.home.after = () => { wireSearch('s-home'); drawMap('m-home'); };
+P.home.after = () => { wireSearch('s-home'); drawMap('m-home'); drawCompanies('c-home'); };
 function slugOf(name, t){ const e = D.find(x => x.n === name && x.t === t); return e ? e.s : ''; }
 function pillarCards(){
   const txt = {
@@ -276,45 +282,146 @@ function pillarIcon(id){
 }
 function dotHalo(){ let s=''; for (let r=40;r<200;r+=11){ const n=Math.floor(r*0.55); for(let i=0;i<n;i++){ const a=i/n*Math.PI*2+r; const x=200+Math.cos(a)*r, y=200+Math.sin(a)*r; const hue=['#3B7CC3','#5EA845','#FAA542','#E13B26','#7D7089'][Math.floor((a%(Math.PI*2))/(Math.PI*2)*5+5)%5]; s+=`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${(1.6-r/260).toFixed(2)}" fill="${hue}" opacity="${(0.25+r/320).toFixed(2)}"/>`; } } return s; }
 
-/* ---------- MAP ---------- */
-const MAPMODES = {
-  status:{label:'How firm is the commitment?', cats:[...LADDER.slice().reverse(), OTHER, NONE], of:e => level(e)},
-  year:{label:'Net zero by when?', cats:[
-    {label:'2040 or earlier', hex:'#24572a'},{label:'2041–2050', hex:'#4a8a3c'},{label:'2051–2060', hex:'#7db165'},{label:'After 2060', hex:'#b2d49b'},{label:'No net zero target', hex:'#c9c7cc'}],
-    of(e){ if (!isNZ(e) || !year(e)) return this.cats[4]; const y = year(e); return y <= 2040 ? this.cats[0] : y <= 2050 ? this.cats[1] : y <= 2060 ? this.cats[2] : this.cats[3]; }},
-  interim:{label:'Milestone before 2035?', cats:[
-    {label:'Net zero target + milestone 2026–2035', hex:'#4a8a3c'},{label:'Net zero target, no current milestone by 2035', hex:'#e6d6bd'},{label:'No net zero target', hex:'#c9c7cc'}],
-    of(e){ if (!isNZ(e)) return this.cats[2]; return e.it && e.it !== 'No target' && iyear(e) >= NOW && iyear(e) <= 2035 ? this.cats[0] : this.cats[1]; }},
+/* ---------- VISUAL MODES (shared by the map and the company chart) ---------- */
+const checkMemo = new Map();
+const nChecks = e => { let r = checkMemo.get(e.s); if (!r) { const cs = checks(e); r = {y: tally(cs).yes, n: cs.length}; checkMemo.set(e.s, r); } return r; };
+const MODES = {
+  status:{name:'How firm is the commitment?', help:'From a promise on paper to a law.',
+    cats:[...LADDER.slice().reverse().map(l => ({label:l.label, hex:l.hex})), {label:'Status unclear', hex:'#e9e7ec'}, {label:OTHER.label, hex:OTHER.hex}, {label:NONE.label, hex:NONE.hex}],
+    of:e => level(e).label},
+  year:{name:'Net zero by when?', help:'The year the target is meant to be reached.',
+    cats:[{label:'2040 or earlier', hex:'#24572a'},{label:'2041–2050', hex:'#4a8a3c'},{label:'2051–2060', hex:'#7db165'},{label:'After 2060', hex:'#b2d49b'},{label:'Net zero, year not given', hex:'#e6d6bd'},{label:'No net zero target', hex:'#c9c7cc'}],
+    of:e => { if (!isNZ(e)) return 'No net zero target'; const y = year(e); if (!y) return 'Net zero, year not given'; return y <= 2040 ? '2040 or earlier' : y <= 2050 ? '2041–2050' : y <= 2060 ? '2051–2060' : 'After 2060'; }},
+  interim:{name:'Milestone before 2035?', help:'Is there a near-term step, not just a far-off date?',
+    cats:[{label:'Milestone between 2026 and 2035', hex:'#4a8a3c'},{label:'Net zero, but no milestone by 2035', hex:'#e6d6bd'},{label:'No net zero target', hex:'#c9c7cc'}],
+    of:e => { if (!isNZ(e)) return 'No net zero target'; return e.it && e.it !== 'No target' && iyear(e) >= NOW && iyear(e) <= 2035 ? 'Milestone between 2026 and 2035' : 'Net zero, but no milestone by 2035'; }},
+  checks:{name:'How many credibility checks?', help:'How many of our yes/no checks the target meets.',
+    cats:[{label:'7 or more checks met', hex:'#4b2a73'},{label:'5–6 checks met', hex:'#8d68b3'},{label:'3–4 checks met', hex:'#bfa9d6'},{label:'0–2 checks met', hex:'#e4dcee'},{label:'No net zero target', hex:'#c9c7cc'}],
+    of:e => { if (!isNZ(e)) return 'No net zero target'; const n = nChecks(e).y; return n >= 7 ? '7 or more checks met' : n >= 5 ? '5–6 checks met' : n >= 3 ? '3–4 checks met' : '0–2 checks met'; }},
 };
-let WORLD = null;
-function mapBlock(id){
-  return `<div class="mapctl"><div class="seg" role="tablist" data-map="${id}">${Object.entries(MAPMODES).map(([k,m],i) => `<button role="tab" data-mode="${k}" class="${i?'':'on'}">${m.label}</button>`).join('')}</div>
-    <span class="muted" style="font-size:14px">Countries only. Regions, cities and companies are in <a href="#/explore">Explore</a>.</span></div>
-    <div class="mapbox" id="${id}"><div class="empty">Loading map…</div></div><div class="legend" id="${id}-lg"></div>`;
+function catOf(mode, e){ const M = MODES[mode], lab = M.of(e); return M.cats.find(c => c.label === lab) || M.cats[M.cats.length - 1]; }
+const textOn = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return (0.299*r + 0.587*g + 0.114*b) < 140 ? '#fff' : '#1c1622'; };
+function tipHtml(e){
+  const cs = checks(e), t = tally(cs), loc = e.t === 'country' ? '' : (e.cn ? ' · ' + esc(e.cn) : '');
+  return `<b>${e.t === 'country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</b> <span class="k">${TYPE[e.t][0]}${loc}</span><br>${esc(targetPhrase(e))}<br><span class="k">Commitment:</span> ${esc(level(e).label)}${isNZ(e) ? `<br><span class="k">Credibility checks met:</span> ${t.yes} of ${cs.length}` : ''}<br><span class="k" style="font-size:12.5px">Click for the full profile</span>`;
 }
-async function drawMap(id, mode='status'){
+
+/* The side panel: layer switches, then the colour menu with the legend nested under the active option */
+const VZ = {};
+const LAYER_ICON = {
+  country:'<svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><path d="M2 4l7-2 5 2 6-1v9l-6 2-5-2-7 2z" fill="#4a8a3c"/></svg>',
+  region:'<svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><path d="M3 5l6-3 6 2 4 4-3 5-7 1-6-4z" fill="#b2d49b" stroke="#271039" stroke-width="1.4"/></svg>',
+  city:'<svg width="22" height="16" viewBox="0 0 22 16" aria-hidden="true"><circle cx="11" cy="8" r="5" fill="#4a8a3c" stroke="#fff" stroke-width="2"/><circle cx="11" cy="8" r="6.3" fill="none" stroke="#271039" stroke-width="1"/></svg>',
+};
+function panelHTML(st){
+  const top = st.kind === 'map'
+    ? `<div class="vh">Show on the map</div><div class="layers">${['country','region','city'].map(k => `<label><input type="checkbox" data-layer="${k}" ${st.layers[k] ? 'checked' : ''}>${LAYER_ICON[k]}<span>${TYPE[k][1]}</span><b>${fmt(st.n[k])}</b></label>`).join('')}</div>`
+    : `<div class="vh">Size boxes by</div><div class="seg" role="group" aria-label="Box size"><button data-size="rev" class="${st.size === 'rev' ? 'on' : ''}">Annual revenue</button><button data-size="eq" class="${st.size === 'eq' ? 'on' : ''}">Equal size</button></div>`;
+  const modes = Object.entries(MODES).map(([k, M]) => {
+    const on = st.mode === k;
+    return `<div class="mode ${on ? 'on' : ''}"><button class="mbtn" data-mode="${k}" aria-pressed="${on}"><span class="rad"></span><span><b>${M.name}</b><small>${M.help}</small></span></button>${on ? `<div class="mlegend" role="group" aria-label="Legend for: ${esc(M.name)}">${M.cats.filter(c => st.counts[c.label]).map(c => `<button class="li ${st.hl === c.label ? 'on' : ''}" data-cat="${esc(c.label)}" aria-pressed="${st.hl === c.label}"><i style="background:${c.hex}"></i><span>${esc(c.label)}</span><b>${fmt(st.counts[c.label])}</b></button>`).join('')}<p class="lhint">Click a row to highlight just those on the ${st.kind === 'map' ? 'map' : 'chart'}.</p></div>` : ''}</div>`;
+  }).join('');
+  return `${top}<div class="vh" style="margin-top:16px">Colour by</div><div class="modes">${modes}</div>`;
+}
+function vizShell(id){ return `<div class="viz" id="${id}"><aside class="vpanel"><div class="empty" style="padding:20px">Loading…</div></aside><div class="vmain"><div class="mapbox"><div class="empty">Loading…</div></div></div></div>`; }
+function recount(st){
+  st.counts = {};
+  const add = e => { const l = catOf(st.mode, e).label; st.counts[l] = (st.counts[l] || 0) + 1; };
+  if (st.kind === 'map') ['country','region','city'].forEach(k => st.layers[k] && st.ents[k].forEach(add)); else st.ents.forEach(add);
+}
+function paint(st){
+  const root = $('#' + st.id + ' .mapbox'); if (!root) return;
+  recount(st);
+  $$('[data-s]', root).forEach(el => { const c = catOf(st.mode, BY[el.dataset.s]); el.setAttribute('fill', c.hex); el.dataset.cat = c.label; });
+  $$('text.tl', root).forEach(t => t.setAttribute('fill', textOn(catOf(st.mode, BY[t.dataset.for]).hex)));
+  applyHl(st);
+  $('#' + st.id + ' .vpanel').innerHTML = panelHTML(st);
+  wirePanel(st);
+}
+function applyHl(st){
+  const root = $('#' + st.id + ' .mapbox'); if (!root) return;
+  root.classList.toggle('dim', !!st.hl);
+  $$('[data-s]', root).forEach(el => el.classList.toggle('hl', !!st.hl && el.dataset.cat === st.hl));
+}
+function wirePanel(st){
+  const panel = $('#' + st.id + ' .vpanel');
+  $$('[data-layer]', panel).forEach(cb => cb.onchange = () => { st.layers[cb.dataset.layer] = cb.checked; $(`#${st.id} g.L-${cb.dataset.layer}`).style.display = cb.checked ? '' : 'none'; st.hl = null; paint(st); });
+  $$('[data-mode]', panel).forEach(b => b.onclick = () => { if (st.mode === b.dataset.mode) return; st.mode = b.dataset.mode; st.hl = null; paint(st); });
+  $$('[data-cat]', panel).forEach(b => b.onclick = () => { st.hl = st.hl === b.dataset.cat ? null : b.dataset.cat; applyHl(st); $$('[data-cat]', panel).forEach(x => { const on = x.dataset.cat === st.hl; x.classList.toggle('on', on); x.setAttribute('aria-pressed', on); }); });
+  $$('[data-size]', panel).forEach(b => b.onclick = () => { st.size = b.dataset.size; st.hl = null; drawTreemap(st); });
+}
+function fixWinding(f){
+  // some island parts in the boundary file wind the wrong way, which d3 reads as "everything except this island"
+  const fix = poly => d3.geoArea({type:'Polygon', coordinates:poly}) > 2 * Math.PI ? poly.map(r => r.slice().reverse()) : poly;
+  f.geometry.coordinates = f.geometry.type === 'Polygon' ? fix(f.geometry.coordinates) : f.geometry.coordinates.map(fix);
+  return f;
+}
+
+/* ---------- INTEGRATED MAP: countries, regions and cities ---------- */
+let WORLD = null, REG = null;
+const mapBlock = id => vizShell(id);
+async function drawMap(id){
   const box = $('#' + id); if (!box) return;
-  if (!window.d3 || !window.topojson) { box.innerHTML = '<div class="empty">Map library did not load. The list in Explore has the same data.</div>'; return; }
-  if (!WORLD) { try { WORLD = await (await fetch('world.json')).json(); } catch(e) { box.innerHTML = '<div class="empty">Map could not load.</div>'; return; } }
-  const feats = topojson.feature(WORLD, WORLD.objects.countries).features.filter(f => f.id !== '010');
+  if (!window.d3 || !window.topojson) { box.innerHTML = '<div class="empty">The map library did not load. The tables below hold the same data.</div>'; return; }
+  const st = VZ[id] = {id, kind:'map', mode:'status', hl:null, layers:{country:true, region:true, city:true}, counts:{}};
+  try { [WORLD, REG] = await Promise.all([WORLD || fetch('world.json').then(r => r.json()), REG || fetch('regions.json').then(r => r.json())]); }
+  catch (e) { box.innerHTML = '<div class="empty">The map data could not load.</div>'; return; }
+  if (!document.body.contains(box)) return;
+  const W = 960, H = 500;
+  const cf = topojson.feature(WORLD, WORLD.objects.countries).features.filter(f => f.id !== '010');
+  const rf = topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && f.geometry).map(fixWinding);
+  const proj = d3.geoNaturalEarth1().fitExtent([[4,4],[W-4,H-4]], {type:'FeatureCollection', features:cf}), path = d3.geoPath(proj);
   const byIso = {}; D.forEach(e => { if (e.t === 'country' && e.iso) byIso[e.iso] = e; });
-  const M = MAPMODES[mode];
-  const W = 960, H = 470, proj = d3.geoNaturalEarth1().fitExtent([[6,6],[W-6,H-6]], {type:'FeatureCollection', features:feats}), path = d3.geoPath(proj);
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="World map of national net zero targets: ${M.label}">${feats.map(f => { const e = byIso[f.id]; const c = e ? M.of(e) : null; return `<path class="land" d="${path(f)}" fill="${c ? c.hex : '#ececec'}" data-iso="${f.id}" data-cat="${c ? esc(c.label) : ''}"${e ? ` tabindex="0" aria-label="${esc(e.n)}: ${esc(targetPhrase(e))}"` : ''}></path>`; }).join('')}</svg>`;
-  const counts = {}; Object.values(byIso).forEach(e => { const l = M.of(e).label; counts[l] = (counts[l]||0) + 1; });
-  const lg = $('#' + id + '-lg');
-  lg.innerHTML = M.cats.map(c => `<button data-cat="${esc(c.label)}"><i style="background:${c.hex}"></i>${esc(c.label)} <b>${counts[c.label]||0}</b></button>`).join('') + '<span class="muted" style="font-size:13px;align-self:center;margin-left:6px">Click a legend item to highlight it.</span>';
-  $$('button', lg).forEach(b => b.onclick = () => { const on = !b.classList.contains('on'); $$('button', lg).forEach(x => x.classList.remove('on')); box.classList.toggle('dim', on); $$('path.land', box).forEach(p => p.classList.toggle('hl', on && p.dataset.cat === b.dataset.cat)); if (on) b.classList.add('on'); });
-  $$('path.land', box).forEach(p => {
-    const e = byIso[p.dataset.iso]; if (!e) return;
-    const html = () => { const cs = checks(e), t = tally(cs); return `<b>${flag(e.a2)} ${esc(e.n)}</b><br>${esc(targetPhrase(e))}<br><span class="k">Commitment:</span> ${esc(level(e).label)}${isNZ(e) ? `<br><span class="k">Credibility checks met:</span> ${t.yes} of ${cs.length}` : ''}<br><span class="k" style="font-size:12.5px">Click for full profile</span>`; };
-    p.addEventListener('mousemove', ev => showTip(html(), ev));
-    p.addEventListener('mouseleave', hideTip);
-    p.addEventListener('click', () => { hideTip(); location.hash = '#/e/' + e.s; });
-    p.addEventListener('keydown', ev => { if (ev.key === 'Enter') location.hash = '#/e/' + e.s; });
-  });
-  const seg = $(`.seg[data-map="${id}"]`);
-  if (seg && !seg._w) { seg._w = 1; $$('button', seg).forEach(b => b.onclick = () => { $$('button', seg).forEach(x => x.classList.toggle('on', x === b)); drawMap(id, b.dataset.mode); }); }
+  const pins = D.filter(e => e.t === 'city' && e.ll).map(e => { const p = proj([e.ll[1], e.ll[0]]); return p ? {e, x:p[0], y:p[1]} : null; }).filter(Boolean);
+  st.ents = {country:Object.values(byIso), region:rf.map(f => BY[f.properties.s]), city:pins.map(p => p.e)};
+  st.n = {country:st.ents.country.length, region:st.ents.region.length, city:st.ents.city.length};
+  box.innerHTML = `<aside class="vpanel"></aside><div class="vmain">
+    <div class="mapbox"><div class="zoomctl"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset" aria-label="Reset zoom" style="font-size:13px">⟲</button></div>
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="World map of net zero targets for countries, regions and cities. The same information is in the tables below.">
+      <g class="zoomer"><g class="L-country">${cf.map(f => { const e = byIso[f.id]; return `<path class="land c" d="${path(f)}"${e ? ` data-s="${e.s}"` : ' fill="#ececec"'}></path>`; }).join('')}</g>
+      <g class="L-region">${rf.map(f => `<path class="land r" d="${path(f)}" data-s="${f.properties.s}"></path>`).join('')}</g>
+      <g class="L-city">${pins.map(p => `<circle class="pin" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.4" data-s="${p.e.s}"></circle>`).join('')}</g></g>
+    </svg></div>
+    <p class="foot-note">Drag to move the map. Zoom with the + and − buttons, or hold Ctrl or ⌘ and scroll. Cities show as dots, regions as outlined areas. ${fmt(722 - st.n.region)} regions and ${fmt(1185 - st.n.city)} city cannot be placed on the map yet, but they are in the tables.</p></div>`;
+  const svgEl = $('svg', box), svg = d3.select(svgEl), gz = svg.select('g.zoomer'); let k = 1;
+  const zoom = d3.zoom().scaleExtent([1, 16]).translateExtent([[0,0],[W,H]]).extent([[0,0],[W,H]])
+    .filter(ev => ev.type === 'wheel' ? (ev.ctrlKey || ev.metaKey) : ev.type.startsWith('touch') ? (k > 1 || (ev.touches && ev.touches.length > 1)) : !ev.button)
+    .on('zoom', ev => { k = ev.transform.k; gz.attr('transform', ev.transform); gz.selectAll('circle.pin').attr('r', Math.max(1.5, 3.6 / Math.pow(k, 0.62))); });
+  svg.call(zoom); svgEl.style.touchAction = 'pan-y pinch-zoom';
+  $$('[data-z]', box).forEach(b => b.onclick = () => { const a = b.dataset.z; svg.transition().duration(220).call(a === 'reset' ? zoom.transform : zoom.scaleBy, a === 'reset' ? d3.zoomIdentity : (a === 'in' ? 1.7 : 1 / 1.7)); });
+  svgEl.addEventListener('mousemove', ev => { const el = ev.target.closest('[data-s]'); if (!el) return hideTip(); showTip(tipHtml(BY[el.dataset.s]), ev); });
+  svgEl.addEventListener('mouseleave', hideTip);
+  svgEl.addEventListener('click', ev => { const el = ev.target.closest('[data-s]'); if (el) { hideTip(); location.hash = '#/e/' + el.dataset.s; } });
+  paint(st);
+}
+
+/* ---------- COMPANY TREEMAP ---------- */
+async function drawCompanies(id){
+  const box = $('#' + id); if (!box) return;
+  if (!window.d3) { box.innerHTML = '<div class="empty">The chart library did not load. The table has the same data.</div>'; return; }
+  const ents = universe('company');
+  const st = VZ[id] = {id, kind:'co', mode:'status', size:'rev', hl:null, counts:{}, ents};
+  box.innerHTML = `<aside class="vpanel"></aside><div class="vmain"><div class="mapbox"><svg viewBox="0 0 960 560" role="img" aria-label="Treemap of the world's largest public companies, grouped by sector. Each box is a company. The table below has the same data."></svg></div><p class="foot-note" id="${id}-cap"></p></div>`;
+  const svgEl = $('svg', box);
+  svgEl.addEventListener('mousemove', ev => { const el = ev.target.closest('[data-s]'); if (!el) return hideTip(); showTip(tipHtml(BY[el.dataset.s]) , ev); });
+  svgEl.addEventListener('mouseleave', hideTip);
+  svgEl.addEventListener('click', ev => { const el = ev.target.closest('[data-s]'); if (el) { hideTip(); location.hash = '#/e/' + el.dataset.s; } });
+  const revAll = ents.reduce((s, e) => s + (e.rev || 0), 0), revNZ = ents.filter(isNZ).reduce((s, e) => s + (e.rev || 0), 0);
+  $('#' + id + '-cap').innerHTML = `Each box is one company, grouped by sector. <b>${pct(ents.filter(isNZ).length, ents.length)}%</b> of these ${fmt(ents.length)} public companies have a net zero target, and together they earn <b>${pct(revNZ, revAll)}%</b> of the group's combined revenue. Companies with no revenue figure are drawn small.`;
+  drawTreemap(st);
+}
+function drawTreemap(st){
+  const svgEl = $('#' + st.id + ' svg'); if (!svgEl) return;
+  const W = 960, H = 560, bySec = new Map();
+  st.ents.forEach(e => { const s = e.sec && e.sec !== 'NA' ? e.sec : 'Other / unclassified'; if (!bySec.has(s)) bySec.set(s, []); bySec.get(s).push(e); });
+  const root = d3.hierarchy({children:[...bySec].map(([name, c]) => ({name, children:c}))}).sum(d => d.s ? (st.size === 'rev' ? Math.max(d.rev || 0, 2e8) : 1) : 0).sort((a, b) => b.value - a.value);
+  d3.treemap().size([W, H]).paddingOuter(3).paddingTop(d => d.depth === 1 ? 19 : 0).paddingInner(1).round(true)(root);
+  const short = (t, w, px) => { const n = Math.floor(w / px); return t.length > n ? t.slice(0, Math.max(n - 1, 0)).trim() + '…' : t; };
+  svgEl.innerHTML = root.children.map(g => `<g><text x="${g.x0 + 3}" y="${g.y0 + 14}" class="tg">${esc(short(g.data.name.toUpperCase(), g.x1 - g.x0 - 6, 7.6))}</text>${g.children.map(c => {
+    const w = c.x1 - c.x0, h = c.y1 - c.y0, e = c.data;
+    return `<rect x="${c.x0}" y="${c.y0}" width="${w}" height="${h}" data-s="${e.s}"></rect>`; }).join('')}</g>`).join('') +
+    root.leaves().map(c => { const w = c.x1 - c.x0, h = c.y1 - c.y0; return w > 62 && h > 20 ? `<text class="tl" data-for="${c.data.s}" x="${c.x0 + 4}" y="${c.y0 + 14}">${esc(short(c.data.n, w - 8, 6.6))}</text>` : ''; }).join('');
+  paint(st);
 }
 
 /* ---------- EXPLORE ---------- */
@@ -327,10 +434,11 @@ P.explore = (params) => {
   const regions = [...new Set(D.map(e => e.g).filter(Boolean))].sort();
   return `<section class="tight band"><div class="wrap">
     <h1 class="h-brand" style="font-size:clamp(28px,4vw,40px)">Explore the data</h1>
-    <p class="lede mt0">Every target we track, in plain language. Filter, sort, click any name for the full profile, or export what you see.</p>
+    <p class="lede mt0">Every target we track, in plain language. Explore the map, then filter the lists below, click any name for the full profile, or export what you see.</p>
     <div class="mt2">${mapBlock('m-ex')}</div>
   </div></section>
   <section class="tight"><div class="wrap">
+    <div id="ex-cviz" ${EX.type==='company' ? '' : 'hidden'} style="margin-bottom:28px"><h2 class="h-brand" style="font-size:24px">Companies at a glance</h2>${vizShell('c-ex')}</div>
     <div class="tabs" id="ex-tabs">${Object.keys(TYPE).map(t => `<button data-t="${t}" class="${t===EX.type?'on':''}">${TYPE[t][1]} <span class="muted">(${fmt(byType(t).length)})</span></button>`).join('')}</div>
     <div class="filters">
       <label>Search<input type="search" id="ex-q" placeholder="Name or country" value="${esc(EX.q)}"></label>
@@ -344,9 +452,9 @@ P.explore = (params) => {
   </div></section>`;
 };
 P.explore.after = () => {
-  drawMap('m-ex');
+  drawMap('m-ex'); drawCompanies('c-ex');
   const rer = () => { EX.page = 0; renderList(); };
-  $$('#ex-tabs button').forEach(b => b.onclick = () => { EX.type = b.dataset.t; EX.sec=''; $$('#ex-tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ex-sec-l').hidden = EX.type !== 'company'; rer(); });
+  $$('#ex-tabs button').forEach(b => b.onclick = () => { EX.type = b.dataset.t; EX.sec=''; $$('#ex-tabs button').forEach(x => x.classList.toggle('on', x === b)); $('#ex-sec-l').hidden = EX.type !== 'company'; $('#ex-cviz').hidden = EX.type !== 'company'; rer(); });
   $('#ex-q').oninput = e => { EX.q = e.target.value; rer(); };
   $('#ex-g').onchange = e => { EX.g = e.target.value; rer(); };
   $('#ex-st').onchange = e => { EX.st = e.target.value; rer(); };
@@ -599,12 +707,6 @@ const GLOSS = [
   ['Just transition','Making sure workers and communities that depend on high-carbon industries are not left behind.','Increasingly expected in national plans and company strategies.'],
   ['Base year','The year that a percentage cut is measured against, such as "45% below 2010".','An early or high-emissions base year can make a target look bigger than it is.'],
 ];
-const AGREE = [
-  ['Follow 1.5°C-aligned pathways','Very high'],['Interim targets at regular intervals (every 5 years or so)','Very high'],['Phase out fossil fuels','Very high'],['Align lobbying with the target','Very high'],['No offsetting to meet interim targets','Very high'],
-  ['Include all emissions (Scopes 1, 2 and 3)','High'],['Plan for a just transition','High'],['Carbon removals must store CO₂ permanently','High'],
-  ['A minimum emission cut (over 90%)','Moderate'],['Independent verification','Moderate'],['Limit removals to 5–10% of emissions','Moderate'],['Specific requirements for mitigation','Moderate'],
-  ['Sector-specific 2030 targets','Low'],
-];
 P.learn = (params, sub) => `
   <section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">Net zero explained</p><h1 style="font-size:clamp(30px,4.5vw,46px)">What net zero means, and how to tell a real target from a slogan</h1><p>A 2-minute primer, a glossary, and how we assess every target.</p></div></section>
   <section><div class="wrap grid2" style="align-items:center">
@@ -620,9 +722,12 @@ P.learn = (params, sub) => `
     <div class="note mt2"><b>About this summary.</b> These checks restate indicators that the Net Zero Tracker already records, such as status, interim targets, gases, Scope 3, plan elements, reporting, accountability, offsets and removals. The "X of Y checks met" count is a prototype idea for the team to review, not an official rating. "Unknown" means the information was not public or not specified.</div>
   </div></section>
   <section><div class="wrap">
-    <div class="center"><h2 class="h-brand">What the experts agree on</h2><p class="lede">We compared net zero criteria from the UN Expert Group, ISO, Race to Zero, SBTi, NewClimate Institute and Oxford Net Zero. Here is how strongly they agree on each principle.</p></div>
-    <div class="tablewrap mt2" style="border:0;max-width:860px;margin-inline:auto"><table class="agree" style="width:100%;border-collapse:collapse">${AGREE.map(([p,l]) => { const n = {'Very high':4,'High':3,'Moderate':2,'Low':1}[l]; return `<tr><td style="font-weight:600">${p}</td><td style="width:150px"><span class="lvl" aria-hidden="true">${[1,2,3,4].map(i => `<i class="${i<=n?'f':''}"></i>`).join('')}</span></td><td style="width:110px;color:var(--muted)">${l}</td></tr>`; }).join('')}</table></div>
-    <p class="center foot-note" style="margin-inline:auto">Agreement level on principles ("the what"), from the Net Zero Tracker's Good Net Zero comparison (Nov 2024). <a href="https://zerotracker.net/net-zero-good-practice" target="_blank" rel="noopener">Full comparison and spreadsheet ↗</a></p>
+    <div class="center"><h2 class="h-brand">What the experts agree on</h2><p class="lede">We compared ${GN.inst.length - 1} leading initiatives and a review of 37 more, across ${gnRows().length} criteria, and broke down exactly what each one says.</p></div>
+    <div class="grid3 mt2">
+      <div class="card"><h3>Strongest agreement</h3><p class="muted mt0" style="font-size:15px">Very high agreement on the principle:</p><ul class="flags">${gnRows().filter(r => r.p === 'Very high').map(r => `<li>${esc(r.short)}</li>`).join('')}</ul></div>
+      <div class="card"><h3>Agree on the “what”, not the “how”</h3><ul class="flags">${gnRows().filter(r => LVL[r.p] >= 3 && LVL[r.s] <= 1 && r.s !== 'N/A').map(r => `<li>${esc(r.short)}</li>`).join('')}</ul></div>
+      <div class="card" style="border-top:5px solid var(--red)"><h3>See who says what</h3><p>Every criterion, every initiative, with quoted explanations and source pages.</p><a class="btn btn-purple btn-sm" href="#/goodnet">Open the full comparison →</a></div>
+    </div>
   </div></section>
   <section class="band"><div class="wrap">
     <h2 class="h-brand">Glossary</h2><p class="lede mt0">Every technical term on this site, in one line, plus why it matters.</p>
@@ -747,11 +852,15 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <div><h3>Color never works alone</h3><p>The companies table used red, amber and green dots with no labels. Here every verdict has an icon shape and a text label, so it works for colour-blind readers and in print.</p></div>
       <div><h3>Audience paths</h3><p>Guides for policymakers (benchmarks, drafting checklist, briefing paragraph) and for advocates (warning signs, question generator, responsible-use and citation notes).</p></div>
       <div><h3>Compare and export</h3><p>Side-by-side comparison of up to 4 entries of any type, shareable links, and CSV export of any filtered list.</p></div>
-      <div><h3>Clearer graphics</h3><p>A single-hue map (darker = firmer) with counts in a clickable legend and three views. Donut charts become labelled bars, and a new "credibility gap" chart shows which elements targets lack.</p></div>
+      <div><h3>One integrated map</h3><p>Countries, regions and cities are on a single zoomable map, as on the live site. A side panel holds the layer switches and the colour menu, and the key sits directly under whichever colour option is selected, so there is no separate legend to hunt for. There are four ways to colour it: how firm the commitment is, the target year, whether there is a milestone before 2035, and how many credibility checks are met.</p></div>
+      <div><h3>A picture of the companies data</h3><p>A treemap of the 1,981 largest public companies, one box each, grouped by sector and sized by revenue. It is coloured with the same four options and the same legend, and every box links to the company profile.</p></div>
+      <div><h3>Good net zero, in full</h3><p>The six-initiative comparison is rebuilt with all of its data: every criterion rated by every initiative, the two convergence levels, definitions, and the quoted explanation and source page behind 75 entries. New views show where the experts agree and what each initiative covers, with plain-English summaries added.</p></div>
+      <div><h3>Clearer graphics elsewhere</h3><p>Donut charts become labelled bars, and a new "credibility gap" chart shows which elements targets lack.</p></div>
     </div></div>
     <div><h2 class="h-brand" style="font-size:24px">Things we noticed on the live site</h2>
       <ul class="flags">
         <li>Company filter "Target year" lists <b>1000</b> (BAIC Motor's entry). Probably a data-entry error.</li>
+        <li>Meritz Financial's annual revenue is recorded as <b>$115.6 trillion</b>, more than 100 times the largest company. It is probably in Korean won. This prototype leaves that figure out.</li>
         <li>Good Net Zero page: typo "Please note that <i>he</i> comparison…".</li>
         <li>"Updated in real-time, with a commitment to 100% accuracy" is a strong claim. Consider "We review entries regularly. Tell us if something has changed."</li>
         <li>Headline company count (1,981) excludes private companies, but the table includes them (2,080). Worth saying so on the page.</li>
@@ -763,11 +872,135 @@ P.notes = () => `<section class="tight band"><div class="wrap">
         <li>Is the "X of Y checks met" summary acceptable, or should profiles show checks without a total?</li>
         <li>The brand font (franzSans) is licensed, so this prototype uses Outfit. The production site would use the real font.</li>
         <li>Partner logos and the newsletter form are placeholders here.</li>
-        <li>Regions and cities have no coordinates in the public data, so the map shows countries only. Adding centroids would allow city pins.</li>
+        <li>The map uses the live site's own boundary and city-location files. 16 regions and 1 city have no location in them yet, so they appear in the tables but not on the map.</li>
       </ul>
       <div class="note mt2">Prototype by Shiva Rajbhandari, ${META.generated || ''}. Data: Net Zero Tracker public dataset (entries updated to ${esc((META.source||'').split('to ').pop())}). Not indexed by search engines.</div>
     </div>
   </div></section>`;
+
+/* ---------- GOOD NET ZERO: what the leading initiatives say (data: Net Zero Tracker comparison, 14 Nov 2024) ---------- */
+const GN = window.GOODNET;
+const GNS = {view:null, inst:0, open:new Set(), def:new Set()};
+const LVL = {'Very high':4, 'High':3, 'Moderate':2, 'Low':1, 'Very low':0, 'N/A':-1};
+const LVL_HEX = {'Very high':'#a8e8c6', 'High':'#c4efd8', 'Moderate':'#dcf6e8', 'Low':'#feeacc', 'Very low':'#fdd8b2', 'N/A':'#eeecf1'};
+const PLAIN = {
+  '1.5°C pathways':'Targets must match what climate science says is needed to keep warming to about 1.5°C.',
+  'All emissions (Scopes 1–3)':'The target should cover the whole footprint, including supply chains and customers (Scope 3), not just direct emissions.',
+  'Minimum % cut':'How deep the real cuts must be before any leftover emissions are balanced out. Usually more than 90%.',
+  'Sector detail':'Whether the guidance sets different rules for different sectors, such as steel, power or farming.',
+  'Interim target intervals':'How often a short-term goal should be set on the way to net zero.',
+  'Sector targets for 2030':'Whether each sector gets its own target for 2030.',
+  'Mitigation requirements':'Whether specific actions to cut emissions are required, not just an end goal.',
+  'Fossil fuel phase-out':'Whether the plan must include ending the use of coal, oil and gas.',
+  'Lobbying aligned':'Whether lobbying, including through trade associations, must support the climate target instead of undermining it.',
+  'Just transition':'Whether the plan must protect the workers and communities affected by the shift.',
+  'Independent verification':'Whether outside experts must check the plan and the progress.',
+  'Climate contributions':'Funding climate action beyond your own operations, on top of cutting your own emissions.',
+  'No offsets for interim targets':'Whether near-term targets must be met by real cuts, not by buying offsets.',
+  'Residual emissions defined':'Whether the guidance says what counts as unavoidable leftover emissions.',
+  'Cap on removals':'The most that can be balanced out by removing carbon, so removals cannot replace cuts.',
+  'Durable storage':'Whether removed carbon must stay locked away for the long term.',
+  'Permanence defined':'Whether the guidance says how long "permanent" has to be.',
+};
+const INST_ABBR = ['UN HLEG','ISO','Race to Zero','SBTi','NewClimate','Oxford'];
+const gnRows = () => GN.sections.flatMap((s, si) => s.rows.map((r, ri) => ({...r, si, ri, sec:s, id:`gn-r${si}-${ri}`})));
+function gnCat(row, c){
+  const v = c.v.toLowerCase();
+  if (!v || /^(not specified|not covered|not defined)/.test(v) || (row.short === 'Permanence defined' && v === 'no')) return 'none';
+  if (/^(recommended|implied|indirectly|partial|varying|recommends|mostly|permanence partly)/.test(v)) return 'soft';
+  return 'pos';
+}
+const CAT_LABEL = {pos:'Clear requirement or position', soft:'Recommended or partial', none:'Not addressed'};
+const gnVal = (row, c) => `<span class="gv ${gnCat(row, c)}">${esc(c.v)}${c.star ? '<sup>*</sup>' : ''}</span>`;
+const convChip = l => `<span class="cv" style="background:${LVL_HEX[l]}" title="${l}">${l}</span>`;
+function gnCoverage(){
+  const rows = gnRows();
+  return GN.inst.map((it, j) => { const n = {pos:0, soft:0, none:0}; rows.forEach(r => n[gnCat(r, r.cells[j])]++); return {it, j, ...n}; });
+}
+function gnLogo(it, px = 34){ return it.logo ? `<img class="glogo" src="${esc(it.logo)}" alt="" width="${px}" height="${px}" loading="lazy" onerror="this.style.display='none'">` : ''; }
+
+function gnAgreementMap(){
+  const rows = gnRows(), cols = ['N/A','Very low','Low','Moderate','High'], rws = ['Very high','High','Moderate','Low'];
+  const cell = (p, s) => rows.filter(r => r.p === p && r.s === s);
+  const said = rows.filter(r => LVL[r.p] >= 3 && LVL[r.s] <= 1 && r.s !== 'N/A');
+  return `<div class="amap" role="group" aria-label="Where the initiatives agree on the principle and on the specifics">
+    <div class="ax-y">Agreement on the principle (the “what”)</div>
+    <div class="agrid" style="grid-template-columns:92px repeat(${cols.length},minmax(0,1fr))">
+      ${rws.map(p => `<div class="ah" style="background:${LVL_HEX[p]}">${p}</div>${cols.map(s => { const rs = cell(p, s), gap = LVL[p] >= 3 && LVL[s] <= 1 && s !== 'N/A'; return `<div class="ac ${gap ? 'gap' : ''}">${rs.map(r => `<button data-goto="${r.id}" title="${esc(r.name)}">${esc(r.short)}</button>`).join('')}</div>`; }).join('')}`).join('')}
+      <div></div>${cols.map(s => `<div class="ah bt" style="background:${LVL_HEX[s]}">${s === 'N/A' ? 'Specifics: n/a' : s}</div>`).join('')}
+    </div>
+    <div class="ax-x">Agreement on the specifics (the “how”) →</div>
+    <p class="foot-note" style="margin-top:8px"><span class="gapkey"></span> <b>${said.length} of ${rows.length} criteria</b> have high agreement on the principle but little on the specifics: ${said.map(r => esc(r.short.toLowerCase())).join(', ')}. In plain terms, the experts agree on <i>what</i> to do but not yet on <i>how</i> to do it.</p></div>`;
+}
+function gnCoverageChart(){
+  const cv = gnCoverage(), n = gnRows().length;
+  return `<div class="cvg">${cv.map(c => `<div class="cvrow"><div class="cvname">${gnLogo(c.it, 30)}<span><b>${esc(c.it.org)}</b><small>${esc(c.it.doc)} (${c.it.yr})</small></span></div>
+    <div class="cvbar" role="img" aria-label="${esc(c.it.org)}: ${c.pos} clear, ${c.soft} partial, ${c.none} not addressed, out of ${n}">
+      <i class="pos" style="width:${c.pos / n * 100}%">${c.pos || ''}</i><i class="soft" style="width:${c.soft / n * 100}%">${c.soft || ''}</i><i class="none" style="width:${c.none / n * 100}%">${c.none || ''}</i></div></div>`).join('')}
+    <div class="cvkey"><span><i class="pos"></i>Clear requirement or position</span><span><i class="soft"></i>Recommended or partial</span><span><i class="none"></i>Not addressed</span></div></div>`;
+}
+function gnDetail(row, js){
+  const cards = js.map(j => { const c = row.cells[j], it = GN.inst[j];
+    return `<div class="gcard"><div class="gch">${gnLogo(it, 22)}<b>${esc(it.org)}</b>${gnVal(row, c)}</div><p>${esc(c.x || 'No explanation recorded for this entry.')}</p>${c.r ? `<p class="gref">Source: ${esc(c.r)}</p>` : ''}</div>`; }).join('');
+  return `<div class="gdet">${GNS.def.has(row.id) && row.tip ? `<div class="gdef"><b>What this means.</b> ${esc(PLAIN[row.short] || '')}<br><span class="muted">${esc(row.tip)}</span></div>` : ''}<div class="gcards">${cards}</div></div>`;
+}
+function gnMatrix(){
+  const head = `<thead><tr><th class="c1">Criterion</th><th class="cc"><span>Agree on the “what”</span></th><th class="cc"><span>Agree on the “how”</span></th>${GN.inst.map(it => `<th class="ci">${gnLogo(it, 38)}<b>${esc(it.org)}</b><small>${esc(it.doc)} (${it.yr})</small>${it.summary ? '<em>Summary of 37 guidelines</em>' : ''}</th>`).join('')}</tr></thead>`;
+  const body = GN.sections.map((s, si) => `<tr class="gsec"><td class="c1"><b>${esc(s.name)}</b></td><td class="cc">${convChip(s.p)}</td><td class="cc">${convChip(s.s)}</td>${INST_ABBR.map(a => `<td class="ab">${a}</td>`).join('')}</tr>` +
+    s.rows.map((r0, ri) => { const row = {...r0, si, ri, id:`gn-r${si}-${ri}`}; const open = [0,1,2,3,4,5].filter(j => GNS.open.has(row.id + ':' + j));
+      return `<tr class="gcrit" id="${row.id}"><td class="c1"><button class="gname" data-def="${row.id}" aria-expanded="${GNS.def.has(row.id)}" title="What does this mean?"><span class="gi">i</span><span>${esc(row.name)}</span></button><small>${esc(PLAIN[row.short] || '')}</small></td><td class="cc">${convChip(row.p)}</td><td class="cc">${convChip(row.s)}</td>` +
+        row.cells.map((c, j) => { const ex = !!c.x, on = GNS.open.has(row.id + ':' + j); return `<td class="gc"><button class="gcell ${gnCat(row, c)} ${on ? 'on' : ''}" data-cell="${row.id}:${j}" ${ex ? `aria-expanded="${on}"` : 'disabled'} title="${ex ? 'Show the explanation' : 'No explanation recorded'}">${esc(c.v)}${c.star ? '<sup>*</sup>' : ''}${ex ? '<svg viewBox="0 0 10 6" width="9" height="6" aria-hidden="true"><path d="M1 1l4 4 4-4" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>' : ''}</button></td>`; }).join('') + '</tr>' +
+        (open.length || GNS.def.has(row.id) ? `<tr class="gdrow"><td colspan="${3 + GN.inst.length}">${gnDetail(row, open)}</td></tr>` : ''); }).join('')).join('');
+  return `<div class="tablewrap gmwrap"><table class="gmx">${head}<tbody>${body}</tbody></table></div>`;
+}
+function gnByInitiative(){
+  const j = GNS.inst, it = GN.inst[j];
+  const tabs = `<div class="tabs gtabs" role="tablist">${GN.inst.map((x, k) => `<button role="tab" data-inst="${k}" class="${k === j ? 'on' : ''}">${gnLogo(x, 22)}${esc(x.org)}</button>`).join('')}</div>`;
+  return tabs + `<div class="note"><b>${esc(it.org)}: ${esc(it.doc)} (${it.yr})</b>${it.summary ? '. This column summarises a review of 37 guidelines.' : ''} ${it.url ? `<a href="${esc(it.url)}" target="_blank" rel="noopener">Source ↗</a>` : ''}</div>` +
+    GN.sections.map((s, si) => `<h3 class="mt2" style="font-size:18px">${esc(s.name)} <span class="muted" style="font-weight:500;font-size:14px">· agree on the what: ${s.p}, the how: ${s.s}</span></h3><div class="gil">${s.rows.map(r => { const c = r.cells[j], row = {...r, si}; return `<div class="gitem"><div class="gtop"><div><b>${esc(r.name)}</b><small>${esc(PLAIN[r.short] || '')}</small></div>${gnVal(row, c)}</div><div class="gconv">${convChip(r.p)}<span>the what</span>${convChip(r.s)}<span>the how</span></div>${c.x ? `<details><summary>Explanation</summary><p>${esc(c.x)}</p>${c.r ? `<p class="gref">Source: ${esc(c.r)}</p>` : ''}</details>` : ''}</div>`; }).join('')}</div>`).join('');
+}
+function gnRender(){
+  const box = $('#gn-body'); if (!box) return;
+  box.innerHTML = GNS.view === 'matrix' ? gnMatrix() : gnByInitiative();
+  $$('#gn-view button').forEach(b => b.classList.toggle('on', b.dataset.v === GNS.view));
+  $('#gn-bulk').hidden = GNS.view !== 'matrix';
+  $$('[data-def]', box).forEach(b => b.onclick = () => { const id = b.dataset.def; GNS.def.has(id) ? GNS.def.delete(id) : GNS.def.add(id); gnRender(); });
+  $$('[data-cell]', box).forEach(b => b.onclick = () => { const id = b.dataset.cell; GNS.open.has(id) ? GNS.open.delete(id) : GNS.open.add(id); gnRender(); });
+  $$('[data-inst]', box).forEach(b => b.onclick = () => { GNS.inst = +b.dataset.inst; gnRender(); });
+}
+P.goodnet = () => {
+  if (!GNS.view) GNS.view = innerWidth >= 900 ? 'matrix' : 'inst';
+  const n = gnRows().length;
+  return `<section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">Good net zero</p><h1 style="font-size:clamp(30px,4.5vw,46px)">What should a credible net zero target include?</h1>
+    <p>We compared the guidance of ${GN.inst.length - 1} leading initiatives, plus a review of 37 more, across ${n} criteria. Here is where they agree, where they don't, and exactly what each one says.</p></div></section>
+  <section><div class="wrap">
+    <div class="grid2 gnwide" style="gap:34px;align-items:start">
+      <div><h2 class="h-brand" style="font-size:24px">Where the experts agree</h2><p class="muted mt0">Each box is a criterion, placed by how strongly the initiatives agree on the principle (up) and on the detailed specifics (across). Click one to jump to its row.</p>${gnAgreementMap()}</div>
+      <div><h2 class="h-brand" style="font-size:24px">What each initiative covers</h2><p class="muted mt0">Of the ${n} criteria, how many each initiative takes a clear stance on.</p>${gnCoverageChart()}</div>
+    </div>
+  </div></section>
+  <section class="band" id="gn-full"><div class="wrap">
+    <div class="flex" style="justify-content:space-between;align-items:end"><div><h2 class="h-brand" style="font-size:26px">The full comparison</h2><p class="muted mt0" style="max-width:760px">Every criterion, rated by every initiative, in the same words as the original table. Click any entry to read the quoted explanation and its source page. Click a criterion name for a plain-English definition.</p></div>
+      <div class="flex"><div class="seg" id="gn-view" role="group" aria-label="View"><button data-v="matrix">All side by side</button><button data-v="inst">One initiative at a time</button></div><button class="btn btn-ghost btn-sm" id="gn-bulk">Expand all explanations</button></div></div>
+    <div class="gkey"><span><i class="gv pos">Yes</i>Clear requirement or position</span><span><i class="gv soft">Recommended</i>Recommended or partial</span><span><i class="gv none">Not specified</i>Not addressed by that initiative</span><span><b>*</b> The entry summarises a wider set of sources or a derived reading. Open it for the note.</span></div>
+    <div id="gn-body" class="mt1"></div>
+    <p class="foot-note">“The what” is agreement that a principle matters. “The how” is agreement on the detailed method. N/A means there are no specifics to compare. Convergence levels and wording are from the Net Zero Tracker's comparison, last updated ${esc(GN.asof)}. The Oxford Net Zero column is a summary of 37 guidelines.</p>
+  </div></section>
+  <section><div class="wrap grid2" style="gap:34px">
+    <div><h2 class="h-brand" style="font-size:22px">What's not in this comparison yet</h2>
+      <ul class="flags"><li>The SBTi column reflects its Corporate Net-Zero Standard v1.2 (March 2024). SBTi is <a href="https://sciencebasedtargets.org/developing-the-net-zero-standard" target="_blank" rel="noopener">revising it</a>.</li>
+      <li>ISO is <a href="https://www.iso.org/contents/news/2024/06/netzero-standard-underway.html" target="_blank" rel="noopener">developing a full Net Zero Standard</a>. Both will be added when published, expected 2025–2026.</li>
+      <li>The tracker also holds data on the <a href="https://www.ifrs.org/issued-standards/ifrs-sustainability-standards-navigator/ifrs-s2-climate-related-disclosures/" target="_blank" rel="noopener">ISSB's S2 climate disclosures</a> and the Assessing Transition Plan Collective's <a href="https://assets.worldbenchmarkingalliance.org/app/uploads/2024/09/ATP-Col-guidance-and-framework-document.pdf" target="_blank" rel="noopener">framework</a>, which are in the spreadsheet only.</li></ul></div>
+    <div><h2 class="h-brand" style="font-size:22px">Go deeper</h2><div class="actions" style="margin-top:0"><a class="btn btn-purple btn-sm" href="${esc(GN.xlsx)}" target="_blank" rel="noopener">Download full analysis (Excel) ↗</a><a class="btn btn-ghost btn-sm" href="https://zerotracker.net/net-zero-good-practice" target="_blank" rel="noopener">Original page ↗</a></div>
+      <p class="muted mt1" style="font-size:15px">Use this to judge a target: open any country or company profile and compare its checklist with what these initiatives expect.</p></div>
+  </div></section>`;
+};
+P.goodnet.after = () => {
+  gnRender();
+  $$('#gn-view button').forEach(b => b.onclick = () => { GNS.view = b.dataset.v; gnRender(); });
+  $('#gn-bulk').onclick = () => { const all = gnRows(); const anyClosed = all.some(r => r.cells.some((c, j) => c.x && !GNS.open.has(r.id + ':' + j))); all.forEach(r => r.cells.forEach((c, j) => { if (c.x) anyClosed ? GNS.open.add(r.id + ':' + j) : GNS.open.delete(r.id + ':' + j); })); $('#gn-bulk').textContent = anyClosed ? 'Collapse all explanations' : 'Expand all explanations'; gnRender(); };
+  $$('[data-goto]').forEach(b => b.onclick = () => { GNS.view = 'matrix'; gnRender(); const el = document.getElementById(b.dataset.goto); if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1800); } });
+};
 
 /* ---------- router ---------- */
 function route(){
@@ -781,7 +1014,7 @@ function route(){
   $('#main').innerHTML = P[page](params, arg);
   $$('#nav a[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === page));
   $('#nav').classList.remove('open');
-  document.title = (page === 'entity' && BY[arg] ? BY[arg].n + ' | ' : page !== 'home' ? ({explore:'Explore',compare:'Compare',learn:'Net zero explained',policymakers:'For policymakers',activists:'For advocates',notes:'About this prototype'}[page] + ' | ') : '') + 'Net Zero Tracker (prototype)';
+  document.title = (page === 'entity' && BY[arg] ? BY[arg].n + ' | ' : page !== 'home' ? ({explore:'Explore',compare:'Compare',learn:'Learn',goodnet:'Good net zero',policymakers:'For policymakers',activists:'For advocates',notes:'About this prototype'}[page] + ' | ') : '') + 'Net Zero Tracker (prototype)';
   if (P[page].after) P[page].after(params, arg);
   if (!(page === 'learn' && arg)) window.scrollTo(0, 0);
 }
