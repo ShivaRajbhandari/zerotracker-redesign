@@ -546,7 +546,7 @@ ul.flags.plain li{margin-bottom:10px}
 .nzd-cap b{color:var(--purple)}.nzd-cap b.bad{color:#c8331f}
 .nzd-ctl{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;font-size:14px;color:var(--ink-2)}
 .nzd-ctl span{grid-column:1/-1;font-weight:600}
-.nzd-ctl input{width:100%;accent-color:var(--red)}
+.nzd-ctl input{width:100%;accent-color:#5EA845}
 .nzd-ctl output{font-weight:800;color:var(--purple);min-width:3ch;text-align:right}
 
 .nzd-cap a{white-space:nowrap;font-weight:600}

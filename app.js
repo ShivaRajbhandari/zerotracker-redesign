@@ -825,11 +825,11 @@ function nzdDraw(cut, act){
     ${note(y1 + h + 22, 'All the emissions released each year.')}
     ${head(132, 2, 'Cut deeply first')}
     ${G('left', `<rect x="${X}" y="${y2}" width="${wL}" height="${h}" rx="4" fill="#A5865C"/>${wL > 34 ? `<text x="${X + wL / 2}" y="${y2 + 26}" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">${L}</text>` : ''}`)}
-    ${G('cut', `<rect x="${X + wL}" y="${y2}" width="${wC}" height="${h}" rx="4" fill="#fbe3df" stroke="#E13B26" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${X + wL + wC / 2}" y="${y2 + 26}" text-anchor="middle" font-size="17" font-weight="800" fill="#c8331f">${cut}% cut</text>`)}
+    ${G('cut', `<rect x="${X + wL}" y="${y2}" width="${wC}" height="${h}" rx="4" fill="#e6f3df" stroke="#5EA845" stroke-width="1.5" stroke-dasharray="5 4"/><text x="${X + wL + wC / 2}" y="${y2 + 26}" text-anchor="middle" font-size="17" font-weight="800" fill="#3d7a2b">${cut}% cut</text>`)}
     ${note(y2 + h + 22, `Clean energy and new processes shrink it. ${L} left.`)}
     ${head(238, 3, 'Remove only what is left')}
     <rect x="${X + wL}" y="${y3}" width="${wC}" height="${h}" rx="4" fill="none" stroke="#d9d3df" stroke-dasharray="3 4"/>
-    ${G('rem', `<rect x="${X}" y="${y3}" width="${wL}" height="${h}" rx="4" fill="${ok ? '#5EA845' : '#E13B26'}"/>${wL > 34 ? `<text x="${X + wL / 2}" y="${y3 + 26}" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">−${L}</text>` : ''}`)}
+    ${G('rem', `<rect x="${X}" y="${y3}" width="${wL}" height="${h}" rx="4" fill="${ok ? '#3B7CC3' : '#E13B26'}"/>${wL > 34 ? `<text x="${X + wL / 2}" y="${y3 + 26}" text-anchor="middle" font-size="16" font-weight="700" fill="#fff">−${L}</text>` : ''}`)}
     ${G('net', `<rect x="${ok ? 400 : 380}" y="${y3}" width="${ok ? 100 : 120}" height="${h}" rx="20" fill="${ok ? '#3B7CC3' : '#fff'}" stroke="${ok ? 'none' : '#E13B26'}" stroke-width="2"/><text x="${ok ? 450 : 440}" y="${y3 + 26}" text-anchor="middle" font-size="16" font-weight="800" fill="${ok ? '#fff' : '#c8331f'}">${ok ? '= net zero' : 'not net zero'}</text>`)}
     ${note(y3 + h + 22, ok ? `Removal balances the ${L} left. Net emissions: 0.` : `Removing ${L} is beyond what is possible today.`)}`;
   const cap = act ? `<b>${esc(NZD[act][0])}.</b> ${esc(NZD[act][1])}` : (ok ? '<b>Cut deeply first, then remove only what is left.</b> Hover or tap any part of the picture to see what it means.' : `<b class="bad">Too little cut.</b> With ${L}% left over, you would need to remove carbon equal to ${L}% of today’s emissions. Removal on that scale is not available with today’s technology, so targets like this tend to lean on offsets instead. <a href="#/learn/offsets">Why offsets can be greenwashing →</a>`);
