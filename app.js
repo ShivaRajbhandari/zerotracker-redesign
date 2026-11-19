@@ -1073,6 +1073,79 @@ P.goodnet.after = () => {
   $$('[data-goto]').forEach(b => b.onclick = () => { GNS.view = 'matrix'; gnRender(); const el = document.getElementById(b.dataset.goto); if (el) { el.scrollIntoView({behavior:'smooth', block:'center'}); el.classList.add('flash'); setTimeout(() => el.classList.remove('flash'), 1800); } });
 };
 
+/* ---------- FAQS + ABOUT ---------- */
+const FQ = window.FAQ;
+P.faqs = () => {
+  const counts = ['country','region','city','company'].map(t => `<div><b>${fmt(D.filter(e => e.t === t).length)}</b><span>${TYPE[t][1].toLowerCase()}</span></div>`).join('');
+  return `
+  <section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">FAQs</p><h1 style="font-size:clamp(30px,4.5vw,46px)">Frequently asked questions</h1><p>What the Tracker is, what it covers, where the data comes from, and how to correct it.</p></div></section>
+  <section class="tight"><div class="wrap faqwrap">
+    <div class="faqbar">
+      <label class="sr" for="faq-q">Search the questions</label>
+      <input id="faq-q" type="search" placeholder="Search the questions, for example “offsets” or “update”" autocomplete="off">
+      <div class="faqchips" role="group" aria-label="Topics"><button class="on" data-c="">All</button>${FQ.map(c => `<button data-c="${esc(c.cat)}">${esc(c.cat)}</button>`).join('')}</div>
+      <div class="faqmeta"><span id="faq-n"></span><button class="linkbtn" id="faq-all">Expand all</button></div>
+    </div>
+    <div id="faq-list">${FQ.map(c => `<div class="faqcat" data-c="${esc(c.cat)}"><h2>${esc(c.cat)}</h2>${c.items.map(it => `<details class="faqitem"><summary>${esc(it.q)}</summary><div class="faqa">${it.a}${it.q.startsWith('What entities') ? `<div class="faqcounts"><span class="muted">In this prototype's data today:</span>${counts}</div>` : ''}</div></details>`).join('')}</div>`).join('')}</div>
+    <p id="faq-none" class="empty" hidden>No question matches. Try a shorter word, or <a href="#/about">contact the team</a>.</p>
+    <div class="card faqmore"><div><h3>Didn't find your answer?</h3><p>To report a data error or suggest an update, use the form. For anything else, email the team.</p></div><div class="flex"><a class="btn btn-red btn-sm" href="https://form.typeform.com/to/ZyfGb9tZ" target="_blank" rel="noopener">Suggest an update</a><a class="btn btn-ghost btn-sm" href="#/about">About &amp; contact</a></div></div>
+  </div></section>`;
+};
+P.faqs.after = () => {
+  const q = $('#faq-q'); let cat = '';
+  const apply = () => { const w = q.value.trim().toLowerCase(); let n = 0;
+    $$('.faqcat').forEach(c => { let any = 0;
+      $$('.faqitem', c).forEach(d => { const ok = (!cat || c.dataset.c === cat) && (!w || d.textContent.toLowerCase().includes(w)); d.hidden = !ok; if (ok) { any++; n++; } });
+      c.hidden = !any; });
+    $('#faq-n').textContent = n + (n === 1 ? ' question' : ' questions'); $('#faq-none').hidden = n > 0; };
+  q.addEventListener('input', apply);
+  $$('.faqchips button').forEach(b => b.onclick = () => { cat = b.dataset.c; $$('.faqchips button').forEach(x => x.classList.toggle('on', x === b)); apply(); });
+  $('#faq-all').onclick = () => { const ds = $$('.faqitem:not([hidden])'); const open = ds.some(d => !d.open); ds.forEach(d => d.open = open); $('#faq-all').textContent = open ? 'Collapse all' : 'Expand all'; };
+  apply();
+};
+const PARTNERS = [
+  ['ECIU', 'Energy & Climate Intelligence Unit', 'https://eciu.net/', 'img/eciu.svg', 46, 'A non-profit organisation supporting informed debate on energy and climate change issues in the UK. Britain faces important choices on energy and on responding to climate change, and ECIU believes it is vital that debates on these issues are underpinned by evidence and set in their proper context.'],
+  ['DDL', 'Data-Driven EnviroLab', 'https://datadrivenlab.org/', 'img/dde.svg', 58, 'An interdisciplinary research lab headed by Dr. Angel Hsu and based at the University of North Carolina-Chapel Hill. DDL uses innovative data analytics, AI and machine learning processes, and large-scale and unconventional datasets to develop solutions to contemporary environmental problems and strengthen environmental policymaking across all levels.'],
+  ['NewClimate', 'NewClimate Institute', 'https://newclimate.org/', 'img/nci.svg', 54, 'A non-profit institute established in 2014. It supports research and implementation of action against climate change around the globe, covering international climate negotiations, tracking climate action, climate and development, climate finance and carbon market mechanisms. It aims at connecting up-to-date research with the real world decision making processes.'],
+  ['Oxford', 'Oxford Net Zero', 'https://netzeroclimate.org/', 'img/ox.svg', 62, 'An interdisciplinary research initiative based at the University of Oxford, building on fifteen years of research on climate neutrality. As a network of leading researchers, it provides advice and expertise in the global race to net zero by national governments, global industry leaders and international organisations.']
+];
+P.about = () => `
+  <section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">About &amp; contact</p><h1 style="font-size:clamp(30px,4.5vw,46px)">Transparency and accountability on net zero</h1><p>The only independent tool that gives a comprehensive view of net zero across all nations and the world's largest regions, cities and companies.</p></div></section>
+  <section><div class="wrap grid2" style="align-items:start">
+    <div><h2 class="h-brand">What we do</h2>
+      <p class="lede">We collect data on (i) targets set and (ii) the factors that show whether those targets are robust: essentially, how serious companies and governments are about meaningfully cutting their net emissions to zero.</p>
+      <p>You can investigate specific entities, sectors or regions, take a global snapshot that is accurate at that moment, or evaluate progress over time. The Data Explorer is a simple way to interrogate the data by entity type, region and integrity marker. The Tracker follows more of the UN Expert Group (HLEG) recommendations than any other initiative, and plans to align more closely still.</p>
+      <div class="flex mt2"><a class="btn btn-purple btn-sm" href="#/explore">Explore the data</a><a class="btn btn-ghost btn-sm" href="#/learn/method">How we assess targets</a></div></div>
+    <div class="grid2" style="gap:16px">
+      <div class="card" style="border-top:5px solid var(--red)"><h3>Why</h3><p>The Tracker was born of necessity. Net zero targets have multiplied, especially after the IPCC Special Report on 1.5°C (2018), but accountability and transparency have not kept up. Stakeholders cannot tell targets backed by robust plans from mere rhetoric.</p></div>
+      <div class="card" style="border-top:5px solid var(--green)"><h3>Our mission</h3><p>To create the definitive global resource for collating, assessing and presenting the scale and quality of net zero pledges across nations, sub-nationals, companies and other entities.</p></div>
+    </div>
+  </div></section>
+  <section class="band"><div class="wrap">
+    <div class="center"><h2 class="h-brand">Net Zero Tracker partners</h2><p class="lede">A collaboration between four organisations.</p></div>
+    <div class="grid2 mt2">${PARTNERS.map(p => `<a class="card partner" href="${p[2]}" target="_blank" rel="noopener"><span class="plogo"><img src="${p[3]}" alt="" style="height:${Math.min(p[4], 52)}px"></span><span><h3>${esc(p[1])} ↗</h3><p>${esc(p[5])}</p></span></a>`).join('')}</div>
+  </div></section>
+  <section><div class="wrap grid2" style="align-items:start">
+    <div><h2 class="h-brand">Acknowledgements</h2>
+      <p>Funding is entirely provided by philanthropic foundations. The Net Zero Tracker is generously backed by the <b>IKEA Foundation</b>, the <b>European Climate Foundation (ECF)</b> and <b>ClimateWorks Foundation</b>.</p>
+      <p>The team owes a huge debt of gratitude to all Net Zero Tracker volunteers, whose names are in the <a href="https://zerotracker.net/methodology" target="_blank" rel="noopener">methodology</a>.</p></div>
+    <div><h2 class="h-brand">Supporting partners</h2>
+      <ul class="flags plain">
+        <li><b>Arboretica</b> (James Zhang and team): open-source intelligence tools and semantic algorithms that, with DDL, help connect fragmented public data from all over the world.</li>
+        <li><b>Climate Policy Radar</b>: a fellow initiative dedicated to tracking, organising and enabling credible analysis of disparate climate data. The two work closely together.</li>
+        <li><b>HICARI Project</b> (Hub of Intelligence for Climate Action, Resilience and Integrity): a research project at the Institute for Future Initiatives, University of Tokyo, informing Japan's net-zero transition by 2050.</li>
+      </ul></div>
+  </div></section>
+  <section class="band" id="contact"><div class="wrap">
+    <div class="center"><h2 class="h-brand">Contact</h2><p class="lede">The team wants to hear from you, especially in these early stages.</p></div>
+    <div class="grid3 mt2">
+      <div class="card"><h3>Report an error or add information</h3><p>To flag a data inaccuracy or add information that gives a fuller picture of an entity, use the form.</p><a class="btn btn-red btn-sm" href="https://form.typeform.com/to/ZyfGb9tZ" target="_blank" rel="noopener">Suggest an update</a></div>
+      <div class="card"><h3>Questions about updates</h3><p>If you have questions about the update process, email the team.</p><a class="btn btn-ghost btn-sm" href="mailto:updates@zerotracker.net">updates@zerotracker.net</a></div>
+      <div class="card"><h3>Everything else</h3><p>Feedback, press and general enquiries.</p><a class="btn btn-ghost btn-sm" href="mailto:hello@zerotracker.net">hello@zerotracker.net</a></div>
+    </div>
+    <p class="center muted mt2">Looking for quick answers first? <a href="#/faqs">Read the FAQs</a>.</p>
+  </div></section>`;
+
 /* ---------- router ---------- */
 function route(){
   const h = location.hash.replace(/^#\/?/, '');
@@ -1085,7 +1158,7 @@ function route(){
   $('#main').innerHTML = P[page](params, arg);
   $$('#nav a[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === page));
   $('#nav').classList.remove('open');
-  document.title = (page === 'entity' && BY[arg] ? BY[arg].n + ' | ' : page !== 'home' ? ({explore:'Explore',compare:'Compare',learn:'Learn',goodnet:'Good net zero',policymakers:'For policymakers',activists:'For advocates',notes:'About this prototype'}[page] + ' | ') : '') + 'Net Zero Tracker (prototype)';
+  document.title = (page === 'entity' && BY[arg] ? BY[arg].n + ' | ' : page !== 'home' ? ({explore:'Explore',compare:'Compare',learn:'Learn',goodnet:'Good net zero',policymakers:'For policymakers',activists:'For advocates',notes:'About this prototype',faqs:'FAQs',about:'About & contact'}[page] + ' | ') : '') + 'Net Zero Tracker (prototype)';
   if (P[page].after) P[page].after(params, arg);
   if (!(page === 'learn' && arg)) window.scrollTo(0, 0);
 }
