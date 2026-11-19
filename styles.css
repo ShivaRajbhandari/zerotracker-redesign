@@ -523,3 +523,7 @@ td.ms .more{display:inline-block;margin-left:4px;padding:0 6px;border-radius:9px
 ul.flags.plain li{margin-bottom:10px}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 @media (max-width:560px){.card.partner{flex-direction:column}}
+
+.ckkey{display:inline-flex;align-items:center;flex-wrap:wrap;gap:4px 14px;font-size:14px}
+.ckkey>span{display:inline-flex;align-items:center;gap:5px}
+.ckkey .ck{width:18px;height:18px}
