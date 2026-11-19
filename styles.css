@@ -534,3 +534,17 @@ ul.flags.plain li{margin-bottom:10px}
 .seg button b{font-size:17px}.seg button span{font-size:13px;color:var(--muted)}
 .seg button.on{background:var(--purple);color:#fff}.seg button.on span{color:#e0d6ea}
 @media (max-width:560px){.seg{display:flex;width:100%}.seg button{flex:1;min-width:0;padding:10px 12px}}
+
+.nzd svg{width:100%;height:auto;display:block}
+.nzp{cursor:pointer;transition:opacity .15s}
+.nzp.dim{opacity:.3}
+.nzp .b{transition:y .25s,height .25s}
+.nzp.hot .b{filter:drop-shadow(0 3px 6px rgba(39,16,57,.35))}
+.nzp:focus{outline:none}.nzp:focus-visible .b{stroke:#271039;stroke-width:2}
+.nzd-cap{min-height:74px;margin:6px 0 10px;padding:12px 14px;background:var(--band);border-radius:8px;font-size:15px;line-height:1.45;color:var(--ink-2)}
+.nzd-cap.warn{background:#fdeceb}
+.nzd-cap b{color:var(--purple)}.nzd-cap b.bad{color:#c8331f}
+.nzd-ctl{display:grid;grid-template-columns:1fr auto;gap:4px 12px;align-items:center;font-size:14px;color:var(--ink-2)}
+.nzd-ctl span{grid-column:1/-1;font-weight:600}
+.nzd-ctl input{width:100%;accent-color:var(--red)}
+.nzd-ctl output{font-weight:800;color:var(--purple);min-width:3ch;text-align:right}

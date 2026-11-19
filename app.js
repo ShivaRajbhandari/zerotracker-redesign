@@ -770,22 +770,52 @@ P.learn = (params, sub) => `
     <h2 class="h-brand">Glossary</h2><p class="lede mt0">Every technical term on this site, in one line, plus why it matters.</p>
     <div class="gloss mt2">${GLOSS.map(([t,d,w]) => `<details><summary>${t}</summary><p class="plain">${d}</p><p>${w}</p></details>`).join('')}</div>
   </div></section>`;
-P.learn.after = (params, sub) => { if (sub === 'method') setTimeout(() => $('#method')?.scrollIntoView(), 30); };
+P.learn.after = (params, sub) => { nzdWire(); if (sub === 'method') setTimeout(() => $('#method')?.scrollIntoView(), 30); };
+const NZD = {
+  today:['Today’s emissions','Everything released into the air now. Shown as 100 units so the other bars read as percentages.'],
+  cut:['Cut emissions first','Real reductions: using less energy, switching to clean power, changing industrial processes. Net zero standards ask for roughly 90% or more.'],
+  left:['What is left over','The hardest emissions to remove at the source, such as some industrial processes and farming. This should be small.'],
+  rem:['Remove the remainder','Permanent removal of carbon from the air balances only this small leftover. It is not a substitute for cutting.'],
+  net:['Net zero','Leftover emissions equal the carbon removed, so the net added to the atmosphere is zero.']
+};
 function netZeroDiagram(){
-  const bar = (x, h, col, lab, sub) => `<rect x="${x}" y="${230-h}" width="70" height="${h}" rx="4" fill="${col}"/><text x="${x+35}" y="252" text-anchor="middle" font-size="14" font-weight="700" fill="#271039">${lab}</text><text x="${x+35}" y="270" text-anchor="middle" font-size="12" fill="#5f5869">${sub}</text>`;
-  return `<svg viewBox="0 0 440 290" role="img" aria-label="Diagram: emissions today, cut by about 90%, small remainder balanced by removals equals net zero">
-    ${bar(20, 200, '#A5865C', 'Today', 'emissions')}
-    <path d="M100 60 C140 60 140 200 175 205" fill="none" stroke="#c8331f" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#ah)"/>
-    <text x="118" y="110" font-size="13" font-weight="700" fill="#c8331f">cut ~90%+</text>
-    ${bar(180, 22, '#A5865C', 'Leftover', 'residual')}
-    <rect x="270" y="230" width="70" height="22" rx="4" fill="#5EA845" transform="translate(0,-22)"/>
-    <text x="305" y="252" text-anchor="middle" font-size="14" font-weight="700" fill="#271039">Removed</text><text x="305" y="270" text-anchor="middle" font-size="12" fill="#5f5869">permanently</text>
-    <text x="258" y="222" font-size="22" font-weight="800" fill="#271039">−</text>
-    <text x="352" y="222" font-size="22" font-weight="800" fill="#271039">=</text>
-    <text x="400" y="226" text-anchor="middle" font-size="26" font-weight="800" fill="#3B7CC3">0</text>
-    <text x="400" y="252" text-anchor="middle" font-size="14" font-weight="700" fill="#271039">Net zero</text>
-    <defs><marker id="ah" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#c8331f"/></marker></defs>
-  </svg>`;
+  return `<div class="nzd" id="nzd"><svg viewBox="0 0 520 310" role="img" aria-label="Chart: emissions today, a deep cut, a small leftover, balanced by permanent removals to reach net zero" id="nzd-svg"></svg>
+  <div class="nzd-cap" id="nzd-cap" aria-live="polite"></div>
+  <label class="nzd-ctl" for="nzd-cut"><span>Try it: how much do emissions get cut?</span><input type="range" id="nzd-cut" min="40" max="98" value="90"><output id="nzd-out">90%</output></label></div>`;
+}
+function nzdDraw(cut, act){
+  const L = 100 - cut, k = 1.9, base = 250, top = base - 100 * k;
+  const bar = (key, x, y, h, col, val, lab, sub) => `<g class="nzp ${act && act !== key ? 'dim' : ''} ${act === key ? 'hot' : ''}" data-p="${key}" tabindex="0" role="button" aria-label="${esc(NZD[key][0])}">
+    <rect class="hit" x="${x - 12}" y="${top - 26}" width="94" height="${base - top + 70}" fill="transparent"/>
+    <rect class="b" x="${x}" y="${y}" width="70" height="${Math.max(h, 1.5)}" rx="4" fill="${col}"/>
+    <text x="${x + 35}" y="${y - 8}" text-anchor="middle" font-size="17" font-weight="800" fill="#271039">${val}</text>
+    <text x="${x + 35}" y="${base + 20}" text-anchor="middle" font-size="14" font-weight="700" fill="#271039">${lab}</text>
+    <text x="${x + 35}" y="${base + 37}" text-anchor="middle" font-size="12" fill="#5f5869">${sub}</text></g>`;
+  const ln = (x1, y) => `<line x1="${x1}" x2="${x1 + 60}" y1="${y}" y2="${y}" stroke="#bdb5c6" stroke-dasharray="3 3"/>`;
+  const x = [24, 128, 232, 336, 440];
+  $('#nzd-svg').innerHTML = `<line x1="10" x2="510" y1="${base}" y2="${base}" stroke="#d9d3df"/>
+    ${ln(x[0] + 70, top)}${ln(x[1] + 70, base - L * k)}${ln(x[2] + 70, base - L * k)}${ln(x[3] + 70, base)}
+    ${bar('today', x[0], top, 100 * k, '#A5865C', '100', 'Today', 'emissions')}
+    ${bar('cut', x[1], top, cut * k, '#E13B26', '−' + cut, 'Cut', 'reductions')}
+    ${bar('left', x[2], base - L * k, L * k, '#A5865C', L, 'Leftover', 'residual')}
+    ${bar('rem', x[3], base - L * k, L * k, '#5EA845', '−' + L, 'Removed', 'permanently')}
+    ${bar('net', x[4], base - 1.5, 1.5, '#3B7CC3', '0', 'Net zero', 'balanced')}
+    <circle cx="${x[4] + 35}" cy="${base - 14}" r="10" fill="none" stroke="#3B7CC3" stroke-width="2.5"/>`;
+  const ok = L <= 15;
+  const cap = act ? `<b>${esc(NZD[act][0])}.</b> ${esc(NZD[act][1])}` : (ok ? '<b>Cut deeply first, then remove only what is left.</b> Hover or tap any bar to see what it means.' : `<b class="bad">Too little cut.</b> With ${L}% left over, the removals needed are as big as ${L}% of today’s emissions. That is what an offset-heavy target looks like, and it is not net zero.`);
+  $('#nzd-cap').innerHTML = cap; $('#nzd-cap').classList.toggle('warn', !ok && !act);
+}
+function nzdWire(){
+  let cut = 90, act = null; const svg = $('#nzd-svg'); if (!svg) return;
+  const draw = () => nzdDraw(cut, act);
+  const set = k => { if (k !== act) { act = k; draw(); } };
+  svg.addEventListener('mouseover', ev => set(ev.target.closest('[data-p]')?.dataset.p || null));
+  svg.addEventListener('mouseleave', () => set(null));
+  svg.addEventListener('focusin', ev => set(ev.target.closest('[data-p]')?.dataset.p || null));
+  svg.addEventListener('focusout', () => set(null));
+  svg.addEventListener('click', ev => set(ev.target.closest('[data-p]')?.dataset.p || null));
+  $('#nzd-cut').oninput = e => { cut = +e.target.value; $('#nzd-out').textContent = cut + '%'; draw(); };
+  draw();
 }
 
 /* ---------- POLICYMAKERS ---------- */
