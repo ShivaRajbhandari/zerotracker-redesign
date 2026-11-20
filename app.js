@@ -1257,9 +1257,14 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <div><h3>One integrated map</h3><p>Countries, regions and cities are on a single zoomable map, as on the live site. A side panel holds the layer switches and the colour menu, and the key sits directly under whichever colour option is selected, so there is no separate legend to hunt for. There are four ways to colour it: how firm the commitment is, the target year, whether there is a milestone before 2035, and how many credibility checks are met.</p></div>
       <div><h3>A picture of the companies data</h3><p>A treemap of the 1,981 largest public companies, one box each, grouped by sector and sized by revenue. It is coloured with the same four options and the same legend, and every box links to the company profile.</p></div>
       <div><h3>Good net zero, in full</h3><p>The six-initiative comparison is rebuilt with all of its data: every criterion rated by every initiative, the two convergence levels, definitions, and the quoted explanation and source page behind 75 entries. New views show where the experts agree and what each initiative covers, with plain-English summaries added.</p></div>
-      <div><h3>Clearer graphics elsewhere</h3><p>Donut charts become labelled bars, and a new "credibility gap" chart shows which elements targets lack.</p></div>
+      <div><h3>Clearer graphics elsewhere</h3><p>Donut charts become labelled bars, and a new "credibility gap" chart shows which elements targets lack. The "how firm is the commitment" ladder uses the same light-to-dark green scale as the map.</p></div>
+      <div><h3>A Learn page that starts from the basics</h3><p>It opens with why net zero matters for the climate and the Paris Agreement goals, a greenhouse-effect diagram, and an interactive "net zero in one picture" that shows emissions as pollution from power plants, cars and cows, then what cutting, removing and relying on offsets each look like. A section on offsets, removals and greenwashing links from the picture's warnings.</p></div>
+      <div><h3>Explore: governments or companies at the top</h3><p>A switch above the table shows the map (governments) or the treemap (companies). Hovering "Next milestone" lists every later milestone up to the target. A small key explains the check icons.</p></div>
+      <div><h3>Choose what to compare with</h3><p>On every profile, "How it compares" can be set to the entry's region, its country, the world, or similar size (or sector and revenue for companies). Regions are our own grouping (for example the Middle East and North Africa, South and Central Asia, China on its own). Cities with fewer than 500,000 people, which the Tracker does not cover, pick a city to compare with instead.</p></div>
+      <div><h3>Share it and write to someone who can act</h3><p>The advocates page drafts a post for X, Facebook and LinkedIn, downloads a picture card for Instagram stories or posts, and drafts an email to a policymaker. Emails can be written in the language of the country (English, Spanish, French, Portuguese, German, Italian, Arabic or Chinese), with local place names. Nothing is sent from the site.</p></div>
+      <div><h3>FAQs and About inside the prototype</h3><p>The live site's FAQs and About and contact pages are rebuilt here with the same content, and a dismissible newsletter box replaces the top strip.</p></div>
     </div></div>
-    <div><h2 class="h-brand" style="font-size:24px">Things we noticed on the live site</h2>
+    <div><h2 class="h-brand" style="font-size:24px">Possible errors on the live site</h2>
       <ul class="flags">
         <li>Company filter "Target year" lists <b>1000</b> (BAIC Motor's entry). Probably a data-entry error.</li>
         <li>Meritz Financial's annual revenue is recorded as <b>$115.6 trillion</b>, more than 100 times the largest company. It is probably in Korean won. This prototype leaves that figure out.</li>
@@ -1273,6 +1278,9 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <ul class="flags">
         <li>Is the "X of Y checks met" summary acceptable, or should profiles show checks without a total?</li>
         <li>The brand font (franzSans) is licensed, so this prototype uses Outfit. The production site would use the real font.</li>
+        <li>Cities in the data: the methodology says all cities over 500,000 people, but 103 entries are smaller and the population list and its date are not given. The prototype only compares cities of 500,000 or more.</li>
+        <li>The regions used for comparison (eight on the live site's data, nine here) are not defined in the methodology. The prototype's grouping is our own and the team may prefer its own.</li>
+        <li>The plain-language wording on the Learn page, the offsets section and the translated emails is our own draft. The translations have not been checked by native speakers.</li>
         <li>The newsletter box links to the live Mailchimp sign-up page. It can be closed and stays closed for the rest of the visit.</li>
         <li>The map uses the live site's own boundary and city-location files. 16 regions and 1 city have no location in them yet, so they appear in the tables but not on the map.</li>
       </ul>
