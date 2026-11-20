@@ -483,8 +483,8 @@ function filtered(){
 }
 
 /* ---------- EXPLORE: how countries add up to global emissions, and the pathways ahead ---------- */
-function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120br'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
-const GL_STACK = ['#cdb998', '#a9c4e4', '#ecd49a', '#b9d8a8', '#c5bdd0', '#dcbcd6', '#e8e4ec'];
+function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bt'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
+const GL_STACK = ['#cdb998', '#a9c4e4', '#c5bdd0', '#dcbcd6', '#e8c3a0', '#b9d8a8', '#f0d98f', '#e4b4b4', '#e8e4ec'];
 const GL_SCN = {paris:['#2f8a4c', 'Paris-aligned pathway', 'Paris-aligned'], ndc:['#1f4e8c', 'All 2030 and 2035 NDCs met', 'NDCs met'], pledges:['#6b3fa0', 'All pledges and net zero targets met', 'All pledges met'], pol:['#c27a00', 'Current policies', 'Current policies'], none:['#E13B26', 'No further action (past trend continues)', 'No further action']};
 function glScenarios(G){
   const C = G.cat, at = (a, i) => a[i], mid = (h, l) => h.map((v, i) => v == null || l[i] == null ? null : (v + l[i]) / 2);
@@ -511,10 +511,10 @@ function globalChartHtml(G, st){
     ${yt.map(t => `<line x1="${Lm}" x2="${W - Rm}" y1="${y(t)}" y2="${y(t)}" stroke="#ece8ef"/><text x="${Lm - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${t}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text>`).join('')}
     <text x="10" y="${T - 8}" font-size="12" fill="#7a7385">Gt CO₂e per year</text>
-    ${pmarks(x, x0, x1, T, H - B)}
     ${G.s.map((_, k) => `<path d="${area(k)}" fill="${GL_STACK[k]}" stroke="#fff" stroke-width=".6"><title>${esc(G.names[k])}</title></path>`).join('')}
     <path d="${path(G.world.map((v, i) => [x0 + i, v]))}" fill="none" stroke="#271039" stroke-width="2.4"/>
     <line x1="${x(2024)}" x2="${x(2024)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
+    ${pmarks(x, x0, x1, T, H - B)}
     ${['paris', 'pledges', 'pol'].map(k => `<path d="${band(SC[k].hi, SC[k].lo)}" fill="${GL_SCN[k][0]}" opacity=".13"/>`).join('')}
     ${[2030, 2035, 2050].filter(v => v <= x1).map(v => '').join('')}
     ${['pol', 'pledges', 'ndc', 'paris', 'none'].map(k => `<path d="${path(lineOf(SC[k].mid))}" fill="none" stroke="${GL_SCN[k][0]}" stroke-width="2.8" ${k === 'none' ? 'stroke-dasharray="7 5"' : ''} stroke-linejoin="round"/>`).join('')}
@@ -532,7 +532,7 @@ function globalChartHtml(G, st){
     <div class="card emis"><div class="emis-facts">${stats}</div>${out}
     <div class="emis-key">${G.names.map((n, k) => `<span><i style="background:${GL_STACK[k]}"></i>${esc(n)}</span>`).join('')}<span><i style="background:#271039;height:3px"></i>Global total</span></div>
     <div class="emis-key" style="margin-top:6px">${['paris', 'ndc', 'pledges', 'pol', 'none'].map(k => `<span><i style="background:${GL_SCN[k][0]};height:4px"></i>${esc(GL_SCN[k][1])}</span>`).join('')}</div>
-    <p class="muted emis-src"><b>Past:</b> total greenhouse gas emissions by country, from <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (including land use and forestry; Jones et al., 2024). The six largest emitters in 2024 are shown, the other countries are grouped. <b>Ahead:</b> scenarios from the <a href="https://climateactiontracker.org/global/emissions-pathways/" target="_blank" rel="noopener">Climate Action Tracker</a> (November 2026 update; shaded bands show its high and low estimates, lines show the middle). The country figures are scaled by up to about 3% so that they add up to its global total, which the scenarios continue from, and every scenario starts from the last past value. The Paris-aligned pathway is its 2026 benchmark, which reflects that global emissions have not yet peaked and that overshooting 1.5°C is now unavoidable; its earlier, steeper 1.5°C pathway was retired in 2026. The pledges scenario adds net zero targets in submitted long-term strategies. “No further action” is a simple extension of the 2014–2024 trend (${SC.slope >= 0 ? '+' : '−'}${Math.abs(SC.slope).toFixed(2)} Gt a year), made for this prototype and not a Climate Action Tracker scenario. © 2026 Climate Analytics and NewClimate Institute, used with credit for non-commercial purposes.</p></div>`;
+    <p class="muted emis-src"><b>Past:</b> total greenhouse gas emissions by country, from <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (including land use and forestry; Jones et al., 2024). Countries are grouped into regions, with China and the United States and Canada shown on their own; “Other” is international shipping and aviation and anything not matched to a country. <b>Ahead:</b> scenarios from the <a href="https://climateactiontracker.org/global/emissions-pathways/" target="_blank" rel="noopener">Climate Action Tracker</a> (November 2026 update; shaded bands show its high and low estimates, lines show the middle). The country figures are scaled by up to about 3% so that they add up to its global total, which the scenarios continue from, and every scenario starts from the last past value. The Paris-aligned pathway is its 2026 benchmark, which reflects that global emissions have not yet peaked and that overshooting 1.5°C is now unavoidable; its earlier, steeper 1.5°C pathway was retired in 2026. The pledges scenario adds net zero targets in submitted long-term strategies. “No further action” is a simple extension of the 2014–2024 trend (${SC.slope >= 0 ? '+' : '−'}${Math.abs(SC.slope).toFixed(2)} Gt a year), made for this prototype and not a Climate Action Tracker scenario. © 2026 Climate Analytics and NewClimate Institute, used with credit for non-commercial purposes.</p></div>`;
 }
 function globalWire(st){
   const box = $('#ex-global-body'); if (!box) return;
@@ -654,7 +654,7 @@ function timelineSVG(e){
 function pmarks(x, xa, xb, T, bottom){
   return [[1997, 'Kyoto Protocol, 1997', 'end'], [2015, 'Paris Agreement, 2015', 'start']].filter(([yr]) => yr >= xa && yr <= xb).map(([yr, l, a]) => `<line x1="${x(yr)}" x2="${x(yr)}" y1="${T}" y2="${bottom}" stroke="#2f8a4c" stroke-width="1.6" stroke-dasharray="4 4" opacity=".75"/><text x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3">${l}</text>`).join('');
 }
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120br'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bt'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
@@ -678,9 +678,9 @@ function emisChart(e){
     ${yt.map(t => `<line x1="${L}" x2="${W - R}" y1="${yy(t)}" y2="${yy(t)}" stroke="#ece8ef"/><text x="${L - 8}" y="${yy(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${fmt(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text><line x1="${x(t)}" x2="${x(t)}" y1="${H - B}" y2="${H - B + 4}" stroke="#bbb"/>`).join('')}
     <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">Mt CO₂e per year</text>
-    ${pmarks(x, y0, endY, T, H - B)}
     <path d="${line}L${lx} ${yy(0)}L${x(y0)} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/><path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>
     <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
+    ${pmarks(x, y0, endY, T, H - B)}
     ${path.join('')}
     <circle cx="${lx}" cy="${ly}" r="5" fill="#A5865C" stroke="#fff" stroke-width="2"/>
     <text x="${lx - 10}" y="${ly - 26}" text-anchor="end" font-size="12.5" font-weight="700" fill="#5b4a2e" paint-order="stroke" stroke="#fff" stroke-width="4">${fmtMt(last)} Mt in ${y1}</text>
