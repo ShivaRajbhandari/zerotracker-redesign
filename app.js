@@ -798,6 +798,28 @@ const GLOSS = [
   ['Just transition','Making sure workers and communities that depend on high-carbon industries are not left behind.','Increasingly expected in national plans and company strategies.'],
   ['Base year','The year that a percentage cut is measured against, such as "45% below 2010".','An early or high-emissions base year can make a target look bigger than it is.'],
 ];
+const GHG_CAP = ['A natural amount of greenhouse gas lets most heat escape, and keeps the Earth warm enough to live on.', 'With more greenhouse gases, more heat is trapped and sent back down. Less escapes to space, so the planet warms.'];
+function ghgSvg(l){
+  const esc4 = l ? [1, 0, 0, 0] : [1, 1, 1, 0], xs = [210, 260, 310, 360];
+  const dots = []; const n = l ? 22 : 7; for (let i = 0; i < n; i++) dots.push([150 + (i * 97 % 235), 128 + (i * 53 % 44)]);
+  const arrow = (x1, y1, x2, y2, c) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="4" stroke-linecap="round" marker-end="url(#ah-${c.slice(1)})"/>`;
+  const mk = c => `<marker id="ah-${c.slice(1)}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${c}"/></marker>`;
+  return `<svg viewBox="0 0 440 340" role="img" aria-label="Diagram of the greenhouse effect with ${l ? 'more' : 'fewer'} greenhouse gases" style="width:100%;height:auto">
+    <defs>${mk('#FAA542')}${mk('#E13B26')}</defs>
+    <rect width="440" height="340" fill="#f4f8fc" rx="8"/>
+    <rect x="0" y="118" width="440" height="64" fill="#A5865C" opacity="${l ? .28 : .12}"><title>Layer of greenhouse gases</title></rect>
+    <text x="430" y="112" font-size="12" text-anchor="end" fill="#5f5869">Greenhouse gases in the air</text>
+    ${dots.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#A5865C"><title>A greenhouse gas molecule, such as carbon dioxide</title></circle>`).join('')}
+    <circle cx="60" cy="52" r="26" fill="#FAA542"><title>The sun</title></circle><text x="60" y="95" font-size="12" text-anchor="middle" fill="#5f5869">Sun</text>
+    ${arrow(92, 64, 150, 276, '#FAA542')}${arrow(110, 54, 175, 276, '#FAA542')}
+    <text x="124" y="214" font-size="12" fill="#a8670a" transform="rotate(68 124 214)">Sunlight</text>
+    <path d="M0 292 Q220 270 440 292 V340 H0z" fill="${l ? '#c98b4a' : '#7aa95c'}"><title>${l ? 'The ground gets warmer' : 'The ground'}</title></path>
+    <text x="220" y="326" font-size="13" text-anchor="middle" fill="#fff" font-weight="600">${l ? 'Warmer Earth' : 'Earth'}</text>
+    ${xs.map((x, i) => esc4[i] ? arrow(x, 268, x, 28, '#E13B26') : `${arrow(x, 268, x, 150, '#E13B26')}${arrow(x + 14, 152, x + 14, 262, '#E13B26')}`).join('')}
+    <text x="430" y="14" font-size="12" text-anchor="end" fill="#b92a17">Heat escaping to space</text>
+    <text x="430" y="246" font-size="12" text-anchor="end" fill="#b92a17" paint-order="stroke" stroke="#f4f8fc" stroke-width="4">Heat sent back down</text>
+  </svg>`;
+}
 P.learn = (params, sub) => `
   <section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">Net zero explained</p><h1 style="font-size:clamp(30px,4.5vw,46px)">What net zero means, and how to tell a real target from a slogan</h1><p>A 2-minute primer, a glossary, and how we assess every target.</p></div></section>
   <section id="why"><div class="wrap">
@@ -807,12 +829,20 @@ P.learn = (params, sub) => `
       <div class="card" style="border-top:5px solid var(--red)"><h3>So warming only stops at zero</h3><p>Cutting emissions slows the warming, but does not stop it. The temperature stops climbing only when the carbon dioxide we add is balanced by what is taken out. That is what “net zero” means.</p></div>
       <div class="card" style="border-top:5px solid var(--green)"><h3>Targets turn that into action</h3><p>Governments, regions, cities and companies set net zero targets to say when, and how, they will get there. The Tracker checks whether each promise holds up.</p></div>
     </div>
+    <div class="grid2 mt2" style="align-items:center">
+      <div><h3 style="font-size:22px">The greenhouse effect, in three steps</h3>
+        <ol class="asks"><li>Sunlight reaches the Earth and warms the ground.<small>About half of the sun’s energy that reaches Earth is absorbed at the surface.</small></li>
+        <li>The warm ground sends heat back up.<small>Some of it escapes to space.</small></li>
+        <li>Greenhouse gases catch some of that heat and send it back down.<small>This keeps the planet livable. But the more gases we add, the more heat is sent back, and the warmer it gets.</small></li></ol>
+        <div class="seg ghgseg" id="ghgseg"><button data-l="0" class="on"><b>Before: fewer gases</b></button><button data-l="1"><b>Now: more gases</b></button></div></div>
+      <div class="card" style="padding:12px"><div id="ghg">${ghgSvg(0)}</div><p id="ghg-cap" class="muted" style="font-size:14.5px;margin:8px 4px 2px">${GHG_CAP[0]}</p></div>
+    </div>
     <div class="card mt2" style="background:var(--band)"><h3>The global goal: the Paris Agreement</h3>
       <p>In 2015, nearly every country agreed in Paris to keep global warming <b>well below 2°C</b> above pre-industrial levels, and to try to keep it to <b>1.5°C</b>. The world has already warmed by more than 1°C.</p>
       <ul class="flags plain"><li>To have a good chance of staying at 1.5°C, the UN climate science panel (the IPCC) found that global carbon dioxide emissions need to fall by roughly <b>45% by 2030</b> (from 2010 levels) and reach <b>net zero around 2050</b>.</li>
       <li>For 2°C, net zero is needed around <b>2070</b>.</li>
       <li>Each country sets its own national plan under the agreement and has to update it every five years. Many have added net zero dates, and so have many cities and companies.</li></ul>
-      <p class="muted" style="font-size:14px;margin-bottom:0">Figures are from the IPCC’s 2018 special report on 1.5°C. This summary is our own plain wording and should be checked against the source before it is published.</p></div>
+      <p class="muted" style="font-size:14px;margin-bottom:0">Figures are from the IPCC’s 2018 special report on 1.5°C.</p></div>
   </div></section>
   <section><div class="wrap grid2" style="align-items:center">
     <div><h2 class="h-brand">Net zero in one picture</h2>
@@ -862,7 +892,8 @@ P.learn = (params, sub) => `
     <h2 class="h-brand">Glossary</h2><p class="lede mt0">Every technical term on this site, in one line, plus why it matters.</p>
     <div class="gloss mt2">${GLOSS.map(([t,d,w]) => `<details><summary>${t}</summary><p class="plain">${d}</p><p>${w}</p></details>`).join('')}</div>
   </div></section>`;
-P.learn.after = (params, sub) => { nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
+P.learn.after = (params, sub) => {
+  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').textContent = GHG_CAP[l]; $$('#ghgseg button').forEach(x => x.classList.toggle('on', x === b)); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
   today:['Today’s emissions','Gases released when we burn coal, oil and gas for electricity, transport, heating and industry. Shown as 100 units so the other bars read as percentages.'],
   cut:['Cutting emissions','Releasing less in the first place: clean electricity from sun and wind, electric vehicles, better insulated buildings, less waste. Net zero standards ask for roughly 90% or more.'],
@@ -985,6 +1016,12 @@ P.activists = () => {
     <div class="grid4 mt2">${noT.map(e => `<a class="card path" href="#/e/${e.s}" style="border-top-color:var(--red)"><span class="who">${esc(e.cn || '')}</span><h3 style="margin:.2em 0">${esc(e.n)}</h3><p class="muted" style="margin:0">${esc(e.sec || '')} · ${money(e.rev)} revenue</p><p style="margin:.5em 0 0">${esc(targetPhrase(e))}</p><span class="go mt1">See profile →</span></a>`).join('')}</div>
     <p class="mt2"><a href="#/explore?type=company&st=0">See all companies without a target →</a></p>
   </div></section>
+  <section id="share"><div class="wrap">
+    <h2 class="h-brand">Share it, or write to someone who can act</h2>
+    <p class="lede mt0">Pick an entry and we draft a post, a picture card and an email to a policymaker from its own checklist. You can edit everything before you send. Nothing is sent from this site: each button opens X, Facebook, LinkedIn or your own email program with the text filled in.</p>
+    <div class="light mt1" style="max-width:520px">${searchBox('s-share','Search a company, city, region or country…')}</div>
+    <div id="sh-out" class="mt2"><p class="muted">Start by choosing an entry above.</p></div>
+  </div></section>
   <section><div class="wrap grid2">
     <div><h2 class="h-brand">Using the data responsibly</h2>
       <p>Our researchers record what an organisation <b>says</b> in its official documents. We do not judge whether it is on track to deliver. For that, pair this data with emissions data and independent assessments, which are linked on each profile.</p>
@@ -995,7 +1032,74 @@ P.activists = () => {
       <p class="muted" style="font-size:14.5px">Each profile has a "Cite this entry" line and a "Copy briefing paragraph" button. To export a list, go to <a href="#/explore">Explore</a> and choose <b>Export CSV</b>.</p></div>
   </div></section>`;
 };
-P.activists.after = () => wireSearch('s-act');
+function shareText(e){
+  const cs = checks(e), t = tally(cs), gaps = cs.filter(c => c.v === 'no').map(c => shortGap[c.id]).filter(Boolean);
+  let x = isNZ(e) ? `${Nm(e)}: ${targetPhrase(e)}. It meets ${t.yes} of ${cs.length} Net Zero Tracker credibility checks${gaps.length ? `; gap: ${gaps[0]}` : ''}.` : `${Nm(e)} has no net zero target, according to the Net Zero Tracker.`;
+  return x + ' #NetZero #ClimateAction';
+}
+function emailDraft(e){
+  const qs = asks(e).slice(0, 3), cs = checks(e), t = tally(cs);
+  const subject = `Question about ${nm(e)}'s net zero target`;
+  const body = `Dear [name],\n\nI am writing about ${nm(e)}'s climate commitments. According to the Net Zero Tracker, ${isNZ(e) ? `${nm(e)} has set this target: ${targetPhrase(e)}, and meets ${t.yes} of ${cs.length} credibility checks.` : `${nm(e)} has no net zero target.`}\n\nI would be grateful if you could answer these questions:\n\n${qs.map((q, i) => `${i + 1}. ${q[0]}`).join('\n')}\n\nThe full entry is here: ${official(e)}\n\nThank you for your time.\n\n[Your name]`;
+  return {subject, body};
+}
+function shareCard(e, fmt){
+  const W = 1080, H = fmt === 'story' ? 1920 : 1080, c = document.createElement('canvas'); c.width = W; c.height = H;
+  const g = c.getContext('2d'), F = 'Outfit, Helvetica, Arial, sans-serif', cs = checks(e), t = tally(cs);
+  const wrap = (txt, x, y, w, lh) => { let line = ''; for (const wd of txt.split(' ')) { const tr = line ? line + ' ' + wd : wd; if (g.measureText(tr).width > w && line) { g.fillText(line, x, y); y += lh; line = wd; } else line = tr; } g.fillText(line, x, y); return y + lh; };
+  g.fillStyle = '#271039'; g.fillRect(0, 0, W, H);
+  g.fillStyle = '#E13B26'; g.fillRect(0, 0, W, 16);
+  const top = fmt === 'story' ? 260 : 120; let y = top;
+  g.fillStyle = '#ffb3a8'; g.font = `600 34px ${F}`; g.fillText((TYPE[e.t][0] + (e.cn && e.t !== 'country' ? ' · ' + e.cn : '')).toUpperCase(), 80, y); y += 90;
+  g.fillStyle = '#fff'; g.font = `700 78px ${F}`; y = wrap(nm(e), 80, y, W - 160, 92) + 10;
+  g.fillStyle = '#e0d6ea'; g.font = `400 46px ${F}`; y = wrap(targetPhrase(e), 80, y, W - 160, 60) + 30;
+  if (isNZ(e)) {
+    g.fillStyle = '#fff'; g.font = `700 150px ${F}`; g.fillText(t.yes + ' of ' + cs.length, 80, y + 120); y += 160;
+    g.fillStyle = '#e0d6ea'; g.font = `400 42px ${F}`; g.fillText('credibility checks met', 80, y + 40); y += 100;
+    const gaps = cs.filter(k => k.v === 'no').map(k => shortGap[k.id]).filter(Boolean).slice(0, 3);
+    if (gaps.length) { g.fillStyle = '#ffb3a8'; g.font = `600 36px ${F}`; g.fillText('GAPS', 80, y + 20); y += 60; g.fillStyle = '#fff'; g.font = `400 42px ${F}`; gaps.forEach(q => { y = wrap('✗  ' + q, 80, y + 20, W - 160, 56); }); }
+  } else { g.fillStyle = '#fff'; g.font = `700 96px ${F}`; g.fillText('No net zero target', 80, y + 100); }
+  g.fillStyle = '#ffffff'; g.font = `700 40px ${F}`; g.fillText('NET ZERO TRACKER', 80, H - 150);
+  g.fillStyle = '#e0d6ea'; g.font = `400 34px ${F}`; g.fillText(official(e).replace('https://', ''), 80, H - 96);
+  return c;
+}
+function renderShare(e){
+  const em = emailDraft(e), tx = shareText(e);
+  $('#sh-out').innerHTML = `<div class="grid2" style="align-items:start">
+    <div class="card"><h3>Post</h3>
+      <textarea id="sh-text" rows="5" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(tx)}</textarea>
+      <p class="muted" style="font-size:13.5px;margin:4px 0 12px"><span id="sh-n"></span> The link to the entry is added automatically.</p>
+      <div class="actions" style="flex-wrap:wrap">
+        <a class="btn btn-purple btn-sm" id="sh-x" target="_blank" rel="noopener">Post on X</a>
+        <a class="btn btn-ghost btn-sm" id="sh-fb" target="_blank" rel="noopener">Facebook</a>
+        <a class="btn btn-ghost btn-sm" id="sh-li" target="_blank" rel="noopener">LinkedIn</a>
+        <button class="btn btn-ghost btn-sm" id="sh-copy">Copy text</button></div>
+      <h3 class="mt2">Picture card</h3>
+      <p class="muted mt0" style="font-size:14.5px">Instagram does not allow posting from a website, so download the card and add it to your story or post in the app.</p>
+      <div class="actions" style="flex-wrap:wrap"><button class="btn btn-purple btn-sm" data-card="story">Download story (1080×1920)</button><button class="btn btn-ghost btn-sm" data-card="post">Download square post</button></div>
+      <canvas id="sh-prev" style="max-width:220px;margin-top:14px;border-radius:8px;box-shadow:var(--shadow)"></canvas></div>
+    <div class="card"><h3>Email a policymaker</h3>
+      <label class="muted" style="font-size:14px">To (their email address)</label><input id="em-to" type="email" placeholder="name@council.gov" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
+      <label class="muted" style="font-size:14px">Subject</label><input id="em-sub" value="${esc(em.subject)}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
+      <label class="muted" style="font-size:14px">Message</label><textarea id="em-body" rows="13" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(em.body)}</textarea>
+      <div class="actions mt1" style="flex-wrap:wrap"><a class="btn btn-purple btn-sm" id="em-go">Open in my email program</a><button class="btn btn-ghost btn-sm" id="em-copy">Copy message</button></div>
+      <p class="muted" style="font-size:13.5px;margin-bottom:0">We do not know who represents you, so add the address yourself. Replace [name] and [Your name] before sending.</p></div>
+  </div>`;
+  const ta = $('#sh-text'), url = official(e), upd = () => {
+    const q = encodeURIComponent;
+    $('#sh-x').href = `https://twitter.com/intent/tweet?text=${q(ta.value)}&url=${q(url)}`;
+    $('#sh-fb').href = `https://www.facebook.com/sharer/sharer.php?u=${q(url)}`;
+    $('#sh-li').href = `https://www.linkedin.com/sharing/share-offsite/?url=${q(url)}`;
+    const left = 280 - ta.value.length - 24; $('#sh-n').textContent = left >= 0 ? left + ' characters left for X.' : 'Over the X limit by ' + (-left) + ' characters.';
+    $('#em-go').href = `mailto:${encodeURIComponent($('#em-to').value.trim())}?subject=${q($('#em-sub').value)}&body=${q($('#em-body').value)}`;
+  };
+  ['#sh-text', '#em-to', '#em-sub', '#em-body'].forEach(i => $(i).addEventListener('input', upd)); upd();
+  $('#sh-copy').onclick = () => copy(ta.value + ' ' + url);
+  $('#em-copy').onclick = () => copy('Subject: ' + $('#em-sub').value + '\n\n' + $('#em-body').value);
+  const pv = shareCard(e, 'story'), pc = $('#sh-prev'); pc.width = pv.width; pc.height = pv.height; pc.getContext('2d').drawImage(pv, 0, 0);
+  $$('[data-card]').forEach(b => b.onclick = () => { const a = document.createElement('a'); a.download = `${e.s}-${b.dataset.card}.png`; a.href = shareCard(e, b.dataset.card).toDataURL('image/png'); a.click(); });
+}
+P.activists.after = () => { wireSearch('s-act'); wireSearch('s-share', e => { $('#s-share input').value = e.n; $('#s-share .sugg').hidden = true; renderShare(e); }); };
 
 /* ---------- NOTES (for the NZT team) ---------- */
 P.notes = () => `<section class="tight band"><div class="wrap">

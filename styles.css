@@ -560,3 +560,4 @@ ul.flags.plain li{margin-bottom:10px}
 .nzs p{margin:6px 0 0;font-size:15px;line-height:1.45;color:var(--ink-2)}
 .peerseg{margin:0 0 6px}.peerseg button{min-width:0;padding:8px 18px;flex-direction:row}.peerseg button b{font-size:15px}.peerseg button:disabled{opacity:.4;cursor:not-allowed}
 .peerseg{display:flex;width:max-content;max-width:100%;margin-top:14px}
+.ghgseg{display:flex;margin-top:14px;width:max-content;max-width:100%}.ghgseg button{min-width:0;padding:8px 16px;flex-direction:row}.ghgseg button b{font-size:15px}
