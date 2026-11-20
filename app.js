@@ -719,7 +719,7 @@ P.entity = (params, slug) => {
     ${pr.small ? `<p class="muted mt0">${esc(e.n)} has about ${fmt(e.pop)} people. The Tracker's city coverage starts at 500,000, so there is no peer group for it. Choose a city to compare it with.</p>
     <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <div class="seg peerseg" id="peerseg" role="group" aria-label="Compare with">${peerModes(e).map(([m, l]) => `<button data-m="${m}" class="${m === pr.mode ? 'on' : ''}"${m === 'country' && byType(e.t).filter(x => x.c === e.c && (e.t !== 'city' || x.pop >= CITY_MIN)).length < 3 ? ' disabled title="Too few entries in this country"' : ''}><b>${l}</b></button>`).join('')}</div>
     <p class="muted mt1">Compared with ${pr.mode === 'size' ? '' : pr.mode === 'world' && e.t === 'company' ? 'all ' : 'the '}${fmt(px.length)} ${esc(pr.label)}. ${esc(peerBasis(e))}${peerBasis(e) ? ' ' : ''}Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
-    <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:110px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap">${me ? '✓ ' : '✗ '}${esc(e.n.length > 14 ? (e.t==='company'?'This company':'This entry') : e.n)}</td></tr>`; }).join('')}</table>`}
+    <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:110px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap">${me ? '✓ ' : '✗ '}This ${TYPE[e.t][0].toLowerCase()}</td></tr>`; }).join('')}</table>`}
   </div></section>
 
   <section class="tight"><div class="wrap grid2">
@@ -800,6 +800,20 @@ const GLOSS = [
 ];
 P.learn = (params, sub) => `
   <section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">Net zero explained</p><h1 style="font-size:clamp(30px,4.5vw,46px)">What net zero means, and how to tell a real target from a slogan</h1><p>A 2-minute primer, a glossary, and how we assess every target.</p></div></section>
+  <section id="why"><div class="wrap">
+    <div class="center"><h2 class="h-brand">Why net zero matters for the climate</h2><p class="lede">Heat-trapping gases build up in the air. To stop the planet warming, the amount we add has to fall to zero, not just fall.</p></div>
+    <div class="grid3 mt2">
+      <div class="card" style="border-top:5px solid var(--brown)"><h3>Carbon dioxide piles up</h3><p>Carbon dioxide stays in the air for centuries. Each year’s emissions are added to what is already there, a bit like a bathtub filling faster than it drains.</p></div>
+      <div class="card" style="border-top:5px solid var(--red)"><h3>So warming only stops at zero</h3><p>Cutting emissions slows the warming, but does not stop it. The temperature stops climbing only when the carbon dioxide we add is balanced by what is taken out. That is what “net zero” means.</p></div>
+      <div class="card" style="border-top:5px solid var(--green)"><h3>Targets turn that into action</h3><p>Governments, regions, cities and companies set net zero targets to say when, and how, they will get there. The Tracker checks whether each promise holds up.</p></div>
+    </div>
+    <div class="card mt2" style="background:var(--band)"><h3>The global goal: the Paris Agreement</h3>
+      <p>In 2015, nearly every country agreed in Paris to keep global warming <b>well below 2°C</b> above pre-industrial levels, and to try to keep it to <b>1.5°C</b>. The world has already warmed by more than 1°C.</p>
+      <ul class="flags plain"><li>To have a good chance of staying at 1.5°C, the UN climate science panel (the IPCC) found that global carbon dioxide emissions need to fall by roughly <b>45% by 2030</b> (from 2010 levels) and reach <b>net zero around 2050</b>.</li>
+      <li>For 2°C, net zero is needed around <b>2070</b>.</li>
+      <li>Each country sets its own national plan under the agreement and has to update it every five years. Many have added net zero dates, and so have many cities and companies.</li></ul>
+      <p class="muted" style="font-size:14px;margin-bottom:0">Figures are from the IPCC’s 2018 special report on 1.5°C. This summary is our own plain wording and should be checked against the source before it is published.</p></div>
+  </div></section>
   <section><div class="wrap grid2" style="align-items:center">
     <div><h2 class="h-brand">Net zero in one picture</h2>
     <p class="lede">Emissions are the heat-trapping gases, mostly carbon dioxide, released when we burn coal, oil and gas. <b>Net zero</b> means cutting them as far as we can, then taking the small amount left back out of the air.</p><p>It does <b>not</b> mean releasing nothing. It means roughly 90% or more is cut first.</p>
