@@ -1567,10 +1567,12 @@ P.volunteering = () => { const v = NZP.vol || {}; return pageHero('Volunteering'
   <div class="card mt2" style="background:var(--band)"><h3>Volunteer newsletter</h3><p>Want to learn more about net zero, events and what’s happening at the Tracker? Join the bi-weekly volunteer newsletter.</p><a class="btn btn-purple btn-sm" href="${esc(v.news)}" target="_blank" rel="noopener">Subscribe</a></div>
   </div></section>`; };
 P.team = () => { const t = NZP.team || [], ini = n => n.replace(/^Dr\.\s*/, '').split(' ').map(x => x[0]).slice(0, 2).join('');
-  const card = m => `<div class="card tm"><div class="av" aria-hidden="true">${esc(ini(m.n))}</div><div><h3>${esc(m.n)}</h3><p class="job">${esc(m.j)}</p><div class="bio">${m.s}</div><p style="margin:.4em 0 0;font-size:14.5px">${m.li ? `<a href="${esc(m.li)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}${m.li && m.bs ? ' · ' : ''}${m.bs ? `<a href="${esc(m.bs)}" target="_blank" rel="noopener">Bluesky</a>` : ''}</p></div></div>`;
+  const card = m => `<article class="tcard"><div class="tph" tabindex="0" aria-label="${esc(m.n)}: show biography">${m.img ? `<img src="${esc(m.img)}" alt="${esc(m.n)}" loading="lazy">` : `<div class="av2" aria-hidden="true">${esc(ini(m.n))}</div>`}<div class="tbio">${m.s}</div></div>
+    <div class="tinfo"><h3>${esc(m.n)}</h3><p class="job">${esc(m.j)}</p><p class="soc">${m.li ? `<a href="${esc(m.li)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}${m.li && m.bs ? ' · ' : ''}${m.bs ? `<a href="${esc(m.bs)}" target="_blank" rel="noopener">Bluesky</a>` : ''}</p></div></article>`;
   return pageHero('The team', 'The team', 'The team is drawn from the Net Zero Tracker’s four partner organisations, all experts in their fields.') + `<section><div class="wrap">
-  <div class="grid2">${t.slice(0, 7).map(card).join('')}</div>
-  <h2 class="h-brand mt3">Partner leads</h2><div class="grid2 mt1">${t.slice(7).map(card).join('')}</div></div></section>`; };
+  <p class="muted" style="margin-top:0">Hover over a photo (or tap it) to read the biography.</p>
+  <div class="grid3 tgrid">${t.slice(0, 7).map(card).join('')}</div>
+  <h2 class="h-brand mt3">Partner leads</h2><div class="grid3 tgrid mt1">${t.slice(7).map(card).join('')}</div></div></section>`; };
 /* ---------- router ---------- */
 function route(){
   const h = location.hash.replace(/^#\/?/, '');
