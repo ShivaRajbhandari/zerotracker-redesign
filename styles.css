@@ -696,3 +696,7 @@ nav.main .more-menu a.cnz:hover .cnz-go{transform:translate(2px,-2px);opacity:1}
 .tlp{cursor:default}.tlsvg:hover .tl-lane{opacity:1}
 /* use more of the page on wide screens */
 @media (min-width:1360px){:root{--wrap:min(1560px,90vw)}}
+/* give the menu more room as the window gets wider */
+@media (min-width:1360px){nav.main a,.more-btn{padding:10px 11px;font-size:14px;letter-spacing:.055em}nav.main .btn{margin-left:10px!important;padding:11px 16px}.hdr{gap:24px}}
+@media (min-width:1600px){nav.main a,.more-btn{padding:11px 16px;font-size:14.5px;letter-spacing:.06em}nav.main .btn{margin-left:16px!important;padding:12px 20px}.hdr{gap:36px}}
+@media (min-width:1900px){nav.main a,.more-btn{padding:12px 20px;font-size:15px}nav.main .btn{margin-left:22px!important;padding:13px 24px}.hdr{gap:48px}}

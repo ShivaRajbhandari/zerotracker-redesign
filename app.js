@@ -483,7 +483,7 @@ function filtered(){
 }
 
 /* ---------- EXPLORE: how countries add up to global emissions, and the pathways ahead ---------- */
-function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bo'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bp'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const GL_STACK = ['#cdb998', '#a9c4e4', '#ecd49a', '#b9d8a8', '#c5bdd0', '#dcbcd6', '#e8e4ec'];
 const GL_SCN = {paris:['#2f8a4c', 'Paris-aligned pathway', 'Paris-aligned'], ndc:['#1f4e8c', 'All 2030 and 2035 NDCs met', 'NDCs met'], pledges:['#6b3fa0', 'All pledges and net zero targets met', 'All pledges met'], pol:['#c27a00', 'Current policies', 'Current policies'], none:['#E13B26', 'No further action (past trend continues)', 'No further action']};
 function glScenarios(G){
@@ -653,7 +653,7 @@ function timelineSVG(e){
 function pmarks(x, xa, xb, T, bottom){
   return [[1997, 'Kyoto Protocol, 1997', 'end'], [2015, 'Paris Agreement, 2015', 'start']].filter(([yr]) => yr >= xa && yr <= xb).map(([yr, l, a]) => `<line x1="${x(yr)}" x2="${x(yr)}" y1="${T}" y2="${bottom}" stroke="#2f8a4c" stroke-width="1.6" stroke-dasharray="4 4" opacity=".75"/><text x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3">${l}</text>`).join('');
 }
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bo'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bp'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
