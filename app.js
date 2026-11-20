@@ -575,7 +575,7 @@ function timelineSVG(e){
 }
 
 /* ---------- EMISSIONS HISTORY (countries: Our World in Data 1850-; cities and regions: EDGAR v8.0 1970-2022) ---------- */
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120ay'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120az'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
@@ -602,7 +602,6 @@ function emisChart(e){
     <path d="${line}L${lx} ${yy(0)}L${x(y0)} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/><path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>
     <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
     ${path.join('')}
-    ${rec ? `<path d="M${x(rec[0])} ${yy(rec[1]) - 8} l8 8 l-8 8 l-8 -8z" fill="#fff" stroke="#271039" stroke-width="2"><title>The Tracker records ${fmtMt(rec[1])} Mt CO₂e for ${rec[0]}</title></path>` : ''}
     <circle cx="${lx}" cy="${ly}" r="5" fill="#A5865C" stroke="#fff" stroke-width="2"/>
     <text x="${lx - 10}" y="${ly - 26}" text-anchor="end" font-size="12.5" font-weight="700" fill="#5b4a2e" paint-order="stroke" stroke="#fff" stroke-width="4">${fmtMt(last)} Mt in ${y1}</text>
     <line id="emis-x" y1="${T}" y2="${H - B}" stroke="#271039" stroke-width="1" opacity="0"/><circle id="emis-d" r="5" fill="#271039" stroke="#fff" stroke-width="2" opacity="0"/>
@@ -617,7 +616,7 @@ function emisChart(e){
       const where = e.t !== 'city' ? 'summed over the grid cells inside the region' : u ? (u[2] ? `summed over the part of the urban centre “${esc(u[0])}” (${fmt(u[1])} km²) within about ${Math.max(R, 10)} km of the city centre, because that urban centre contains several cities in the Tracker` : `summed over the urban centre outline for ${esc(u[0])} (${fmt(u[1])} km²) from the European Commission’s <a href="https://human-settlement.emergency.copernicus.eu/ghs_ucdb_2024.php" target="_blank" rel="noopener">Global Human Settlement Layer</a>`) : `summed over the grid cells within about ${R} km of the city centre, because no urban outline matched`;
       return `Source: <a href="https://edgar.jrc.ec.europa.eu/dataset_ghg80" target="_blank" rel="noopener">EDGAR v8.0</a>, European Commission Joint Research Centre (CC BY 4.0): all greenhouse gases from human activity except land use, as CO₂ equivalent, ${where}. The data is gridded at roughly 11 km, so it is approximate and will not match an official inventory. <a href="#/notes/emissions">How this was built</a>.`; })();
   return `<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
-    <div class="emis-key"><span><i style="background:#A5865C"></i>Emissions</span>${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}${rec ? `<span><i class="dia"></i>Figure recorded by the Tracker (${rec[0]}, may cover a different scope)</span>` : ''}</div>
+    <div class="emis-key"><span><i style="background:#A5865C"></i>Emissions</span>${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}</div>
     <p class="muted emis-src">${src}</p></div>`;
 }
 function emisWire(e){
@@ -1514,7 +1513,7 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <p>EDGAR cells are larger than most urban outlines, so a cell that is partly inside an outline counts at three times its overlap (capped at all of it). I chose this factor by comparing against the Global Human Settlement Layer's own EDGAR-based city totals for 2022: across the 1,038 cities that have an outline to themselves it gave a median ratio of 0.97 to their figure, with about 80% of cities within 25%, in each of 1990, 2000, 2010, 2020 and 2022.</p>
       <h3>The dashed path</h3><p>If a profile has a stated reduction against a base year, the milestone is that base year's figure from the same series times one minus the percentage. The line from today to the milestone and to the net zero year is a straight line for illustration, not a forecast.</p></div>
     </div>
-    <div class="note mt2"><b>Limits.</b> These are modelled grid totals, not official inventories, and city boundaries differ from administrative ones. The figure the Tracker records for a place can differ because of scope or boundary, and is shown as a hollow diamond for comparison. Please treat city numbers as indicative.</div>
+    <div class="note mt2"><b>Limits.</b> These are modelled grid totals, not official inventories, and city boundaries differ from administrative ones. Please treat city numbers as indicative.</div>
   </div></section>`;
 
 P.notes.after = (params, sub) => { if (sub === 'emissions') setTimeout(() => $('#emissions')?.scrollIntoView(), 30); };
