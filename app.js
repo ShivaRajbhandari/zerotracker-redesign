@@ -838,8 +838,8 @@ function ghgSvg(l){
       ${[[540, 18], [600, 44], [500, 52], [612, 12], [430, 30], [362, 14]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.2" fill="#fff" opacity=".7"/>`).join('')}
       <rect x="0" y="${B0}" width="${W}" height="${B1 - B0}" fill="url(#ghg-band)"><title>Layer of greenhouse gases</title></rect>
       ${mol.join('')}
+      <path d="M49 51 L75 41 L201 ${G + 6} L141 ${G + 30}Z" fill="url(#ghg-beam)"><title>Sunlight passes through the gases and warms the ground</title></path>
       <circle cx="62" cy="46" r="54" fill="url(#ghg-sun)"/><circle cx="62" cy="46" r="24" fill="#FFC56B"><title>The sun</title></circle>
-      <path d="M78 66 L102 58 L196 ${G + 2} L146 ${G + 6}Z" fill="url(#ghg-beam)"><title>Sunlight passes through the gases and warms the ground</title></path>
       <path d="M0 ${G + 8} Q${W / 2} ${G - 16} ${W} ${G + 8} V${H} H0Z" fill="url(#ghg-land)"/>
       ${l ? `<path d="M0 ${G + 8} Q${W / 2} ${G - 16} ${W} ${G + 8} V${H} H0Z" fill="url(#ghg-hot)"/>` : ''}
       ${cols.map(heat).join('')}
@@ -851,9 +851,6 @@ function ghgSvg(l){
     </g>
   </svg>`;
 }
-const ghgScore = l => l
-  ? '<span class="ghg-chip hot"><b>1</b> of 4 escapes · <b>3</b> sent back</span><span class="ghg-chip hot">Warming</span>'
-  : '<span class="ghg-chip"><b>3</b> of 4 escape · <b>1</b> sent back</span><span class="ghg-chip ok">Steady</span>';
 P.learn = (params, sub) => `
   <section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">Net zero explained</p><h1 style="font-size:clamp(30px,4.5vw,46px)">What net zero means, and how to tell a real target from a slogan</h1><p>A 2-minute primer, a glossary, and how we assess every target.</p></div></section>
   <section id="why"><div class="wrap">
@@ -869,7 +866,7 @@ P.learn = (params, sub) => `
         <li>The warm ground sends heat back up.<small>Some of it escapes to space.</small></li>
         <li>Greenhouse gases catch some of that heat and send it back down.<small>This keeps the planet livable. But the more gases we add, the more heat is sent back, and the warmer it gets.</small></li></ol>
       </div>
-      <figure class="card ghg-fig"><div class="ghg-top"><div class="ghg-tog" id="ghgseg" role="tablist" aria-label="Amount of greenhouse gas"><button data-l="0" class="on" role="tab" aria-selected="true">Before: fewer gases</button><button data-l="1" role="tab" aria-selected="false">Now: more gases</button></div><div id="ghg-score" class="ghg-score">${ghgScore(0)}</div></div>
+      <figure class="card ghg-fig"><div class="ghg-top"><div class="ghg-tog" id="ghgseg" role="tablist" aria-label="Amount of greenhouse gas"><button data-l="0" class="on" role="tab" aria-selected="true">Before: fewer gases</button><button data-l="1" role="tab" aria-selected="false">Now: more gases</button></div></div><p class="ghg-lede">Burning coal, oil and gas adds greenhouse gases to the air, which traps more of the Earth’s heat and warms the planet.</p>
         <div id="ghg">${ghgSvg(0)}</div><figcaption id="ghg-cap">${GHG_CAP[0]}</figcaption></figure>
     </div>
     <div class="card mt2" style="background:var(--band)"><h3>The global goal: the Paris Agreement</h3>
@@ -928,7 +925,7 @@ P.learn = (params, sub) => `
     <div class="gloss mt2">${GLOSS.map(([t,d,w]) => `<details><summary>${t}</summary><p class="plain">${d}</p><p>${w}</p></details>`).join('')}</div>
   </div></section>`;
 P.learn.after = (params, sub) => {
-  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $('#ghg-score').innerHTML = ghgScore(l); $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
+  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
   today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each cloud is 10% of a year’s emissions. They come from power plants and factories, petrol and diesel cars, heating homes, and even cows, which release methane. They all trap heat.','10 puffs','All 10 puffs are still going up.'],
   cut:['2. Cut it at the source','Stop making the smoke in the first place: sun and wind instead of coal, electric cars, efficient homes, less methane from farming. Net zero standards ask for roughly 90% of emissions to be cut. One cloud is left.','1 puff left','Nine puffs are gone for good. One is left.'],

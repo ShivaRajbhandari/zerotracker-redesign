@@ -586,15 +586,11 @@ ul.flags.plain li{margin-bottom:10px}
 @media (prefers-reduced-motion:reduce){.blades{animation:none}}
 /* greenhouse diagram */
 .ghg-fig{margin:0;padding:14px 14px 16px}
-.ghg-top{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:12px}
+.ghg-top{margin-bottom:10px}
 .ghg-tog{display:inline-flex;background:var(--band);border-radius:999px;padding:3px}
 .ghg-tog button{font:inherit;border:0;background:none;border-radius:999px;padding:7px 14px;font-size:14px;font-weight:600;color:var(--ink-2);cursor:pointer;transition:background .15s,color .15s}
 .ghg-tog button.on{background:var(--purple);color:#fff}
-.ghg-score{display:flex;gap:6px;flex-wrap:wrap}
-.ghg-chip{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--band-2);border:1px solid var(--line);color:var(--ink-2)}
-.ghg-chip.ok{background:#e6f2df;border-color:#bcd9ab;color:#2f6b22;font-weight:600}
-.ghg-chip.hot{background:#fde6e2;border-color:#f5b8ad;color:var(--red-dark)}
-.ghg-chip.hot:last-child{font-weight:600}
+.ghg-lede{margin:0 0 12px;font-size:15.5px;font-weight:500;color:var(--ink);line-height:1.45}
 #ghg svg{border-radius:10px;animation:ghgfade .35s ease}
 @keyframes ghgfade{from{opacity:.4}to{opacity:1}}
 @media (prefers-reduced-motion:reduce){#ghg svg{animation:none}}
