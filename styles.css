@@ -690,3 +690,5 @@ nav.main .more-menu a.cnz:hover .cnz-go{transform:translate(2px,-2px);opacity:1}
   .hdr .logo img{height:44px}
   nav.main .more-menu a.cnz{margin-top:12px}
 }
+
+.emis-ctl{display:flex;flex-wrap:wrap;gap:10px 18px;margin:10px 0}.segs{display:inline-flex;width:max-content;max-width:100%}.segs button{min-width:0;padding:8px 16px;flex-direction:row}.segs button b{font-size:14.5px}
