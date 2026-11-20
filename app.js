@@ -766,8 +766,10 @@ function tlPoints(e){
   if (y && y >= NOW && y <= 2100 && hasAnyTarget(e)) pts.push({yr:y, l:targetPhrase(e), k:'end', nz:isNZ(e)});
   return {pts, passed: y && y < NOW && hasAnyTarget(e) ? y : null};
 }
+function tlTip(e, p){ return `<div class="tipms"><b>${esc(e.n)}</b><div class="mrow"><span class="my">${p.yr}</span><span>${esc(p.l)}${p.k === 'end' ? `<em> · end target, ${p.yr - NOW} years away</em>` : ''}</span></div></div>`; }
 function compareTimeline(es){
   const L = es.map(e => ({e, ...tlPoints(e)}));
+  window.__tl = L;
   const maxY = Math.max(2050, ...L.flatMap(r => r.pts.map(p => p.yr)));
   const end = Math.min(2100, Math.ceil((maxY + 1) / 5) * 5);
   const W = 960, X0 = 200, X1 = 925, x = v => X0 + (v - NOW) / (end - NOW) * (X1 - X0), RH = 78, TOP = 38, H = TOP + RH * es.length + 14;
@@ -779,8 +781,8 @@ function compareTimeline(es){
     const by = TOP + RH * i + 54, e = r.e, nz = r.pts.filter(p => p.k === 'end')[0], last = nz ? nz.yr : (r.pts.length ? r.pts[r.pts.length - 1].yr : null);
     const tiers = [-1e9, -1e9, -1e9], nm = name(e);
     const ptHtml = r.pts.map((p, j) => {
-      const px = x(p.yr), tip = `<div class="tipms"><b>${esc(e.n)}</b><div class="mrow"><span class="my">${p.yr}</span><span>${esc(p.l)}${p.k === 'end' ? '<em> · end target, ${p.yr - NOW} years away</em>' : ''}</span></div></div>`;
-      const data = `data-tl="${esc(tip.replace(/"/g, '&quot;'))}" tabindex="0" role="img" aria-label="${esc(e.n + ', ' + p.yr + ': ' + p.l)}"`;
+      const px = x(p.yr);
+      const data = `data-li="${i}" data-pj="${j}" tabindex="0" role="img" aria-label="${esc(e.n + ', ' + p.yr + ': ' + p.l)}"`;
       if (p.k === 'ms') {
         const lab = p.yr + ': ' + short(p.l, 24), w = cw(lab, 11.5), flip = px + w > X1 + 30; let t = 0; const from = flip ? px - w : px;
         while (t < 2 && tiers[t] > from - 6) t++;
@@ -792,6 +794,7 @@ function compareTimeline(es){
     }).join('');
     const note = !r.pts.length ? `<text x="${x(NOW) + 18}" y="${by + 4}" font-size="13" fill="#7a7385" font-style="italic">${r.passed ? 'Target year ' + r.passed + ' has already passed' : hasAnyTarget(e) ? 'No dated milestones' : 'No target'}</text>` : '';
     return `<g class="tl-lane">
+      <rect x="0" y="${TOP + RH * i + 6}" width="${W}" height="${RH - 8}" fill="transparent"/>
       <a href="#/e/${e.s}"><text x="14" y="${by - (nm[1] ? 12 : 3)}" font-size="14" font-weight="800" fill="#271039">${esc(nm[0])}</text>${nm[1] ? `<text x="14" y="${by + 4}" font-size="14" font-weight="800" fill="#271039">${esc(nm[1])}</text>` : ''}<text x="14" y="${by + (nm[1] ? 19 : 13)}" font-size="11.5" fill="#6d6677">${TYPE[e.t][0]}${e.cn && e.t !== 'country' ? ' · ' + esc(short(e.cn, 16)) : ''}</text></a>
       <line x1="${x(NOW)}" x2="${X1}" y1="${by}" y2="${by}" stroke="#dcdcdc" stroke-width="6" stroke-linecap="round"/>
       ${last ? `<line x1="${x(NOW)}" x2="${x(last)}" y1="${by}" y2="${by}" stroke="${nz && nz.nz ? '#b2d49b' : '#e6d6bd'}" stroke-width="6" stroke-linecap="round"/>` : ''}
@@ -806,7 +809,7 @@ function compareTimeline(es){
     <div class="tlwrap"><svg viewBox="0 0 ${W} ${H}" class="tlsvg" role="group" aria-label="Timeline comparing milestones and targets for ${es.map(e => esc(e.n)).join(', ')}">${bg}${bg}${grid}${ref}${lanes}</svg></div></div></section>`;
 }
 function wireTl(){
-  $$('.tlp').forEach(g => { const t = () => g.dataset.tl;
+  $$('.tlp').forEach(g => { const t = () => { const r = window.__tl[+g.dataset.li]; return tlTip(r.e, r.pts[+g.dataset.pj]); };
     g.addEventListener('mousemove', ev => showTip(t(), ev));
     g.addEventListener('mouseleave', hideTip);
     g.addEventListener('focus', () => { const r = g.getBoundingClientRect(); showTip(t(), {clientX:r.left, clientY:r.bottom}); });
