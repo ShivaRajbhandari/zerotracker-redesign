@@ -770,29 +770,29 @@ function compareTimeline(es){
   const L = es.map(e => ({e, ...tlPoints(e)}));
   const maxY = Math.max(2050, ...L.flatMap(r => r.pts.map(p => p.yr)));
   const end = Math.min(2100, Math.ceil((maxY + 1) / 5) * 5);
-  const W = 960, X0 = 200, X1 = 925, x = v => X0 + (v - NOW) / (end - NOW) * (X1 - X0), RH = 112, TOP = 40, H = TOP + RH * es.length + 14;
+  const W = 960, X0 = 200, X1 = 925, x = v => X0 + (v - NOW) / (end - NOW) * (X1 - X0), RH = 78, TOP = 38, H = TOP + RH * es.length + 14;
   const ticks = []; for (let t = NOW; t <= end; t += 1) if (t % 5 === 0 || t === NOW) ticks.push(t);
   const cw = (txt, sz) => txt.length * sz * 0.56;
   const short = (t, n) => t.length > n ? t.slice(0, n - 1).trim() + '…' : t;
   const name = e => { const w = (e.t === 'city' ? e.n.replace(/\s*\(.*\)/, '') : e.n).split(' '); let a = '', b = ''; w.forEach(x => { if ((a + ' ' + x).trim().length <= 20 && !b) a = (a + ' ' + x).trim(); else b = (b + ' ' + x).trim(); }); return [a, short(b, 22)]; };
   const lanes = L.map((r, i) => {
-    const by = TOP + RH * i + 66, e = r.e, nz = r.pts.filter(p => p.k === 'end')[0], last = nz ? nz.yr : (r.pts.length ? r.pts[r.pts.length - 1].yr : null);
+    const by = TOP + RH * i + 54, e = r.e, nz = r.pts.filter(p => p.k === 'end')[0], last = nz ? nz.yr : (r.pts.length ? r.pts[r.pts.length - 1].yr : null);
     const tiers = [-1e9, -1e9, -1e9], nm = name(e);
     const ptHtml = r.pts.map((p, j) => {
-      const px = x(p.yr), tip = `<div class="tipms"><b>${esc(e.n)}</b><div class="mrow"><span class="my">${p.yr}</span><span>${esc(p.l)}${p.k === 'end' ? '<em> · end target</em>' : ''}</span></div></div>`;
+      const px = x(p.yr), tip = `<div class="tipms"><b>${esc(e.n)}</b><div class="mrow"><span class="my">${p.yr}</span><span>${esc(p.l)}${p.k === 'end' ? '<em> · end target, ${p.yr - NOW} years away</em>' : ''}</span></div></div>`;
       const data = `data-tl="${esc(tip.replace(/"/g, '&quot;'))}" tabindex="0" role="img" aria-label="${esc(e.n + ', ' + p.yr + ': ' + p.l)}"`;
       if (p.k === 'ms') {
         const lab = p.yr + ': ' + short(p.l, 24), w = cw(lab, 11.5), flip = px + w > X1 + 30; let t = 0; const from = flip ? px - w : px;
         while (t < 2 && tiers[t] > from - 6) t++;
         tiers[t] = flip ? px : px + w;
-        return `<g class="tlp" ${data}><line x1="${px}" x2="${px}" y1="${by}" y2="${by - 16 - t * 16 + 4}" stroke="#d9c9a3"/><circle cx="${px}" cy="${by}" r="7" fill="#c27a00" stroke="#fff" stroke-width="2"/><text x="${px}" y="${by - 16 - t * 16}" text-anchor="${flip ? 'end' : 'start'}" font-size="11.5" fill="#7a4a00" font-weight="600">${esc(lab)}</text></g>`;
+        return `<g class="tlp" ${data}><line x1="${px}" x2="${px}" y1="${by}" y2="${by - 14 - t * 14 + 3}" stroke="#d9c9a3"/><circle cx="${px}" cy="${by}" r="7" fill="#c27a00" stroke="#fff" stroke-width="2"/><text x="${px}" y="${by - 14 - t * 14}" text-anchor="${flip ? 'end' : 'start'}" font-size="11.5" fill="#7a4a00" font-weight="600">${esc(lab)}</text></g>`;
       }
-      const col = p.nz ? '#3B7CC3' : '#8a6a3d', lab = short(p.l, 26), flip = px > X1 - 150;
-      return `<g class="tlp" ${data}><path d="M${px} ${by - 11} L${px + 11} ${by} L${px} ${by + 11} L${px - 11} ${by} Z" fill="${col}" stroke="#fff" stroke-width="2"/><text x="${px}" y="${by + 30}" text-anchor="${flip ? 'end' : 'middle'}" font-size="12.5" font-weight="700" fill="${col}" ${flip ? `dx="12"` : ''}>${esc(lab)}</text><text x="${px}" y="${by + 44}" text-anchor="${flip ? 'end' : 'middle'}" font-size="11" fill="#5f5869" ${flip ? `dx="12"` : ''}>${p.yr - NOW} years away</text></g>`;
+      const col = p.nz ? '#3B7CC3' : '#8a6a3d', lab = short(p.l, 26), flip = px > X1 - 170;
+      return `<g class="tlp" ${data}><path d="M${px} ${by - 10} L${px + 10} ${by} L${px} ${by + 10} L${px - 10} ${by} Z" fill="${col}" stroke="#fff" stroke-width="2"/><text x="${flip ? px - 16 : px + 16}" y="${by + 4.5}" text-anchor="${flip ? 'end' : 'start'}" font-size="12.5" font-weight="700" fill="${col}">${esc(lab)}</text></g>`;
     }).join('');
     const note = !r.pts.length ? `<text x="${x(NOW) + 18}" y="${by + 4}" font-size="13" fill="#7a7385" font-style="italic">${r.passed ? 'Target year ' + r.passed + ' has already passed' : hasAnyTarget(e) ? 'No dated milestones' : 'No target'}</text>` : '';
     return `<g class="tl-lane">
-      <a href="#/e/${e.s}"><text x="14" y="${by - 4}" font-size="14.5" font-weight="800" fill="#271039">${esc(nm[0])}</text>${nm[1] ? `<text x="14" y="${by + 13}" font-size="14.5" font-weight="800" fill="#271039">${esc(nm[1])}</text>` : ''}<text x="14" y="${by + (nm[1] ? 31 : 14)}" font-size="11.5" fill="#6d6677">${TYPE[e.t][0]}${e.cn && e.t !== 'country' ? ' · ' + esc(short(e.cn, 16)) : ''}</text></a>
+      <a href="#/e/${e.s}"><text x="14" y="${by - (nm[1] ? 12 : 3)}" font-size="14" font-weight="800" fill="#271039">${esc(nm[0])}</text>${nm[1] ? `<text x="14" y="${by + 4}" font-size="14" font-weight="800" fill="#271039">${esc(nm[1])}</text>` : ''}<text x="14" y="${by + (nm[1] ? 19 : 13)}" font-size="11.5" fill="#6d6677">${TYPE[e.t][0]}${e.cn && e.t !== 'country' ? ' · ' + esc(short(e.cn, 16)) : ''}</text></a>
       <line x1="${x(NOW)}" x2="${X1}" y1="${by}" y2="${by}" stroke="#dcdcdc" stroke-width="6" stroke-linecap="round"/>
       ${last ? `<line x1="${x(NOW)}" x2="${x(last)}" y1="${by}" y2="${by}" stroke="${nz && nz.nz ? '#b2d49b' : '#e6d6bd'}" stroke-width="6" stroke-linecap="round"/>` : ''}
       <circle cx="${x(NOW)}" cy="${by}" r="7" fill="#271039" stroke="#fff" stroke-width="2"><title>Today, ${NOW}</title></circle>
@@ -827,7 +827,6 @@ P.compare = (params) => {
     <div class="light mt1" style="max-width:520px">${searchBox('s-cmp', es.length >= 4 ? 'Remove one to add another (max 4)' : 'Add an entry…')}</div>
     ${compareSet.get().length ? '' : '<p class="muted" style="font-size:14px">Showing an example. Add your own to replace it.</p>'}
   </div></section>
-  ${compareTimeline(es)}
   <section class="tight"><div class="wrap"><div class="tablewrap" style="border:0"><table class="cmp">
     <thead><tr><th></th>${es.map(e => `<th><a href="#/e/${e.s}" style="color:inherit">${e.t==='country'?flag(e.a2)+' ':''}${esc(e.n)}</a><div style="font-weight:400;font-size:13px">${TYPE[e.t][0]}${e.cn && e.t!=='country' ? ' · ' + esc(e.cn) : ''}</div></th>`).join('')}</tr></thead>
     <tbody>
@@ -839,7 +838,8 @@ P.compare = (params) => {
       ${PILLARS.map(p => `<tr class="grp"><td colspan="${es.length+1}">${p.name}</td></tr>` + [...new Set(C.flat().filter(c => c.p === p.id).map(c => c.id))].map(id => { const q = C.flat().find(c => c.id === id).q; return row(q, (e,i) => { const c = C[i].find(k => k.id === id); return c ? `<div class="cell">${vtag(c.v)}<span>${esc(c.a)}</span></div>` : '<span class="muted">Not applicable</span>'; }); }).join('')).join('')}
     </tbody></table></div>
     <div class="actions"><button class="btn btn-ghost btn-sm" id="cmp-link">Copy link to this comparison</button></div>
-  </div></section>`;
+  </div></section>
+  ${compareTimeline(es)}`;
 };
 P.compare.after = () => {
   wireTl();
