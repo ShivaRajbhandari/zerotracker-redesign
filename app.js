@@ -575,7 +575,7 @@ function timelineSVG(e){
 }
 
 /* ---------- EMISSIONS HISTORY (countries: Our World in Data 1850-; cities and regions: EDGAR v8.0 1970-2022) ---------- */
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120ba'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bc'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
@@ -818,7 +818,7 @@ P.entity = (params, slug) => {
 P.entity.after = (params, slug) => {
   const e = BY[slug]; if (!e) return;
   loadEmis().then(E => { if (!E || location.hash.indexOf('/e/' + slug) < 0) return; const html = emisChart(e); if (!html) return;
-    $('#emis').innerHTML = html; const se = emisSeries(e); $('#emis-lede').textContent = `How greenhouse gas emissions ${e.t === 'company' ? 'of this' : 'in this'} ${TYPE[e.t][0].toLowerCase()} have changed since ${se.y0}${isNZ(e) || iyear(e) ? ', and what the target would require from here' : ''}.`;
+    $('#emis').innerHTML = html; const se = emisSeries(e); $('#emis-lede').textContent = `How greenhouse gas emissions ${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : (e.t === 'company' ? 'of this' : 'in this') + ' ' + TYPE[e.t][0].toLowerCase()} have changed since ${se.y0}${isNZ(e) || iyear(e) ? ', and what the target would require from here' : ''}.`;
     $('#emis-sec').hidden = false; emisWire(e); });
   $('#b-cmp').onclick = () => { let a = compareSet.get(); if (a.includes(e.s)) { location.hash = '#/compare'; return; } a = [...a, e.s].slice(-4); compareSet.set(a); $('#b-cmp').textContent = '✓ In comparison: view'; toast(`Added. ${a.length} in comparison.`); };
   $('#b-brief').onclick = $('#b-brief2').onclick = () => copy(briefing(e));
