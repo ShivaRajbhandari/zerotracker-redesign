@@ -572,6 +572,66 @@ function timelineSVG(e){
     ${y && hasAnyTarget(e) ? mk(y, (isNZ(e) ? 'Net zero ' : 'Target ') + y, y > NOW ? (y - NOW) + ' years away' : 'target year', '#3B7CC3', true) : ''}
   </svg>`;
 }
+
+/* ---------- EMISSIONS HISTORY (countries: Our World in Data 1850-; cities and regions: EDGAR v8.0 1970-2022) ---------- */
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120au'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
+const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
+function emisChart(e){
+  const se = emisSeries(e); if (!se) return '';
+  const {y0, v, kind} = se, y1 = y0 + v.length - 1, nz = isNZ(e) ? year(e) : null, iy = iyear(e), ib = parseInt(e.ib), ip = +e.ip;
+  const val = yr => v[yr - y0];
+  const endX = Math.min(2100, Math.max(2050, nz || 0, y1 + 5)), W = 900, H = 330, L = 64, R = 24, T = 20, B = 36;
+  const nzOk = nz && nz > y1 && nz <= 2100, endY = Math.max(endX, nzOk ? nz : 0);
+  const ymax = Math.max(...v) * 1.1, x = yr => L + (yr - y0) / (endY - y0) * (W - L - R), yy = m => T + (1 - m / ymax) * (H - T - B);
+  const step = (endY - y0) > 120 ? 25 : (endY - y0) > 60 ? 10 : 5, ticks = []; for (let t = Math.ceil(y0 / step) * step; t <= endY; t += step) ticks.push(t);
+  const nice = ymax / 4, mag = 10 ** Math.floor(Math.log10(nice)), ny = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= nice), yt = []; for (let t = 0; t <= ymax; t += ny) yt.push(t);
+  const line = v.map((m, i) => `${i ? 'L' : 'M'}${x(y0 + i).toFixed(1)} ${yy(m).toFixed(1)}`).join('');
+  const last = v[v.length - 1], lx = x(y1), ly = yy(last);
+  const base = ib >= y0 && ib <= y1 ? val(ib) : null, ims = base && iy && ip > 0 && iy > y1 && iy <= 2100 ? [iy, base * (1 - ip / 100)] : null;
+  const rec = e.ghg && e.iy_inv && +e.iy_inv >= y0 && +e.iy_inv <= y1 ? [+e.iy_inv, e.ghg / 1e6] : null;
+  const path = [];
+  if (nzOk) { const from = ims || [y1, last]; if (ims) path.push(`<line x1="${lx}" y1="${ly}" x2="${x(ims[0])}" y2="${yy(ims[1])}" stroke="#3B7CC3" stroke-width="2.5" stroke-dasharray="6 5"/>`); path.push(`<line x1="${x(from[0])}" y1="${yy(from[1])}" x2="${x(nz)}" y2="${yy(0)}" stroke="#3B7CC3" stroke-width="2.5" stroke-dasharray="6 5"/><path d="M${x(nz)} ${yy(0) - 9} l9 9 l-9 9 l-9 -9z" fill="#3B7CC3" stroke="#fff" stroke-width="2"><title>Net zero ${nz}</title></path><text x="${x(nz) - 14}" y="${yy(0) - 18}" text-anchor="end" font-size="12.5" font-weight="700" fill="#3B7CC3" paint-order="stroke" stroke="#fff" stroke-width="4">Net zero ${nz}</text>`); }
+  else if (ims) path.push(`<line x1="${lx}" y1="${ly}" x2="${x(ims[0])}" y2="${yy(ims[1])}" stroke="#c27a00" stroke-width="2.5" stroke-dasharray="6 5"/>`);
+  if (ims) path.push(`<circle cx="${x(ims[0])}" cy="${yy(ims[1])}" r="7" fill="#c27a00" stroke="#fff" stroke-width="2"><title>${ip}% below ${ib} by ${ims[0]}</title></circle><text x="${x(ims[0]) - 12}" y="${yy(ims[1]) - 12}" text-anchor="end" font-size="12" font-weight="600" fill="#7a4a00" paint-order="stroke" stroke="#fff" stroke-width="4">${ims[0]}: ${ip}% below ${ib}</text>`);
+  const svg = `<svg viewBox="0 0 ${W} ${H}" id="emis-svg" data-end="${endY}" data-t="${T}" data-h="${H}" data-b="${B}" data-ymax="${ymax}" role="img" aria-label="Greenhouse gas emissions of ${esc(e.n)} from ${y0} to ${y1}, latest ${fmtMt(last)} million tonnes CO2 equivalent" style="width:100%;height:auto;display:block">
+    ${yt.map(t => `<line x1="${L}" x2="${W - R}" y1="${yy(t)}" y2="${yy(t)}" stroke="#ece8ef"/><text x="${L - 8}" y="${yy(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${fmt(t)}</text>`).join('')}
+    ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text><line x1="${x(t)}" x2="${x(t)}" y1="${H - B}" y2="${H - B + 4}" stroke="#bbb"/>`).join('')}
+    <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">Mt CO₂e per year</text>
+    <path d="${line}L${lx} ${yy(0)}L${x(y0)} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/><path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>
+    <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
+    ${path.join('')}
+    ${rec ? `<path d="M${x(rec[0])} ${yy(rec[1]) - 8} l8 8 l-8 8 l-8 -8z" fill="#fff" stroke="#271039" stroke-width="2"><title>The Tracker records ${fmtMt(rec[1])} Mt CO₂e for ${rec[0]}</title></path>` : ''}
+    <circle cx="${lx}" cy="${ly}" r="5" fill="#A5865C" stroke="#fff" stroke-width="2"/>
+    <text x="${lx - 10}" y="${ly - 26}" text-anchor="end" font-size="12.5" font-weight="700" fill="#5b4a2e" paint-order="stroke" stroke="#fff" stroke-width="4">${fmtMt(last)} Mt in ${y1}</text>
+    <line id="emis-x" y1="${T}" y2="${H - B}" stroke="#271039" stroke-width="1" opacity="0"/><circle id="emis-d" r="5" fill="#271039" stroke="#fff" stroke-width="2" opacity="0"/>
+    <rect id="emis-hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
+  let pk = 0; v.forEach((m, i) => { if (m > v[pk]) pk = i; });
+  const facts = [[`Latest (${y1})`, `${fmtMt(last)} Mt CO₂e`], [`Peak (${y0 + pk})`, `${fmtMt(v[pk])} Mt CO₂e`]];
+  if (y0 <= 1990 && y1 > 1990) { const c = (last / val(1990) - 1) * 100; facts.push(['Change since 1990', `${c > 0 ? '+' : '−'}${Math.abs(c).toFixed(0)}%`]); }
+  if (kind === 'c') facts.push([`Since ${y0}`, `${fmt(Math.round(v.reduce((a, b) => a + b, 0) / 1000))} Gt CO₂e in total`]);
+  const src = kind === 'c'
+    ? `Source: <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (total greenhouse gases including land use and forestry, from Jones et al., 2024; CC BY). Estimates before about 1950 are rough.`
+    : `Source: <a href="https://edgar.jrc.ec.europa.eu/dataset_ghg80" target="_blank" rel="noopener">EDGAR v8.0</a>, European Commission Joint Research Centre (CC BY 4.0): all greenhouse gases from human activity except land use, as CO₂ equivalent, ${e.t === 'city' ? `summed over the grid cells within about ${(window.NZE.r || {})[e.s] || 10} km of the city centre` : 'summed over the grid cells inside the region'}. The data is gridded at roughly 11 km, so it is approximate and will not match an official inventory.`;
+  return `<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
+    <div class="emis-key"><span><i style="background:#A5865C"></i>Emissions</span>${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}${rec ? `<span><i class="dia"></i>Figure recorded by the Tracker (${rec[0]}, may cover a different scope)</span>` : ''}</div>
+    <p class="muted emis-src">${src}</p></div>`;
+}
+function emisWire(e){
+  const se = emisSeries(e), svg = $('#emis-svg'); if (!se || !svg) return;
+  const hit = $('#emis-hit'), vx = $('#emis-x'), vd = $('#emis-d'), {y0, v} = se, y1 = y0 + v.length - 1;
+  const bb = () => { const r = svg.viewBox.baseVal; return r; };
+  hit.addEventListener('mousemove', ev => {
+    const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
+    const hx = +hit.getAttribute('x'), hw = +hit.getAttribute('width'), t = Math.max(0, Math.min(1, (p.x - hx) / hw));
+    const yrs = svg.querySelector('text[font-size="12"][text-anchor="middle"]'); void yrs;
+    const endAttr = +svg.dataset.end; const yr = Math.round(y0 + t * ((endAttr || y1) - y0)); if (yr > y1 || yr < y0) { hideTip(); vx.setAttribute('opacity', 0); vd.setAttribute('opacity', 0); return; }
+    const X = hx + (yr - y0) / ((endAttr || y1) - y0) * hw, Y = +svg.dataset.t + (1 - v[yr - y0] / +svg.dataset.ymax) * (+svg.dataset.h - +svg.dataset.t - +svg.dataset.b);
+    vx.setAttribute('x1', X); vx.setAttribute('x2', X); vx.setAttribute('opacity', .35); vd.setAttribute('cx', X); vd.setAttribute('cy', Y); vd.setAttribute('opacity', 1);
+    showTip(`<div class="tipms"><b>${yr}</b><div class="mrow"><span class="my">${fmtMt(v[yr - y0])}</span><span>Mt CO₂e</span></div></div>`, ev);
+  });
+  hit.addEventListener('mouseleave', () => { hideTip(); vx.setAttribute('opacity', 0); vd.setAttribute('opacity', 0); });
+}
 const CITY_MIN = 500000;
 const NAF = ['Egypt','Morocco','Algeria','Tunisia','Libya'];
 const CAS = ['Kazakhstan','Uzbekistan','Turkmenistan','Kyrgyzstan','Tajikistan','Afghanistan','Azerbaijan','Georgia','Armenia'];
@@ -713,6 +773,11 @@ P.entity = (params, slug) => {
     <div class="ladder">${LADDER.map(l => `<div class="${Math.floor(L.k)===l.k ? 'on' : ''}${l.k >= 4 ? ' dk' : ''}" style="background:${l.hex}"><b>${l.label}</b>${l.plain}</div>`).join('')}<div class="${L.k<=0 ? 'on' : ''}" style="background:${L.k<0 ? OTHER.hex : NONE.hex}"><b>${L.k<0 ? 'Other target' : 'No net zero target'}</b>${L.k<0 ? 'Not net zero' : 'Nothing found'}</div></div>
     <div style="height:26px"></div>
   </div></section>
+  <section class="tight" id="emis-sec" hidden><div class="wrap">
+    <h2 class="h-brand" style="font-size:24px">Emissions history</h2>
+    <p class="muted mt0" id="emis-lede"></p>
+    <div id="emis"></div>
+  </div></section>
 
   <section class="tight"><div class="wrap">
     <div class="flex" style="justify-content:space-between"><h2 class="h-brand" style="font-size:24px">Credibility checklist</h2><a href="#/learn/method" style="font-size:15px">Why these questions?</a></div>
@@ -750,6 +815,9 @@ P.entity = (params, slug) => {
 };
 P.entity.after = (params, slug) => {
   const e = BY[slug]; if (!e) return;
+  loadEmis().then(E => { if (!E || location.hash.indexOf('/e/' + slug) < 0) return; const html = emisChart(e); if (!html) return;
+    $('#emis').innerHTML = html; const se = emisSeries(e); $('#emis-lede').textContent = `How greenhouse gas emissions ${e.t === 'company' ? 'of this' : 'in this'} ${TYPE[e.t][0].toLowerCase()} have changed since ${se.y0}${isNZ(e) || iyear(e) ? ', and what the target would require from here' : ''}.`;
+    $('#emis-sec').hidden = false; emisWire(e); });
   $('#b-cmp').onclick = () => { let a = compareSet.get(); if (a.includes(e.s)) { location.hash = '#/compare'; return; } a = [...a, e.s].slice(-4); compareSet.set(a); $('#b-cmp').textContent = '✓ In comparison: view'; toast(`Added. ${a.length} in comparison.`); };
   $('#b-brief').onclick = $('#b-brief2').onclick = () => copy(briefing(e));
   $('#b-link').onclick = () => copy(location.href);
@@ -1351,6 +1419,7 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <div><h3>Choose what to compare with</h3><p>On every profile, "How it compares" can be set to the entry's region, its country, the world, or similar size (or sector and revenue for companies). Regions are our own grouping (for example the Middle East and North Africa, South and Central Asia, China on its own). Cities with fewer than 500,000 people, which the Tracker does not cover, pick a city to compare with instead.</p></div>
       <div><h3>Share it and write to someone who can act</h3><p>The advocates page drafts a post for X, Facebook and LinkedIn, downloads a picture card for Instagram stories or posts, and drafts an email to a policymaker. Emails can be written in the language of the country (English, Spanish, French, Portuguese, German, Italian, Arabic or Chinese), with local place names. Nothing is sent from the site.</p></div>
       <div><h3>The live site's menu, rebuilt</h3><p>A "More" menu (and the footer) now has Analysis, Insights, Methodology, Volunteering, In the news, About and The team, plus Bluesky and LinkedIn links. Analysis, Insights and In the news list every item with search and filters and link to the articles on zerotracker.net. Methodology, Volunteering, The team and the terms pages are rebuilt here from the live content.</p></div>
+      <div><h3>Emissions history on every profile</h3><p>Countries show greenhouse gas emissions since 1850 (Our World in Data, from Jones et al. 2024). Cities and regions show 1970 to 2022 from the European Commission's EDGAR v8.0, summed from its 0.1° grid over the region's boundary, or over roughly 6 to 45 km around a city centre depending on its population. A dashed line shows a straight path from today to the target milestone and net zero year. City figures are approximate and will differ from official inventories.</p></div>
       <div><h3>FAQs and About inside the prototype</h3><p>The live site's FAQs and About and contact pages are rebuilt here with the same content, and a dismissible newsletter box replaces the top strip.</p></div>
     </div></div>
     <div><h2 class="h-brand" style="font-size:24px">Possible errors on the live site</h2>

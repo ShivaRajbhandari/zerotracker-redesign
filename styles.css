@@ -661,3 +661,7 @@ footer.site .fol a{display:inline-flex;color:#fff}footer.site .fol a:hover{color
 
 .nzd-capw{position:relative}.nzd-cap.hov{position:absolute;left:0;right:0;bottom:0;z-index:6;box-shadow:0 10px 28px rgba(39,16,57,.25);border:1px solid var(--line-2)}
 .nzd-capw{margin:6px 0 10px}.nzd-capw .nzd-cap{margin:0}
+
+.emis{padding:16px 18px}.emis-facts{display:flex;flex-wrap:wrap;gap:10px 28px;margin-bottom:10px}.emis-facts div span{display:block;font-size:12.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}.emis-facts div b{font-size:20px;color:var(--purple)}
+.emis-key{display:flex;flex-wrap:wrap;gap:6px 20px;margin-top:8px;font-size:13.5px;color:var(--ink-2)}.emis-key span{display:inline-flex;align-items:center;gap:7px}.emis-key i{display:inline-block;width:18px;height:10px;border-radius:3px}.emis-key i.dash{background:none;border-top:3px dashed #3B7CC3;height:0}.emis-key i.dia{width:10px;height:10px;background:#fff;border:2px solid #271039;transform:rotate(45deg);border-radius:1px}
+.emis-src{font-size:13px;margin:10px 0 0}
