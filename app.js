@@ -1081,6 +1081,17 @@ function nzdWire(){
     $('#nzd-cap').innerHTML = S ? `<b>${esc(S[0])}.</b> ${esc(S[1])}${NZ_SRC_NOTE}` : hl ? `<b>${esc(NZK[hl][0])}.</b> ${esc(NZK[hl][1])}` : `<b>${esc(NZD[m][2])}.</b> ${esc(NZD[m][3])}`;
     $('#nzd-cap').classList.toggle('warn', m === 'offset');
   };
+  // reserve the tallest caption/paragraph so the card never changes height (keeps the text on the left from jumping)
+  const reserve = () => {
+    const cap = $('#nzd-cap'), p = $('#nzd-p'), h = $('#nzd-h'); if (!cap || !p) return;
+    cap.style.minHeight = p.style.minHeight = '0';
+    const cur = [cap.innerHTML, p.textContent, h.textContent]; let mc = 0, mp = 0;
+    NZM.forEach(k => { p.textContent = NZD[k][1]; mp = Math.max(mp, p.offsetHeight); cap.innerHTML = `<b>${esc(NZD[k][2])}.</b> ${esc(NZD[k][3])} Hover or tap a cloud or key item for what it means.`; mc = Math.max(mc, cap.offsetHeight); });
+    Object.values(NZK).forEach(v => { cap.innerHTML = `<b>${esc(v[0])}.</b> ${esc(v[1])}`; mc = Math.max(mc, cap.offsetHeight); });
+    cap.innerHTML = cur[0]; p.textContent = cur[1]; h.textContent = cur[2];
+    cap.style.minHeight = mc + 'px'; p.style.minHeight = mp + 'px';
+  };
+  let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(reserve, 150); });
   $$('#nzseg button').forEach(b => b.onclick = () => { m = b.dataset.m; $$('#nzseg button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
   const kind = ev => ev.target.closest('[data-k]')?.dataset.k || null;
   const sec = ev => ev.target.closest('.slot')?.id.match(/sl-([a-z]+)/)?.[1];
@@ -1089,7 +1100,7 @@ function nzdWire(){
   root.addEventListener('focusin', ev => draw(kind(ev), sec(ev)));
   root.addEventListener('focusout', () => draw());
   root.addEventListener('click', ev => { const k = kind(ev); if (k) draw(k, sec(ev)); });
-  draw();
+  draw(); reserve(); draw();
 }
 
 /* ---------- POLICYMAKERS ---------- */
