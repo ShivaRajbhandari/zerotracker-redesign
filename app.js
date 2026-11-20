@@ -441,7 +441,7 @@ P.explore = (params) => {
   return `<section class="tight band"><div class="wrap">
     <h1 class="h-brand" style="font-size:clamp(28px,4vw,40px)">Explore the data</h1>
     <p class="lede mt0">Every target we track, in plain language. Switch between governments and companies, explore the picture, then filter the list below, click any name for the full profile, or export what you see.</p>
-    <div class="seg mt2" id="ex-view" role="group" aria-label="What to show"><button data-v="gov" class="${EX.type==='company' ? '' : 'on'}"><b>Governments</b><span>Countries, regions and cities on a map</span></button><button data-v="co" class="${EX.type==='company' ? 'on' : ''}"><b>Companies</b><span>The largest companies, one box each</span></button></div>
+    <div class="seg mt2" id="ex-view" role="group" aria-label="What to show"><button data-v="gov" class="${EX.type==='company' ? '' : 'on'}"><b>Governments</b><span>Countries, regions and cities</span></button><button data-v="co" class="${EX.type==='company' ? 'on' : ''}"><b>Companies</b><span>The largest companies</span></button></div>
     <div class="mt2"><div id="ex-gviz" ${EX.type==='company' ? 'hidden' : ''}>${mapBlock('m-ex')}</div><div id="ex-cviz" ${EX.type==='company' ? '' : 'hidden'}>${vizShell('c-ex')}</div></div>
   </div></section>
   <section class="tight"><div class="wrap">
