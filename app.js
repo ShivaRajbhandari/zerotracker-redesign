@@ -483,7 +483,7 @@ function filtered(){
 }
 
 /* ---------- EXPLORE: how countries add up to global emissions, and the pathways ahead ---------- */
-function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bw'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bx'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const GL_STACK = ['#cdb998', '#a9c4e4', '#c5bdd0', '#dcbcd6', '#e8c3a0', '#b9d8a8', '#f0d98f', '#e4b4b4', '#e8e4ec'];
 const GL_SCN = {paris:['#2f8a4c', 'Paris-aligned pathway', 'Paris-aligned'], ndc:['#1f4e8c', 'All 2030 and 2035 NDCs met', 'NDCs met'], pledges:['#6b3fa0', 'All pledges and net zero targets met', 'All pledges met'], pol:['#c27a00', 'Current policies', 'Current policies'], none:['#E13B26', 'No further action (past trend continues)', 'No further action']};
 function glScenarios(G){
@@ -524,15 +524,22 @@ function globalChartHtml(G, st){
   for (let i = 1; i < ends.length; i++) if (ends[i].yy - ends[i - 1].yy < 44) ends[i].yy = ends[i - 1].yy + 44;
   out += ends.map(e => `<text x="${x(x1) + 8}" y="${e.yy - 2}" font-size="12" font-weight="700" fill="${GL_SCN[e.k][0]}">${esc(GL_SCN[e.k][2])}</text><text x="${x(x1) + 8}" y="${e.yy + 12}" font-size="11.5" fill="#5f5869">${e.v.toFixed(0)} Gt in ${x1}</text>${(G.cat.temp || {})[e.k] ? `<text x="${x(x1) + 8}" y="${e.yy + 26}" font-size="11.5" font-weight="700" fill="${GL_SCN[e.k][0]}">+${G.cat.temp[e.k].y2100.toFixed(1)}°C by 2100</text>` : ''}`).join('');
   out += `<rect id="gl-hit" x="${Lm}" y="${T}" width="${W - Lm - Rm}" height="${H - T - B}" fill="transparent"/></svg>`;
-  window.__gl = {G, SC, x0, x1};
+  window.__gl = {G, SC, x0, x1, from: x0};
   const g30 = (SC.pol.mid[6] - SC.paris.mid[6]);
   const stat = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
   const stats = [stat('2024 (past)', `${G.cat.hist[2024].toFixed(0)} Gt`), stat('Paris-aligned pathway, 2030', `${SC.paris.mid[6].toFixed(0)} Gt`), stat('Current policies, 2030', `${SC.pol.lo[6].toFixed(0)}–${SC.pol.hi[6].toFixed(0)} Gt`), stat('Gap in 2030', `about ${g30.toFixed(0)} Gt`)].join('');
-  return `<div class="emis-ctl"><div class="seg segs" id="gl-to" role="group" aria-label="How far ahead"><button data-t="2050" class="${x1 === 2050 ? 'on' : ''}"><b>To 2050</b></button><button data-t="2100" class="${x1 === 2100 ? 'on' : ''}"><b>To 2100</b></button></div><div class="seg segs" id="gl-from" role="group" aria-label="Start of the history"><button data-f="1990" class="${x0 === 1990 ? 'on' : ''}"><b>Since 1990</b></button><button data-f="1850" class="${x0 === 1850 ? 'on' : ''}"><b>Since 1850</b></button></div></div>
+  return `<div class="emis-ctl"><div class="seg segs" id="gl-to" role="group" aria-label="How far ahead"><button data-t="2050" class="${x1 === 2050 ? 'on' : ''}"><b>To 2050</b></button><button data-t="2100" class="${x1 === 2100 ? 'on' : ''}"><b>To 2100</b></button></div><div class="seg segs" id="gl-from" role="group" aria-label="Start of the history"><button data-f="1850" class="${x0 === 1850 ? 'on' : ''}"><b>Since 1850</b></button><button data-f="1990" class="${x0 === 1990 ? 'on' : ''}"><b>Since 1990</b></button></div></div>
     <div class="card emis"><div class="emis-facts">${stats}</div>${out}
-    <div class="emis-key">${G.names.map((n, k) => `<span><i style="background:${GL_STACK[k]}"></i>${esc(n)}</span>`).join('')}<span><i style="background:#271039;height:3px"></i>Global total</span></div>
+    <div class="emis-key" id="gl-leg">${G.names.map((n, k) => `<span class="glr" data-g="${k}" tabindex="0"><i style="background:${GL_STACK[k]}"></i>${esc(n)}</span>`).join('')}<span><i style="background:#271039;height:3px"></i>Global total</span></div>
     <div class="emis-key" style="margin-top:6px">${['paris', 'ndc', 'pledges', 'pol', 'none'].map(k => `<span><i style="background:${GL_SCN[k][0]};height:4px"></i>${esc(GL_SCN[k][1])}</span>`).join('')}</div>
     <p class="muted emis-src"><b>Past:</b> total greenhouse gas emissions by country, from <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (including land use and forestry; Jones et al., 2024). Countries are grouped into regions, with China and the United States and Canada shown on their own; “Other” is international shipping and aviation and anything not matched to a country. <b>Ahead:</b> scenarios from the <a href="https://climateactiontracker.org/global/emissions-pathways/" target="_blank" rel="noopener">Climate Action Tracker</a> (November 2026 update; shaded bands show its high and low estimates, lines show the middle). The country figures are scaled by up to about 3% so that they add up to its global total, which the scenarios continue from, and every scenario starts from the last past value. Warming is its median estimate of the rise above pre-industrial levels in 2100 (it has no estimate for the “no further action” line); the Paris-aligned pathway overshoots to about +${(G.cat.temp || {paris:{}}).paris.peak || 1.7}°C around mid-century before coming back down. The Paris-aligned pathway is its 2026 benchmark, which reflects that global emissions have not yet peaked and that overshooting 1.5°C is now unavoidable; its earlier, steeper 1.5°C pathway was retired in 2026. The pledges scenario adds net zero targets in submitted long-term strategies. “No further action” is a simple extension of the 2014–2024 trend (${SC.slope >= 0 ? '+' : '−'}${Math.abs(SC.slope).toFixed(2)} Gt a year), made for this prototype and not a Climate Action Tracker scenario. © 2026 Climate Analytics and NewClimate Institute, used with credit for non-commercial purposes.</p></div>`;
+}
+
+function glRegionTip(k){
+  const {G, x0} = window.__gl, name = G.names[k], R = (G.reg || {})[name], j = x0 === 1850 ? 0 : 1, W = G.wc[j], pc = v => (v / W * 100).toFixed(1) + '%';
+  if (!R) { const own = G.s[k].slice(x0 - G.y0).reduce((a, b) => a + b, 0); return `<div class="tipms"><b>${esc(name)}</b><div class="mrow"><span class="my">${(own / W * 100).toFixed(1)}%</span><span>of global emissions since ${x0}</span></div></div>`; }
+  const rows = R.top.map(([c, a, b]) => `<div class="mrow"><span class="my">${pc(j ? b : a)}</span><span>${esc(c)}</span></div>`).join('') + (R.rest[0] ? `<div class="mrow"><span class="my">${pc(j ? R.rest[2] : R.rest[1])}</span><span>The other ${R.rest[0]} countries</span></div>` : '');
+  return `<div class="tipms"><b>${esc(name)}</b><div class="mrow"><span class="my">${pc(R.total[j])}</span><span><b>of global emissions since ${x0}</b></span></div>${rows}<div class="mrow"><span class="my"></span><span style="color:#7a7385;font-size:12px">${R.top.length > 1 ? 'Biggest five emitters, then the rest. ' : ''}Cumulative, share of the world total.</span></div></div>`;
 }
 function globalWire(st){
   const box = $('#ex-global-body'); if (!box) return;
@@ -540,6 +547,9 @@ function globalWire(st){
   const wire = () => {
     $$('#gl-to button').forEach(b => b.onclick = () => { st.to = +b.dataset.t; draw(); });
     $$('#gl-from button').forEach(b => b.onclick = () => { st.from = b.dataset.f; draw(); });
+    $$('#gl-leg .glr').forEach(sp => { const tip = ev => showTip(glRegionTip(+sp.dataset.g), ev);
+      sp.addEventListener('mousemove', tip); sp.addEventListener('mouseleave', hideTip);
+      sp.addEventListener('focus', () => { const r = sp.getBoundingClientRect(); showTip(glRegionTip(+sp.dataset.g), {clientX: r.left, clientY: r.bottom}); }); sp.addEventListener('blur', hideTip); });
     const svg = $('#gl-svg'), hit = $('#gl-hit'), vx = $('#gl-x'); if (!svg) return;
     hit.addEventListener('mousemove', ev => {
       const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
@@ -567,7 +577,7 @@ function renderList(){
     <td>${e.rev ? money(e.rev) : e.pop ? people(e.pop) : '<span class="muted">n/a</span>'}</td></tr>`; }).join('') || `<tr><td colspan="7" class="empty">Nothing matches these filters.</td></tr>`}</tbody></table></div>
   <div class="pager"><span>Page ${EX.page + 1} of ${pages}</span><span class="flex"><span class="muted ckkey">Checks key: <span>${ICON.yes} yes</span><span>${ICON.part} partly</span><span>${ICON.no} no</span><span>${ICON.unk} unknown</span></span><button class="btn btn-ghost btn-sm" id="pg-prev" ${EX.page?'':'disabled'}>← Previous</button><button class="btn btn-ghost btn-sm" id="pg-next" ${EX.page < pages-1 ? '' : 'disabled'}>Next →</button></span></div>`;
   wireChecksTip($('#ex-out')); wireMsTip($('#ex-out'));
-  { const g = $('#ex-global'); if (g) { g.hidden = EX.type !== 'country'; if (EX.type === 'country' && !g.dataset.ready) { g.dataset.ready = '1'; loadGlobal().then(G => { if (G) globalWire({to: 2050, from: '1990'}); }); } } }
+  { const g = $('#ex-global'); if (g) { g.hidden = EX.type !== 'country'; if (EX.type === 'country' && !g.dataset.ready) { g.dataset.ready = '1'; loadGlobal().then(G => { if (G) globalWire({to: 2050, from: '1850'}); }); } } }
   $$('#ex-out th').forEach(th => th.onclick = () => { const k = th.dataset.k; EX.dir = EX.sort === k ? -EX.dir : 1; EX.sort = k; renderList(); });
   $('#pg-prev').onclick = () => { EX.page--; renderList(); };
   $('#pg-next').onclick = () => { EX.page++; renderList(); };
@@ -655,7 +665,7 @@ function timelineSVG(e){
 function pmarks(x, xa, xb, T, bottom){
   return [[1997, 'Kyoto Protocol, 1997', 'end'], [2015, 'Paris Agreement, 2015', 'start']].filter(([yr]) => yr >= xa && yr <= xb).map(([yr, l, a]) => `<line x1="${x(yr)}" x2="${x(yr)}" y1="${T}" y2="${bottom}" stroke="#2f8a4c" stroke-width="1.6" stroke-dasharray="4 4" opacity=".75"/><text x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3">${l}</text>`).join('');
 }
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bw'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bx'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
