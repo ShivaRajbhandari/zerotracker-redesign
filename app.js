@@ -1532,6 +1532,19 @@ zh:{subj:n=>`关于${n}净零目标的询问`,greet:'尊敬的[姓名]：',
   grate:'恳请您回答以下问题：',link:'完整条目见：',thanks:'感谢您抽出时间。',bye:'此致敬礼，',you:'[您的姓名]',
   q:{commit:n=>`${n}是否会承诺实现净零排放？目标年份是哪一年？`,cut2030:n=>`${n}到2030年将减排多少？`,who:()=>'政府中由谁负责气候目标？计划何时发布？',board:()=>'董事会中哪位成员负责气候战略？',lock_g:n=>`${n}是否会把净零目标写入法律？`,lock_c:()=>'董事会是否会正式通过该目标，并将高管薪酬与之挂钩？',interim:n=>`${n}到2030年和2035年将减排多少？以哪一年为基准年？`,gas:()=>'为什么该目标不包括甲烷和二氧化碳以外的其他气体？',s3:()=>'该目标是否会涵盖供应商排放以及客户使用产品产生的排放（范围3）？',cons:n=>`${n}是否会报告其进口商品所造成的排放？`,plan:()=>'说明哪些措施带来多少减排、何时完成的计划在哪里？',rep:n=>`${n}是否会每年公布进展？`,acc:()=>'如果未能达成目标，由谁正式负责？',offsets:()=>'目标有多大比例依赖碳抵消，适用哪些质量规则？',rem:n=>`${n}是否会分别为减排和碳移除设定独立目标？`,track:n=>`${n}是否有望实现其阶段性目标？独立评估结果如何？`}}
 };
+if (window.EMLX) { Object.assign(EML_LANGS, window.EMLX.langs); Object.assign(EML_ISO, window.EMLX.iso); Object.assign(EML, window.EMLX.t); }
+function whoToWrite(e){
+  const c = e.t === 'country' ? e : D.find(x => x.t === 'country' && x.c === e.c), a2 = c && c.a2 ? c.a2.toUpperCase() : '', cn = c ? c.n : (e.cn || ''),
+    q = t => 'https://www.google.com/search?q=' + encodeURIComponent(t), L = [];
+  if (e.t === 'company') L.push([q(e.n + ' sustainability head OR investor relations contact'), 'Search for the company’s sustainability or investor relations contact']);
+  else {
+    if (e.t === 'city') L.push([q(e.n + ' mayor office contact'), 'Search for the mayor’s office']);
+    else if (e.t === 'region') L.push([q(e.n + ' environment minister contact'), 'Search for the regional environment minister']);
+    else L.push([q(e.n + ' ministry of environment climate change contact'), 'Search for the climate or environment ministry']);
+    if (a2) L.push(['https://data.ipu.org/parliament/' + a2, 'Parliament of ' + cn + ' (Inter-Parliamentary Union directory, with contact details and the official website)']);
+  }
+  return `<div class="note" style="margin-top:12px;font-size:14px"><b>Who to write to</b><ul style="margin:6px 0 0;padding-left:18px">${L.map(([h, t]) => `<li><a href="${h}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join('')}</ul><span class="muted">These are starting points. Check the person’s role on an official page before you send anything.</span></div>`;
+}
 function emlKeys(e){
   const cs = checks(e), gv = e.t !== 'company';
   if (!isNZ(e)) return ['commit', 'cut2030', gv ? 'who' : 'board'];
@@ -1602,7 +1615,7 @@ function renderShare(e){
       <label class="muted" style="font-size:14px">Subject</label><input id="em-sub" value="${esc(em.subject)}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
       <label class="muted" style="font-size:14px">Message</label><textarea id="em-body" rows="13" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(em.body)}</textarea>
       <div class="actions mt1" style="flex-wrap:wrap"><a class="btn btn-purple btn-sm" id="em-go">Open in my email program</a><button class="btn btn-ghost btn-sm" id="em-copy">Copy message</button></div>
-      <p class="muted" style="font-size:13.5px;margin-bottom:0">We do not know who represents you, so add the address yourself. Replace [name] and [Your name] before sending.</p></div>
+      <p class="muted" style="font-size:13.5px;margin-bottom:0">We do not know who represents you, so add the address yourself. Replace [name] and [Your name] before sending.</p>${whoToWrite(e)}</div>
   </div>`;
   const ta = $('#sh-text'), url = official(e), upd = () => {
     const q = encodeURIComponent;
@@ -1642,7 +1655,7 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <div><h3>A Learn page that starts from the basics</h3><p>It opens with why net zero matters for the climate and the Paris Agreement goals, a greenhouse-effect diagram, and an interactive "net zero in one picture" that shows emissions as pollution from power plants, cars and cows, then what cutting, removing and relying on offsets each look like. A section on offsets, removals and greenwashing links from the picture's warnings.</p></div>
       <div><h3>Explore: governments or companies at the top</h3><p>A switch above the table shows the map (governments) or the treemap (companies). Hovering "Next milestone" lists every later milestone up to the target. A small key explains the check icons.</p></div>
       <div><h3>Choose what to compare with</h3><p>On every profile, "How it compares" can be set to the entry's region, its country, the world, or similar size (or sector and revenue for companies). Regions are our own grouping (for example the Middle East and North Africa, South and Central Asia, China on its own). Cities with fewer than 500,000 people, which the Tracker does not cover, pick a city to compare with instead.</p></div>
-      <div><h3>Share it and write to someone who can act</h3><p>The advocates page drafts a post for X, Facebook and LinkedIn, downloads a picture card for Instagram stories or posts, and drafts an email to a policymaker. Emails can be written in the language of the country (English, Spanish, French, Portuguese, German, Italian, Arabic or Chinese), with local place names. Nothing is sent from the site.</p></div>
+      <div><h3>Share it and write to someone who can act</h3><p>The advocates page drafts a post for X, Facebook and LinkedIn, downloads a picture card for Instagram stories or posts, and drafts an email to a policymaker. Emails can be written in 17 languages (English, Spanish, French, Portuguese, German, Italian, Arabic, Chinese, Russian, Hindi, Japanese, Korean, Indonesian, Turkish, Swahili, Dutch and Polish), with local place names, and a “who to write to” box links to the official parliament directory and a search for the right ministry. Nothing is sent from the site.</p></div>
       <div><h3>The live site's menu, rebuilt</h3><p>A "More" menu (and the footer) now has Analysis, Insights, Methodology, Volunteering, In the news, About and The team, plus Bluesky and LinkedIn links. Analysis, Insights and In the news list every item with search and filters and link to the articles on zerotracker.net. Methodology, Volunteering, The team and the terms pages are rebuilt here from the live content.</p></div>
       <div><h3>Emissions history on every profile</h3><p>Countries show greenhouse gas emissions since 1850 (Our World in Data, from Jones et al. 2024). Cities and regions show 1970 to 2022 from the European Commission's EDGAR v8.0, summed from its 0.1° grid over the region's boundary, or over roughly 6 to 45 km around a city centre depending on its population. A dashed line shows a straight path from today to the target milestone and net zero year. City figures are approximate and will differ from official inventories.</p></div>
       <div><h3>Global emissions and pathways on Explore</h3><p>With countries selected, a chart below the table shows how the largest emitters add up to the global total since 1990, and the Climate Action Tracker's scenarios ahead: a Paris-aligned pathway, current policies, all NDCs met, all pledges met, and a simple "no further action" trend. The Compare page can plot emissions and each entry's target path on one chart, and profiles can be compared with places of similar GDP.</p></div>
