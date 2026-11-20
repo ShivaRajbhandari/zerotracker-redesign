@@ -249,7 +249,7 @@ P.home = () => {
     <div class="center"><h2 class="h-brand">Start here</h2><p class="lede">Different jobs, different shortcuts.</p></div>
     <div class="grid3 mt2">
       <a class="card path" href="#/policymakers"><span class="who">Policymakers &amp; officials</span><h3>Benchmark your jurisdiction</h3><ul><li>See how you compare with peers</li><li>Find exactly what your target is missing</li><li>Copy a ready-to-use briefing paragraph</li></ul><span class="go">Policymaker guide →</span></a>
-      <a class="card path" href="#/activists"><span class="who">Advocates &amp; campaigners</span><h3>Hold a target to account</h3><ul><li>Spot the six warning signs of a weak pledge</li><li>Get questions to put to a company or council</li><li>Cite the data correctly</li></ul><span class="go">Advocate toolkit →</span></a>
+      <a class="card path" href="#/advocates"><span class="who">Advocates &amp; campaigners</span><h3>Hold a target to account</h3><ul><li>Spot the six warning signs of a weak pledge</li><li>Get questions to put to a company or council</li><li>Cite the data correctly</li></ul><span class="go">Advocate toolkit →</span></a>
       <a class="card path" href="#/compare"><span class="who">Journalists &amp; researchers</span><h3>Compare and download</h3><ul><li>Put up to 4 entries side by side</li><li>Filter and export any list as CSV</li><li>Link every claim to its source</li></ul><span class="go">Compare tool →</span></a>
     </div>
   </div></section>
@@ -1019,7 +1019,7 @@ P.policymakers = () => {
 P.policymakers.after = () => wireSearch('s-pm');
 
 /* ---------- ACTIVISTS ---------- */
-P.activists = () => {
+P.advocates = () => {
   const G = gapStats('company');
   const big = byType('company').filter(e => e.priv !== 'Yes' && e.rev).sort((a,b) => b.rev - a.rev).slice(0, 200);
   const noT = big.filter(e => !isNZ(e)).slice(0, 8);
@@ -1192,7 +1192,7 @@ function renderShare(e){
   const pv = shareCard(e, 'story'), pc = $('#sh-prev'); pc.width = pv.width; pc.height = pv.height; pc.getContext('2d').drawImage(pv, 0, 0);
   $$('[data-card]').forEach(b => b.onclick = () => { const a = document.createElement('a'); a.download = `${e.s}-${b.dataset.card}.png`; a.href = shareCard(e, b.dataset.card).toDataURL('image/png'); a.click(); });
 }
-P.activists.after = () => { wireSearch('s-act'); wireSearch('s-share', e => { $('#s-share input').value = e.n; $('#s-share .sugg').hidden = true; renderShare(e); }); };
+P.advocates.after = () => { wireSearch('s-act'); wireSearch('s-share', e => { $('#s-share input').value = e.n; $('#s-share .sugg').hidden = true; renderShare(e); }); };
 
 /* ---------- NOTES (for the NZT team) ---------- */
 P.notes = () => `<section class="tight band"><div class="wrap">
@@ -1474,12 +1474,13 @@ function route(){
   const params = Object.fromEntries(new URLSearchParams(qs || ''));
   let page = parts[0] || 'home', arg = parts[1];
   if (page === 'e') page = 'entity';
+  if (page === 'activists') { location.replace('#/advocates'); return; }  // old link
   if (!P[page]) page = 'home';
   hideTip();
   $('#main').innerHTML = P[page](params, arg);
   $$('#nav a[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === page));
   $('#nav').classList.remove('open');
-  document.title = (page === 'entity' && BY[arg] ? BY[arg].n + ' | ' : page !== 'home' ? ({explore:'Explore',compare:'Compare',learn:'Learn',goodnet:'Good net zero',policymakers:'For policymakers',activists:'For advocates',notes:'About this prototype',faqs:'FAQs',about:'About & contact'}[page] + ' | ') : '') + 'Net Zero Tracker (prototype)';
+  document.title = (page === 'entity' && BY[arg] ? BY[arg].n + ' | ' : page !== 'home' ? ({explore:'Explore',compare:'Compare',learn:'Learn',goodnet:'Good net zero',policymakers:'For policymakers',advocates:'For advocates',notes:'About this prototype',faqs:'FAQs',about:'About & contact'}[page] + ' | ') : '') + 'Net Zero Tracker (prototype)';
   if (P[page].after) P[page].after(params, arg);
   if (!(page === 'learn' && arg)) window.scrollTo(0, 0);
 }
