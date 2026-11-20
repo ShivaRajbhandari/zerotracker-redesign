@@ -1,0 +1,400 @@
+# Editor settings for the Net Zero Tracker prototype (Decap CMS).
+# Content lives in the PRIVATE repo below; approved changes are published to this site by its GitHub Action.
+backend:
+  name: github
+  repo: ShivaRajbhandari/zerotracker-source
+  branch: main
+  base_url: https://babevote-login.shiva-a-rajbhandari.workers.dev   # shared GitHub login helper for www.shivarajbhandari.com (repo scope)
+  auth_endpoint: auth
+  auth_scope: repo
+  commit_messages:
+    create: "Add {{collection}} “{{slug}}”"
+    update: "Update {{collection}} “{{slug}}”"
+    delete: "Delete {{collection}} “{{slug}}”"
+local_backend: true   # only used when the editor is opened on localhost (testing)
+publish_mode: editorial_workflow
+media_folder: content/uploads
+public_folder: /uploads
+site_url: https://www.shivarajbhandari.com/zerotracker-redesign/
+display_url: https://www.shivarajbhandari.com/zerotracker-redesign/
+locale: en
+
+collections:
+  - name: pages
+    label: Page text
+    label_singular: Page
+    description: "Every piece of wording on the site, page by page. Open a page, expand a piece of text and change it. The preview on the right is the real page, and you can switch it to tablet or phone size."
+    editor: {preview: true}
+    files:
+      - label: "Site-wide: menu, banner, footer, newsletter box"
+        name: "site"
+        file: "content/text/site.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (30 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Home"
+        name: "home"
+        file: "content/text/home.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (88 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Explore"
+        name: "explore"
+        file: "content/text/explore.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (29 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Profile pages (shared wording)"
+        name: "profile"
+        file: "content/text/profile.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (92 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Compare"
+        name: "compare"
+        file: "content/text/compare.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (14 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Good net zero"
+        name: "goodnet"
+        file: "content/text/goodnet.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (146 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Learn"
+        name: "learn"
+        file: "content/text/learn.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (126 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "For policymakers"
+        name: "policymakers"
+        file: "content/text/policymakers.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (32 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "For advocates"
+        name: "advocates"
+        file: "content/text/advocates.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (45 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Analysis"
+        name: "analysis"
+        file: "content/text/analysis.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (49 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Insights"
+        name: "insights"
+        file: "content/text/insights.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (172 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Methodology"
+        name: "methodology"
+        file: "content/text/methodology.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (396 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Volunteering"
+        name: "volunteering"
+        file: "content/text/volunteering.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (25 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "In the news"
+        name: "news"
+        file: "content/text/news.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (167 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "About"
+        name: "about"
+        file: "content/text/about.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (37 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "The team"
+        name: "team"
+        file: "content/text/team.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (63 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "FAQs"
+        name: "faqs"
+        file: "content/text/faqs.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (77 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Data and terms of use"
+        name: "data-terms"
+        file: "content/text/data-terms.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (19 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "Terms and conditions"
+        name: "terms"
+        file: "content/text/terms.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (20 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+      - label: "About this prototype"
+        name: "notes"
+        file: "content/text/notes.json"
+        fields:
+          - {name: title, widget: hidden}
+          - {name: route, widget: hidden}
+          - label: "Text on this page (53 pieces, in page order)"
+            name: blocks
+            widget: list
+            allow_add: false
+            collapsed: true
+            summary: "{{fields.where}}: {{fields.text}}"
+            fields:
+              - {name: where, widget: hidden}
+              - {name: orig, widget: hidden}
+              - {name: start, widget: hidden}
+              - {label: Text, name: text, widget: text, hint: "Formatting: `**bold**`, `*italic*`, `[link text](https://…)`. Press Enter for a line break. Counts and years that come from the data are best left alone."}
+
+  - name: records
+    label: Data entries
+    label_singular: Data entry
+    description: "Add a new country, region, city or company, or change or remove an existing one. Start from an existing entry to edit it."
+    folder: content/records
+    extension: json
+    format: json
+    create: true
+    slug: "{{slug}}"
+    identifier_field: title
+    summary: "{{title}}"
+    fields:
+      - {label: "What this change is (for the review list), e.g. Update Brazil's target year", name: title, widget: string}
+      - {label: "Remove this entry from the site", name: remove, widget: boolean, default: false, required: false}
+      - {label: Entry, name: record, widget: nzt-record}
+
+  - name: imports
+    label: Data uploads (CSV)
+    label_singular: Data upload
+    description: "Upload a spreadsheet (CSV) to add or update many entries at once. Rows are matched to existing entries by their ID, or by name and type; anything else is added as new."
+    folder: content/imports
+    extension: json
+    format: json
+    create: true
+    slug: "{{year}}-{{month}}-{{day}}-{{slug}}"
+    identifier_field: title
+    summary: "{{title}}"
+    fields:
+      - {label: "Name for this upload, e.g. November 2026 data refresh", name: title, widget: string}
+      - {label: Notes for reviewers, name: notes, widget: text, required: false}
+      - {label: Spreadsheet, name: upload, widget: nzt-csv}
