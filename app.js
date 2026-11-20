@@ -1094,8 +1094,16 @@ function cmpEmisWire(es, st){
       const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
       const {S2, x0, x1, idx} = window.__cmpe, hx = +hit.getAttribute('x'), hw = +hit.getAttribute('width'), yr = Math.round(x0 + Math.max(0, Math.min(1, (p.x - hx) / hw)) * (x1 - x0));
       const X = hx + (yr - x0) / (x1 - x0) * hw; vx.setAttribute('x1', X); vx.setAttribute('x2', X); vx.setAttribute('opacity', .3);
-      const rows = S2.map(r => { const q = r.pts.find(pp => pp[0] === yr); return q ? `<div class="mrow"><span class="my" style="color:${r.c}">●</span><span>${esc(r.e.n)}: <b>${idx ? (q[1] > 0 ? '+' : q[1] < 0 ? '−' : '') + Math.abs(q[1]).toFixed(0) + '%' : fmtMt(q[1])}</b>${idx ? '' : ' Mt'}</span></div>` : ''; }).join('');
-      showTip(`<div class="tipms"><b>${yr}</b>${rows}</div>`, ev);
+      const val = v => idx ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(0) + '%' : (Math.abs(v) < 1e-9 ? '0' : fmtMt(v)) + ' Mt';
+      // past the history, read the value off the entry's dashed target path
+      const onPath = r => { const t = r.tg; if (!t || yr <= t[0][0] || yr > t[t.length - 1][0]) return null;
+        for (let i = 1; i < t.length; i++) if (yr <= t[i][0]) { const [ya, va] = t[i - 1], [yb, vb, k] = t[i]; return {v: va + (vb - va) * (yr - ya) / (yb - ya), k: yr === yb ? k : null}; } return null; };
+      let anyPath = false;
+      const rows = S2.map(r => { const q = r.pts.find(pp => pp[0] === yr), dot = `<span class="my" style="color:${r.c}">●</span>`;
+        if (q) return `<div class="mrow">${dot}<span>${esc(r.e.n)}: <b>${val(q[1])}</b></span></div>`;
+        const o = onPath(r); if (!o) return ''; anyPath = true;
+        return `<div class="mrow">${dot}<span>${esc(r.e.n)}: <b>${val(o.v)}</b> ${o.k === 'nz' ? '(net zero target)' : o.k === 'ms' ? '(milestone)' : '(on target path)'}</span></div>`; }).join('');
+      showTip(`<div class="tipms"><b>${yr}</b>${rows || '<div class="mrow muted">No figures for this year</div>'}${anyPath ? '<div class="muted" style="font-size:12px;margin-top:4px">Target-path values are a straight line, for illustration only.</div>' : ''}</div>`, ev);
     });
     hit.addEventListener('mouseleave', () => { hideTip(); vx.setAttribute('opacity', 0); });
   };
