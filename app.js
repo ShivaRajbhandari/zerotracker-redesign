@@ -483,7 +483,7 @@ function filtered(){
 }
 
 /* ---------- EXPLORE: how countries add up to global emissions, and the pathways ahead ---------- */
-function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bk'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bl'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const GL_STACK = ['#cdb998', '#a9c4e4', '#ecd49a', '#b9d8a8', '#c5bdd0', '#dcbcd6', '#e8e4ec'];
 const GL_SCN = {paris:['#2f8a4c', 'Paris-aligned pathway', 'Paris-aligned'], ndc:['#1f4e8c', 'All 2030 and 2035 NDCs met', 'NDCs met'], pledges:['#6b3fa0', 'All pledges and net zero targets met', 'All pledges met'], pol:['#c27a00', 'Current policies', 'Current policies'], none:['#E13B26', 'No further action (past trend continues)', 'No further action']};
 function glScenarios(G){
@@ -647,7 +647,7 @@ function timelineSVG(e){
 }
 
 /* ---------- EMISSIONS HISTORY (countries: Our World in Data 1850-; cities and regions: EDGAR v8.0 1970-2022) ---------- */
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bk'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bl'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
@@ -933,7 +933,7 @@ function compareTimeline(es){
     const tiers = [-1e9, -1e9, -1e9], nm = name(e);
     const ptHtml = r.pts.map((p, j) => {
       const px = x(p.yr);
-      const data = `data-li="${i}" data-pj="${j}" tabindex="0" role="img" aria-label="${esc(e.n + ', ' + p.yr + ': ' + p.l)}"`;
+      const data = `data-li="${i}" data-pj="${j}" role="img" aria-label="${esc(e.n + ', ' + p.yr + ': ' + p.l)}"`;
       if (p.k === 'ms') {
         const lab = p.yr + ': ' + short(p.l, 24), w = cw(lab, 11.5), flip = px + w > X1 + 30; let t = 0; const from = flip ? px - w : px;
         while (t < 2 && tiers[t] > from - 6) t++;
@@ -956,17 +956,10 @@ function compareTimeline(es){
   const ref = [[2030, '2030'], [2050, '2050']].filter(([v]) => v <= end).map(([v, l]) => `<line x1="${x(v)}" x2="${x(v)}" y1="${TOP - 6}" y2="${H - 10}" stroke="#5EA845" stroke-width="2" stroke-dasharray="5 4"/>`).join('');
   const bg = es.map((e, i) => `<rect x="0" y="${TOP + RH * i + 6}" width="${W}" height="${RH - 8}" rx="8" fill="${i % 2 ? '#fff' : '#f4f3f7'}"/>`).join('');
   return `<section class="tight"><div class="wrap"><h2 class="h-brand" style="font-size:24px">Timeline of milestones and targets</h2>
-    <p class="muted mt0">One row per entry. <b style="color:#7a4a00">Dots</b> are interim milestones, <b style="color:#3B7CC3">diamonds</b> are end targets. Hover or tap a marker for details. The dashed green lines mark 2030 and 2050, the years the UN climate science panel uses for a 1.5°C path (about 45% cut by 2030, net zero around 2050).</p>
+    <p class="muted mt0">One row per entry. <b style="color:#7a4a00">Dots</b> are interim milestones, <b style="color:#3B7CC3">diamonds</b> are end targets. The dashed green lines mark 2030 and 2050, the years the UN climate science panel uses for a 1.5°C path (about 45% cut by 2030, net zero around 2050).</p>
     <div class="tlwrap"><svg viewBox="0 0 ${W} ${H}" class="tlsvg" role="group" aria-label="Timeline comparing milestones and targets for ${es.map(e => esc(e.n)).join(', ')}">${bg}${bg}${grid}${ref}${lanes}</svg></div></div></section>`;
 }
-function wireTl(){
-  $$('.tlp').forEach(g => { const t = () => { const r = window.__tl[+g.dataset.li]; return tlTip(r.e, r.pts[+g.dataset.pj]); };
-    g.addEventListener('mousemove', ev => showTip(t(), ev));
-    g.addEventListener('mouseleave', hideTip);
-    g.addEventListener('focus', () => { const r = g.getBoundingClientRect(); showTip(t(), {clientX:r.left, clientY:r.bottom}); });
-    g.addEventListener('blur', hideTip);
-    g.addEventListener('click', ev => showTip(t(), ev)); });
-}
+function wireTl(){}  // no hover details on the timeline markers
 
 /* ---------- COMPARE: emissions of all selected entries on one chart ---------- */
 const CMP_COL = ['#3B7CC3', '#E13B26', '#5EA845', '#8a6a3d'];
