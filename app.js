@@ -596,6 +596,7 @@ function peerMode(e){
   const want = PM[e.t] && ms.includes(PM[e.t]) ? PM[e.t] : ms[0];
   return want;
 }
+const shortName = e => (e.n.match(/\(([^)]+)\)/) || [, e.n])[1];
 function peers(e, mode){
   if (e.t === 'city' && !(e.pop >= CITY_MIN)) return {label:'', xs:[], small:true, mode:''};
   mode = mode || peerMode(e);
@@ -719,7 +720,7 @@ P.entity = (params, slug) => {
     ${pr.small ? `<p class="muted mt0">${esc(e.n)} has about ${fmt(e.pop)} people. The Tracker's city coverage starts at 500,000, so there is no peer group for it. Choose a city to compare it with.</p>
     <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <div class="seg peerseg" id="peerseg" role="group" aria-label="Compare with">${peerModes(e).map(([m, l]) => `<button data-m="${m}" class="${m === pr.mode ? 'on' : ''}"${m === 'country' && byType(e.t).filter(x => x.c === e.c && (e.t !== 'city' || x.pop >= CITY_MIN)).length < 3 ? ' disabled title="Too few entries in this country"' : ''}><b>${l}</b></button>`).join('')}</div>
     <p class="muted mt1">Compared with ${pr.mode === 'size' ? '' : pr.mode === 'world' && e.t === 'company' ? 'all ' : 'the '}${fmt(px.length)} ${esc(pr.label)}. ${esc(peerBasis(e))}${peerBasis(e) ? ' ' : ''}Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
-    <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:110px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap">${me ? '✓ ' : '✗ '}This ${TYPE[e.t][0].toLowerCase()}</td></tr>`; }).join('')}</table>`}
+    <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:190px;max-width:190px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(e.n)}">${me ? '✓ ' : '✗ '}${esc(shortName(e))}</td></tr>`; }).join('')}</table>`}
   </div></section>
 
   <section class="tight"><div class="wrap grid2">
@@ -1150,9 +1151,15 @@ function emlKeys(e){
   cs.filter(c => c.v === 'unk' && ok.includes(c.id)).slice(0, 2).forEach(c => out.push(key(c)));
   return out.length ? out : ['track'];
 }
+function emlName(e, lang){
+  const v = window.NZN && window.NZN[e.s];
+  if (v && v[0] === lang) return v[1].replace(/\s*\(.*\)\s*$/, '');
+  if (e.t === 'country' && e.a2) { try { const r = new Intl.DisplayNames([lang], {type: 'region'}).of(e.a2.toUpperCase()); if (r && r !== e.a2.toUpperCase()) return r; } catch (x) {} }
+  return e.n;
+}
 function emailDraftLang(e, lang){
   if (lang === 'en' || !EML[lang]) return Object.assign(emailDraft(e), {rtl:false});
-  const L = EML[lang], cs = checks(e), t = tally(cs), n = e.n, y = isNZ(e) ? year(e) : '';
+  const L = EML[lang], cs = checks(e), t = tally(cs), n = emlName(e, lang), y = isNZ(e) ? year(e) : '';
   const qs = emlKeys(e).slice(0, 3).map(k => L.q[k](n));
   const body = `${L.greet}\n\n${L.intro(n, y, t.yes, cs.length, isNZ(e))}\n\n${L.grate}\n\n${qs.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n${L.link} ${official(e)}\n\n${L.thanks}\n\n${L.bye}\n${L.you}`;
   return {subject: L.subj(n), body, rtl: !!L.rtl};
