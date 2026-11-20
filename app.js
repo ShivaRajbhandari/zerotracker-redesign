@@ -135,6 +135,11 @@ const people = n => n >= 1e9 ? (n/1e9).toFixed(2) + ' billion' : n >= 1e6 ? (n/1
 /* ---------- helpers ---------- */
 function toast(msg){ const t = $('#toast'); t.textContent = msg; t.style.display = 'block'; clearTimeout(t._h); t._h = setTimeout(() => t.style.display = 'none', 2200); }
 function copy(text){ (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast('Copied to clipboard'), () => toast('Select and copy the text manually')); }
+(function(){ const m = $('#more'); if (!m) return; const b = $('.more-btn', m);
+  b.onclick = ev => { ev.stopPropagation(); m.classList.toggle('open'); b.setAttribute('aria-expanded', m.classList.contains('open')); };
+  document.addEventListener('click', ev => { if (!m.contains(ev.target)) { m.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); } });
+  addEventListener('hashchange', () => { m.classList.remove('open'); b.setAttribute('aria-expanded', 'false'); });
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') m.classList.remove('open'); }); })();
 window.toggleMenu = btn => { const n = $('#nav'); n.classList.toggle('open'); btn.setAttribute('aria-expanded', n.classList.contains('open')); };
 const tip = $('#tip');
 function showTip(html, ev){ tip.innerHTML = html; tip.style.display = 'block'; moveTip(ev); }
@@ -1262,6 +1267,7 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <div><h3>Explore: governments or companies at the top</h3><p>A switch above the table shows the map (governments) or the treemap (companies). Hovering "Next milestone" lists every later milestone up to the target. A small key explains the check icons.</p></div>
       <div><h3>Choose what to compare with</h3><p>On every profile, "How it compares" can be set to the entry's region, its country, the world, or similar size (or sector and revenue for companies). Regions are our own grouping (for example the Middle East and North Africa, South and Central Asia, China on its own). Cities with fewer than 500,000 people, which the Tracker does not cover, pick a city to compare with instead.</p></div>
       <div><h3>Share it and write to someone who can act</h3><p>The advocates page drafts a post for X, Facebook and LinkedIn, downloads a picture card for Instagram stories or posts, and drafts an email to a policymaker. Emails can be written in the language of the country (English, Spanish, French, Portuguese, German, Italian, Arabic or Chinese), with local place names. Nothing is sent from the site.</p></div>
+      <div><h3>The live site's menu, rebuilt</h3><p>A "More" menu (and the footer) now has Companies, Analysis, Insights, Methodology, Volunteering, In the news, About, The team and Data and terms of use, plus Bluesky and LinkedIn links. Analysis, Insights and In the news list every item with search and filters and link to the articles on zerotracker.net. Methodology, Volunteering, The team and the terms pages are rebuilt here from the live content.</p></div>
       <div><h3>FAQs and About inside the prototype</h3><p>The live site's FAQs and About and contact pages are rebuilt here with the same content, and a dismissible newsletter box replaces the top strip.</p></div>
     </div></div>
     <div><h2 class="h-brand" style="font-size:24px">Possible errors on the live site</h2>
@@ -1523,6 +1529,47 @@ P.about = () => `
     <p class="center muted mt2">Looking for quick answers first? <a href="#/faqs">Read the FAQs</a>.</p>
   </div></section>`;
 
+
+/* ---------- MORE PAGES (rebuilt from the live site: analysis, insights, news, methodology, volunteering, team, terms) ---------- */
+const NZP = window.NZP || {};
+const fdate = d => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', {day:'numeric', month:'short', year:'numeric'}) : '';
+const pageHero = (eyebrow, title, lede) => `<section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">${esc(eyebrow)}</p><h1 style="font-size:clamp(30px,4.5vw,46px)">${esc(title)}</h1>${lede ? `<p>${esc(lede)}</p>` : ''}</div></section>`;
+function listPage(eyebrow, title, lede, items, kinds){
+  const ks = kinds ? [...new Set(items.map(i => i.k).filter(Boolean))] : [];
+  return pageHero(eyebrow, title, lede) + `<section class="tight"><div class="wrap">
+    <div class="lpbar"><input type="search" id="lp-q" placeholder="Search…" aria-label="Search"/>${ks.length ? `<div class="chips" id="lp-k"><button class="on" data-k="">All</button>${ks.map(k => `<button data-k="${esc(k)}">${esc(k)}</button>`).join('')}</div>` : ''}</div>
+    <p class="muted" id="lp-n" style="margin:6px 0 0;font-size:14px"></p>
+    <div class="alist" id="lp-list">${items.map(i => { const body = `<div class="meta">${esc(fdate(i.d))}${i.k ? ' · ' + esc(i.k) : ''}${i.src ? ' · ' + esc(i.src) : ''}</div><h3>${esc(i.t)}${i.u ? ' ↗' : ''}</h3>${i.s ? `<p>${esc(i.s)}</p>` : ''}`; const q = esc((i.t + ' ' + (i.s || '') + ' ' + (i.src || '') + ' ' + (i.k || '')).toLowerCase()); return i.u ? `<a class="aitem" href="${esc(i.u)}" target="_blank" rel="noopener" data-q="${q}" data-k="${esc(i.k || '')}">${body}</a>` : `<div class="aitem" data-q="${q}" data-k="${esc(i.k || '')}">${body}</div>`; }).join('')}</div>
+    <p class="muted mt2" style="font-size:14.5px">Items open on zerotracker.net, where the full articles live.</p>
+  </div></section>`;
+}
+function listWire(){
+  const q = $('#lp-q'); if (!q) return; let k = '';
+  const run = () => { const t = q.value.trim().toLowerCase(); let n = 0; $$('#lp-list .aitem').forEach(a => { const ok = (!t || a.dataset.q.includes(t)) && (!k || a.dataset.k === k); a.hidden = !ok; if (ok) n++; }); $('#lp-n').textContent = n + ' shown'; };
+  q.oninput = run; $$('#lp-k button').forEach(b => b.onclick = () => { k = b.dataset.k; $$('#lp-k button').forEach(x => x.classList.toggle('on', x === b)); run(); }); run();
+}
+P.analysis = () => listPage('Analysis', 'Analysis', 'Our latest on the quality of net zero targets across nations, regions, cities and the world’s largest companies.', NZP.analysis || []);
+P.analysis.after = listWire;
+P.insights = () => listPage('Insights', 'Insights', 'The Net Zero Tracker team’s latest commentary and explainers on everything net zero.', NZP.insights || [], true);
+P.insights.after = listWire;
+P.news = () => listPage('In the news', 'In the news', 'Net Zero Tracker events and news highlights.', NZP.news || []);
+P.news.after = listWire;
+P.methodology = () => pageHero('Methodology', 'Methodology', (NZP.methodology || {}).sum || 'How the Net Zero Tracker collects, assesses and cites its data.') + `<section class="tight"><div class="wrap"><div class="prose">${(NZP.methodology || {}).html || ''}</div>
+  <div class="note mt2">The prototype’s plain-language checklist is explained on <a href="#/learn/method">How we assess targets</a>.</div></div></section>`;
+P.terms = () => pageHero('Legal', 'Terms and conditions', '') + `<section class="tight"><div class="wrap"><div class="prose">${NZP.terms || ''}</div></div></section>`;
+P['data-terms'] = () => pageHero('Data', 'Data and terms of use', 'How you can use Net Zero Tracker data.') + `<section class="tight"><div class="wrap"><div class="prose">${NZP.dtou || ''}</div></div></section>`;
+P.volunteering = () => { const v = NZP.vol || {}; return pageHero('Volunteering', 'Volunteer hub', v.intro) + `<section><div class="wrap">
+  <div class="flex"><a class="btn btn-red" href="${esc(v.signup)}" target="_blank" rel="noopener">Sign up now</a><a class="btn btn-ghost" href="${esc(v.onboard)}" target="_blank" rel="noopener">Onboarding resources</a></div>
+  <h2 class="h-brand mt3">Why volunteer with the Net Zero Tracker?</h2>
+  <div class="alist">${(v.articles || []).map(a => `<a class="aitem" href="${esc(a.u)}" target="_blank" rel="noopener"><h3>${esc(a.t)} ↗</h3><p>${esc(a.s)}</p></a>`).join('')}</div>
+  <div class="grid2 mt2">${(v.quotes || []).map(q => `<div class="card" style="border-top:5px solid var(--green)"><p style="margin:0">“${esc(q.replace(/\s+[–-]\s+[^–-]+$/, '').replace(/^["“]|["”]$/g, ''))}”</p><p class="muted" style="margin:.6em 0 0;font-size:14.5px">${esc((q.match(/[–-]\s+([^–-]+)$/) || [, ''])[1])}</p></div>`).join('')}</div>
+  <div class="card mt2" style="background:var(--band)"><h3>Volunteer newsletter</h3><p>Want to learn more about net zero, events and what’s happening at the Tracker? Join the bi-weekly volunteer newsletter.</p><a class="btn btn-purple btn-sm" href="${esc(v.news)}" target="_blank" rel="noopener">Subscribe</a></div>
+  </div></section>`; };
+P.team = () => { const t = NZP.team || [], ini = n => n.replace(/^Dr\.\s*/, '').split(' ').map(x => x[0]).slice(0, 2).join('');
+  const card = m => `<div class="card tm"><div class="av" aria-hidden="true">${esc(ini(m.n))}</div><div><h3>${esc(m.n)}</h3><p class="job">${esc(m.j)}</p><div class="bio">${m.s}</div><p style="margin:.4em 0 0;font-size:14.5px">${m.li ? `<a href="${esc(m.li)}" target="_blank" rel="noopener">LinkedIn</a>` : ''}${m.li && m.bs ? ' · ' : ''}${m.bs ? `<a href="${esc(m.bs)}" target="_blank" rel="noopener">Bluesky</a>` : ''}</p></div></div>`;
+  return pageHero('The team', 'The team', 'The team is drawn from the Net Zero Tracker’s four partner organisations, all experts in their fields.') + `<section><div class="wrap">
+  <div class="grid2">${t.slice(0, 7).map(card).join('')}</div>
+  <h2 class="h-brand mt3">Partner leads</h2><div class="grid2 mt1">${t.slice(7).map(card).join('')}</div></div></section>`; };
 /* ---------- router ---------- */
 function route(){
   const h = location.hash.replace(/^#\/?/, '');
@@ -1536,7 +1583,7 @@ function route(){
   $('#main').innerHTML = P[page](params, arg);
   $$('#nav a[data-r]').forEach(a => a.classList.toggle('on', a.dataset.r === page));
   $('#nav').classList.remove('open');
-  document.title = (page === 'entity' && BY[arg] ? BY[arg].n + ' | ' : page !== 'home' ? ({explore:'Explore',compare:'Compare',learn:'Learn',goodnet:'Good net zero',policymakers:'For policymakers',advocates:'For advocates',notes:'About this prototype',faqs:'FAQs',about:'About & contact'}[page] + ' | ') : '') + 'Net Zero Tracker (prototype)';
+  document.title = (page === 'entity' && BY[arg] ? BY[arg].n + ' | ' : page !== 'home' ? ({explore:'Explore',compare:'Compare',learn:'Learn',goodnet:'Good net zero',analysis:'Analysis',insights:'Insights',news:'In the news',methodology:'Methodology',volunteering:'Volunteering',team:'The team',terms:'Terms and conditions','data-terms':'Data and terms of use',policymakers:'For policymakers',advocates:'For advocates',notes:'About this prototype',faqs:'FAQs',about:'About & contact'}[page] + ' | ') : '') + 'Net Zero Tracker (prototype)';
   if (P[page].after) P[page].after(params, arg);
   if (!(page === 'learn' && arg)) window.scrollTo(0, 0);
 }
