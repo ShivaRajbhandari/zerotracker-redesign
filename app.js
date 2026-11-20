@@ -929,17 +929,24 @@ P.learn = (params, sub) => `
 P.learn.after = (params, sub) => {
   $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $('#ghg-lede').textContent = GHG_LEDE[l]; $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
-  today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each cloud is 10% of a year’s emissions. They come from power plants and factories, petrol and diesel cars, heating homes, and even cows, which release methane. They all trap heat.','10 puffs','All 10 puffs are still going up.'],
-  cut:['2. Cut it at the source','Stop making the smoke in the first place: sun and wind instead of coal, electric cars, efficient homes, less methane from farming. Net zero standards ask for roughly 90% of emissions to be cut. One cloud is left.','1 puff left','Nine puffs are gone for good. One is left.'],
-  remove:['3. Take out what is left','A small amount is very hard to avoid, such as from making cement or from farming. Take that carbon back out of the air, with trees and soils or machines that capture it and store it underground, and no extra carbon is added in total. That is net zero.','Net zero','The last puff is removed from the air and stored, so the total added is zero.'],
-  offset:['Not the same: cutting less, then buying offsets','Cut only half, then pay for carbon credits to “cover” the rest. The money funds trees or other projects somewhere else, but your own smoke still goes up. Credits vary in quality, so experts warn they should not replace deep cuts.','5 puffs still going up','Half the puffs are cut. The rest are only covered on paper, and are still going up.']
+  today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each cloud is 10% of a year’s emissions. They come from power plants and factories, petrol and diesel cars, heating homes, and even cows, which release methane. They all trap heat.','10 of 10 units released','Each cloud represents 10% of annual emissions, and all ten are still entering the atmosphere.'],
+  cut:['2. Cut it at the source','Stop making the smoke in the first place: sun and wind instead of coal, electric cars, efficient homes, less methane from farming. Net zero standards ask for roughly 90% of emissions to be cut. One cloud is left.','1 of 10 units remaining','Nine units are eliminated at the source. One residual unit remains.'],
+  remove:['3. Take out what is left','A small amount is very hard to avoid, such as from making cement or from farming. Take that carbon back out of the air, with trees and soils or machines that capture it and store it underground, and no extra carbon is added in total. That is net zero.','Net zero','The residual unit is removed from the atmosphere and stored durably, so net emissions are zero.'],
+  offset:['Not the same: cutting less, then buying offsets','Cut only half, then pay for carbon credits to “cover” the rest. The money funds trees or other projects somewhere else, but your own smoke still goes up. Credits vary in quality, so experts warn they should not replace deep cuts.','5 of 10 units still released','Half the units are eliminated. The rest are offset on paper but still enter the atmosphere.']
 };
 const NZK = {
-  smoke:['Pollution still going up','Emissions released into the air. This is what warms the planet.'],
+  smoke:['Greenhouse gases','Measured by their warming effect, carbon dioxide (CO₂) makes up about 75% of global emissions, mostly from burning coal, oil and gas and from clearing forests. Methane (about 18%) comes from livestock, landfills and oil and gas leaks. Nitrous oxide (about 4%) comes mainly from fertilisers, and fluorinated gases (about 2%) from refrigeration and industry.'],
   cut:['Cut at the source','Never released, because the activity was cleaned up: clean power, electric transport, better buildings, less waste.'],
   cap:['Removed and stored','Carbon taken back out of the air and kept out, for example by trees and soils or by capturing it and storing it underground. Needed only for the small leftover.'],
   off:['Covered by a credit, still going up','A carbon credit pays someone else to cut or absorb emissions. It is a paper claim: your own smoke still goes up, and credits can be low quality or double counted.']
 };
+const NZS = {
+  ch:['Power plants and factories: about 58% of global emissions','Generating electricity and heat produces about 34% of global greenhouse gas emissions. Industry, such as steel, cement and chemicals, adds another 24%. Most of it comes from burning coal, oil and gas.'],
+  car:['Transport: about 15% of global emissions','Cars, trucks, ships and planes run mostly on oil. Road vehicles produce roughly 70% of transport emissions.'],
+  cow:['Farming and land use: about 22% of global emissions','This includes clearing forests and using fertiliser. Livestock alone, mainly methane from cattle digestion and manure, accounts for an estimated 12–15% of global emissions.'],
+  house:['Buildings: about 6% of global emissions directly','Burning gas and oil for heating and cooking produces about 6%. Counting the electricity that buildings use raises the share to about 16%.']
+};
+const NZ_SRC_NOTE = ' <span class="nzd-note">Shares of 2019 global greenhouse gas emissions, from the IPCC Sixth Assessment Report (2022); livestock figure from the UN FAO.</span>';
 NZK.src = ['A source of emissions','Power plants and factories burning fossil fuels, petrol and diesel cars, heating homes, and cows (which release methane) all send heat-trapping gases into the air.'];
 NZK.clean = ['A clean replacement','Wind and solar power, electric cars and efficient homes do the same job without the smoke. This is how most of the cutting happens.'];
 const NZM = ['today','cut','remove','offset'];
@@ -985,23 +992,25 @@ function netZeroDiagram(){
 function nzdWire(){
   const root = $('#nzd'); if (!root) return;
   let m = 'today';
-  const draw = hl => {
+  const draw = (hl, sec) => {
     $$('#nzsvg .pf').forEach(g => { const k = nzdState(m, +g.dataset.i); g.setAttribute('class', `pf s-${k}${hl ? (hl === k ? ' hlon' : ' hloff') : ''}`); g.dataset.k = k; });
     const T = NZ_SLOT[m];
-    $$('#nzsvg .slot').forEach(g => { const mm = g.id.match(/sl-([a-z]+)(\d)/), st = T[mm[1]][+mm[2]], k = NZ_KIND[st]; g.dataset.st = st; g.dataset.k = k; g.setAttribute('class', 'slot' + (hl ? (hl === k ? ' hlon' : ' hloff') : '')); });
+    $$('#nzsvg .slot').forEach(g => { const mm = g.id.match(/sl-([a-z]+)(\d)/), st = T[mm[1]][+mm[2]], k = NZ_KIND[st]; g.dataset.st = st; g.dataset.k = k; g.setAttribute('class', 'slot' + (hl ? (hl === k && (!sec || mm[1] === sec) ? ' hlon' : ' hloff') : '')); });
     [['turb', 'turb'], ['forest', 'forest']].forEach(([id, key]) => { const g = $('#sl-' + id); if (g) g.setAttribute('class', `sl2 ${id}${T[key] ? ' show' : ''}${hl ? (hl === g.dataset.k ? ' hlon' : ' hloff') : ''}`); });
     $$('#nzlegend span').forEach(sp => sp.classList.toggle('on', sp.dataset.k === hl));
     $('#nzd-h').textContent = NZD[m][0]; $('#nzd-p').textContent = NZD[m][1];
-    $('#nzd-cap').innerHTML = hl ? `<b>${esc(NZK[hl][0])}.</b> ${esc(NZK[hl][1])}` : `<b>${esc(NZD[m][2])}.</b> ${esc(NZD[m][3])} Hover or tap a cloud or key item for what it means.`;
+    const S = hl === 'src' && NZS[sec];
+    $('#nzd-cap').innerHTML = S ? `<b>${esc(S[0])}.</b> ${esc(S[1])}${NZ_SRC_NOTE}` : hl ? `<b>${esc(NZK[hl][0])}.</b> ${esc(NZK[hl][1])}` : `<b>${esc(NZD[m][2])}.</b> ${esc(NZD[m][3])}`;
     $('#nzd-cap').classList.toggle('warn', m === 'offset');
   };
   $$('#nzseg button').forEach(b => b.onclick = () => { m = b.dataset.m; $$('#nzseg button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
   const kind = ev => ev.target.closest('[data-k]')?.dataset.k || null;
-  root.addEventListener('mouseover', ev => draw(kind(ev)));
+  const sec = ev => ev.target.closest('.slot')?.id.match(/sl-([a-z]+)/)?.[1];
+  root.addEventListener('mouseover', ev => draw(kind(ev), sec(ev)));
   root.addEventListener('mouseleave', () => draw());
-  root.addEventListener('focusin', ev => draw(kind(ev)));
+  root.addEventListener('focusin', ev => draw(kind(ev), sec(ev)));
   root.addEventListener('focusout', () => draw());
-  root.addEventListener('click', ev => { const k = kind(ev); if (k) draw(k); });
+  root.addEventListener('click', ev => { const k = kind(ev); if (k) draw(k, sec(ev)); });
   draw();
 }
 
