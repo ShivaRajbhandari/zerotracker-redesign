@@ -1065,7 +1065,7 @@ function netZeroDiagram(){
   <svg viewBox="0 0 520 285" id="nzsvg" role="img" aria-label="Ten pollution clouds, each one tenth of emissions, rising from power plants, cars, cows and homes, showing what is cut, removed or only offset">${puffs}${nzdScene()}</svg>
   <div class="nzd-legend" id="nzlegend"><span data-k="smoke"><i class="k-smoke"></i>Pollution going up</span><span data-k="cut"><i class="k-cut"></i>Cut at the source</span><span data-k="cap"><i class="k-cap"></i>Removed and stored</span><span data-k="off"><i class="k-off"></i>Credit, still going up</span></div>
   <h4 class="nzd-h" id="nzd-h"></h4><p class="nzd-p" id="nzd-p"></p>
-  <div class="nzd-cap" id="nzd-cap" aria-live="polite"></div></div>`;
+  <div class="nzd-capw" id="nzd-capw"><div class="nzd-cap" id="nzd-cap" aria-live="polite"></div></div></div>`;
 }
 function nzdWire(){
   const root = $('#nzd'); if (!root) return;
@@ -1079,17 +1079,16 @@ function nzdWire(){
     $('#nzd-h').textContent = NZD[m][0]; $('#nzd-p').textContent = NZD[m][1];
     const S = hl === 'src' && NZS[sec];
     $('#nzd-cap').innerHTML = S ? `<b>${esc(S[0])}.</b> ${esc(S[1])}${NZ_SRC_NOTE}` : hl ? `<b>${esc(NZK[hl][0])}.</b> ${esc(NZK[hl][1])}` : `<b>${esc(NZD[m][2])}.</b> ${esc(NZD[m][3])}`;
-    $('#nzd-cap').classList.toggle('warn', m === 'offset');
+    $('#nzd-cap').classList.toggle('warn', m === 'offset'); $('#nzd-cap').classList.toggle('hov', !!hl);
   };
   // reserve the tallest caption/paragraph so the card never changes height (keeps the text on the left from jumping)
   const reserve = () => {
-    const cap = $('#nzd-cap'), p = $('#nzd-p'), h = $('#nzd-h'); if (!cap || !p) return;
-    cap.style.minHeight = p.style.minHeight = '0';
+    const cap = $('#nzd-cap'), w = $('#nzd-capw'), p = $('#nzd-p'), h = $('#nzd-h'); if (!cap || !p) return;
+    w.style.minHeight = p.style.minHeight = '0'; cap.classList.remove('hov');
     const cur = [cap.innerHTML, p.textContent, h.textContent]; let mc = 0, mp = 0;
-    NZM.forEach(k => { p.textContent = NZD[k][1]; mp = Math.max(mp, p.offsetHeight); cap.innerHTML = `<b>${esc(NZD[k][2])}.</b> ${esc(NZD[k][3])} Hover or tap a cloud or key item for what it means.`; mc = Math.max(mc, cap.offsetHeight); });
-    Object.values(NZK).forEach(v => { cap.innerHTML = `<b>${esc(v[0])}.</b> ${esc(v[1])}`; mc = Math.max(mc, cap.offsetHeight); });
+    NZM.forEach(k => { p.textContent = NZD[k][1]; mp = Math.max(mp, p.offsetHeight); cap.innerHTML = `<b>${esc(NZD[k][2])}.</b> ${esc(NZD[k][3])}`; mc = Math.max(mc, cap.offsetHeight); });
     cap.innerHTML = cur[0]; p.textContent = cur[1]; h.textContent = cur[2];
-    cap.style.minHeight = mc + 'px'; p.style.minHeight = mp + 'px';
+    w.style.minHeight = mc + 'px'; p.style.minHeight = mp + 'px';   // hover captions float over the bottom of the card instead of resizing it
   };
   let rt; addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(reserve, 150); });
   $$('#nzseg button').forEach(b => b.onclick = () => { m = b.dataset.m; $$('#nzseg button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
