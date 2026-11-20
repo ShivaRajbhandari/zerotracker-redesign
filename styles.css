@@ -576,3 +576,11 @@ ul.flags.plain li{margin-bottom:10px}
 .nzd-h{margin:10px 0 2px;font-size:18px;color:var(--purple)}.nzd-p{margin:0 0 10px;font-size:15.5px;line-height:1.5;color:var(--ink-2);min-height:96px}
 .ladder div.on{background-clip:padding-box}.ladder div.dk,.ladder div.dk b{color:#fff}
 .ladder div.on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--purple)}
+
+.slot .v{opacity:0;transition:opacity .45s}
+.slot[data-st="on"] .v-on,.slot[data-st="ghost"] .v-ghost,.slot[data-st="cap"] .v-cap,.slot[data-st="ev"] .v-ev,.slot[data-st="solar"] .v-solar,.slot[data-st="tree"] .v-tree{opacity:1}
+.sl2{opacity:0;transition:opacity .45s;pointer-events:none}.sl2.show{opacity:1;pointer-events:auto}
+.slot,.sl2{cursor:pointer}.slot.hloff{opacity:.25}.sl2.show.hloff{opacity:.25}
+.blades{transform-box:fill-box;transform-origin:center;animation:nzspin 5s linear infinite}
+@keyframes nzspin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.blades{animation:none}}

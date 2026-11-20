@@ -895,10 +895,10 @@ P.learn = (params, sub) => `
 P.learn.after = (params, sub) => {
   $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').textContent = GHG_CAP[l]; $$('#ghgseg button').forEach(x => x.classList.toggle('on', x === b)); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
-  today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each puff here is 10% of a year’s emissions. They come mostly from burning coal, oil and gas for electricity, cars, heating and factories, and they trap heat.','10 puffs','All 10 puffs are still going up.'],
-  cut:['2. Cut it at the source','Stop making the smoke in the first place: power homes with sun and wind instead of coal, switch to electric vehicles, insulate buildings, waste less. Net zero standards ask for roughly 90% of emissions to be cut. One puff is left.','1 puff left','Nine puffs are gone for good. One is left.'],
-  remove:['3. Take out what is left','A small amount is very hard to avoid, such as from making cement or from farming. Take that carbon back out of the air, with trees and soils or machines that store it underground, and no extra carbon is added in total. That is net zero.','Net zero','The last puff is removed from the air and stored, so the total added is zero.'],
-  offset:['Not the same: cutting less, then buying offsets','Cut only half, then buy carbon credits to “cover” the rest. Credits pay someone else to cut or absorb emissions elsewhere, but your own smoke still goes up. Credits vary in quality, so experts warn they should not replace deep cuts.','5 puffs still going up','Half the puffs are cut. The rest are only covered on paper, and are still going up.']
+  today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each cloud is 10% of a year’s emissions. They come from power plants and factories, petrol and diesel cars, heating homes, and even cows, which release methane. They all trap heat.','10 puffs','All 10 puffs are still going up.'],
+  cut:['2. Cut it at the source','Stop making the smoke in the first place: sun and wind instead of coal, electric cars, efficient homes, less methane from farming. Net zero standards ask for roughly 90% of emissions to be cut. One cloud is left.','1 puff left','Nine puffs are gone for good. One is left.'],
+  remove:['3. Take out what is left','A small amount is very hard to avoid, such as from making cement or from farming. Take that carbon back out of the air, with trees and soils or machines that capture it and store it underground, and no extra carbon is added in total. That is net zero.','Net zero','The last puff is removed from the air and stored, so the total added is zero.'],
+  offset:['Not the same: cutting less, then buying offsets','Cut only half, then pay for carbon credits to “cover” the rest. The money funds trees or other projects somewhere else, but your own smoke still goes up. Credits vary in quality, so experts warn they should not replace deep cuts.','5 puffs still going up','Half the puffs are cut. The rest are only covered on paper, and are still going up.']
 };
 const NZK = {
   smoke:['Pollution still going up','Emissions released into the air. This is what warms the planet.'],
@@ -906,15 +906,45 @@ const NZK = {
   cap:['Removed and stored','Carbon taken back out of the air and kept out, for example by trees and soils or by capturing it and storing it underground. Needed only for the small leftover.'],
   off:['Covered by a credit, still going up','A carbon credit pays someone else to cut or absorb emissions. It is a paper claim: your own smoke still goes up, and credits can be low quality or double counted.']
 };
+NZK.src = ['A source of emissions','Power plants and factories burning fossil fuels, petrol and diesel cars, heating homes, and cows (which release methane) all send heat-trapping gases into the air.'];
+NZK.clean = ['A clean replacement','Wind and solar power, electric cars and efficient homes do the same job without the smoke. This is how most of the cutting happens.'];
 const NZM = ['today','cut','remove','offset'];
 function nzdState(m, i){ return m === 'today' ? 'smoke' : m === 'cut' ? (i < 9 ? 'cut' : 'smoke') : m === 'remove' ? (i < 9 ? 'cut' : 'cap') : (i < 5 ? 'cut' : 'off'); }
+const NZ_SLOT = {
+  today:  {ch:['on','on','on'], car:['on','on','on'], cow:['on','on','on'], house:['on','on'], turb:0, forest:0},
+  cut:    {ch:['on','ghost','ghost'], car:['on','ev','ev'], cow:['on','ghost','ghost'], house:['solar','solar'], turb:1, forest:0},
+  remove: {ch:['on','ghost','cap'], car:['on','ev','ev'], cow:['on','tree','tree'], house:['solar','solar'], turb:1, forest:0},
+  offset: {ch:['on','on','ghost'], car:['on','on','ev'], cow:['on','on','ghost'], house:['on','solar'], turb:0, forest:1}
+};
+const NZ_KIND = {on:'src', ghost:'cut', ev:'clean', solar:'clean', cap:'cap', tree:'cap'};
+function nzdScene(){
+  const F = {stroke:'#5EA845', dash:'4 3'};
+  const slot = (id, x, vars) => `<g class="slot" id="sl-${id}" data-st="on" data-k="src" transform="translate(${x} 250)">${Object.entries(vars).map(([k, v]) => `<g class="v v-${k}">${v}</g>`).join('')}</g>`;
+  const smoke = (x, y) => `<circle cx="${x}" cy="${y}" r="5" fill="#A5865C" opacity=".7"/><circle cx="${x + 4}" cy="${y - 10}" r="4" fill="#A5865C" opacity=".45"/>`;
+  const chim = (c) => `<rect x="0" y="-62" width="18" height="40" fill="${c}"/><rect x="-2" y="-62" width="22" height="6" fill="#271039"/>`;
+  const car = c => `<rect x="0" y="-14" width="38" height="10" rx="3" fill="${c}"/><path d="M8 -14 L13 -23 H27 L32 -14 Z" fill="${c}"/><circle cx="9" cy="-4" r="4" fill="#271039"/><circle cx="29" cy="-4" r="4" fill="#271039"/>`;
+  const cow = (stroke, fill, extra = '') => `<g stroke="${stroke}" stroke-width="1.5" fill="${fill}"><rect x="5" y="-19" width="21" height="11" rx="5"/><rect x="-2" y="-21" width="9" height="8" rx="3"/><rect x="8" y="-9" width="3" height="9"/><rect x="21" y="-9" width="3" height="9"/></g>${extra}`;
+  const tree = sc => `<g transform="scale(${sc})"><rect x="11" y="-14" width="5" height="14" fill="#8a6a3d"/><circle cx="13.5" cy="-26" r="13" fill="#3d7a2b"/><circle cx="6" cy="-19" r="9" fill="#4a8a3c"/><circle cx="21" cy="-19" r="9" fill="#4a8a3c"/></g>`;
+  const house = roof => `<rect x="0" y="-20" width="34" height="20" fill="#e6d6bd"/><polygon points="-3,-20 17,-36 37,-20" fill="${roof}"/><rect x="12" y="-12" width="9" height="12" fill="#8a6a3d"/>`;
+  let out = '';
+  out += `<rect x="0" y="250" width="520" height="35" fill="#e9f2e3"/><rect x="14" y="228" width="98" height="22" fill="#3d1f5a" rx="2"/>`;
+  [22, 52, 82].forEach((x, i) => out += slot('ch' + i, x, {on: chim('#5b3f7a') + smoke(9, -70), ghost: `<rect x="0" y="-62" width="18" height="40" fill="none" stroke="${F.stroke}" stroke-dasharray="${F.dash}" opacity=".6"/>`, cap: `<rect x="0" y="-48" width="18" height="26" rx="3" fill="#3B7CC3"/><rect x="-2" y="-52" width="22" height="5" rx="2" fill="#2a5f9c"/><circle cx="9" cy="-35" r="5" fill="none" stroke="#fff" stroke-width="1.5"/><path d="M9 -62 v8 M5 -58 l4 4 l4 -4" stroke="#3B7CC3" stroke-width="2" fill="none"/>`}));
+  [130, 172, 214].forEach((x, i) => out += slot('car' + i, x, {on: car('#5b3f7a') + smoke(-6, -9), ev: car('#5EA845') + '<polygon points="20,-13 15,-7 19,-7 17,-2 23,-9 19,-9" fill="#fff" transform="translate(0 1)"/>'}));
+  [262, 297, 332].forEach((x, i) => out += slot('cow' + i, x, {on: cow('#271039', '#fff', '<circle cx="12" cy="-14" r="2.5" fill="#271039"/><circle cx="19" cy="-12" r="2" fill="#271039"/>' + smoke(30, -26)), ghost: cow('#5EA845', 'none').replace('stroke-width="1.5"', 'stroke-width="1.5" stroke-dasharray="3 2" opacity=".6"'), tree: tree(1)}));
+  [372, 414].forEach((x, i) => out += slot('house' + i, x, {on: house('#8a6a3d') + `<rect x="24" y="-40" width="6" height="12" fill="#5b3f7a"/>` + smoke(27, -46), solar: house('#3B7CC3') + '<path d="M3 -22 L17 -33 L31 -22 M10 -27 L24 -27" stroke="#fff" stroke-width="1" fill="none"/>'}));
+  out += `<g class="sl2 turb" id="sl-turb" data-k="clean" transform="translate(488 250)"><line x1="0" y1="0" x2="0" y2="-60" stroke="#7D7089" stroke-width="3"/><g transform="translate(0 -62)"><g class="blades"><line x1="-17" y1="0" x2="17" y2="0" stroke="#5EA845" stroke-width="3" stroke-linecap="round"/><line x1="0" y1="-17" x2="0" y2="17" stroke="#5EA845" stroke-width="3" stroke-linecap="round"/></g><circle r="3.5" fill="#271039"/></g></g>`;
+  const P0 = [100, 172], P1 = [290, 140], P2 = [492, 212], q = t => [0, 1].map(i => ((1 - t) ** 2 * P0[i] + 2 * (1 - t) * t * P1[i] + t * t * P2[i]).toFixed(1));
+  out += `<g class="sl2 forest" id="sl-forest" data-k="off"><path d="M${P0} Q${P1} ${P2}" fill="none" stroke="#FAA542" stroke-width="2.5" stroke-dasharray="6 5"/>${[.3, .55, .8].map(t => `<g transform="translate(${q(t)})"><circle r="9" fill="#FAA542" stroke="#fff" stroke-width="2"/><text y="4" text-anchor="middle" font-size="11" font-weight="800" fill="#271039">$</text></g>`).join('')}<text x="280" y="150" text-anchor="middle" font-size="11" font-weight="700" fill="#a8670a" paint-order="stroke" stroke="#f4f8fc" stroke-width="4">pays for credits</text><g transform="translate(468 250)">${tree(.8)}</g><g transform="translate(490 250)">${tree(.7)}</g><text x="518" y="268" text-anchor="end" font-size="10" fill="#5f5869">Someone else’s trees</text></g>`;
+  out += `<g font-size="10.5" fill="#5f5869" text-anchor="middle"><text x="63" y="268">Power plants</text><text x="170" y="268">Cars</text><text x="297" y="268">Cows</text><text x="395" y="268">Homes</text></g>`;
+  return out;
+}
 function netZeroDiagram(){
   const cloud = 'M-26 14 C-38 14 -38 -6 -22 -6 C-20 -22 4 -26 10 -12 C24 -20 38 -4 28 6 C40 8 38 14 28 14 Z';
   const puffs = Array.from({length: 10}, (_, i) => `<g class="pf s-smoke" data-k="smoke" data-i="${i}" transform="translate(${70 + (i % 5) * 95} ${i < 5 ? 52 : 112})" tabindex="0"><path d="${cloud}"/><g class="coin"><circle cx="22" cy="-18" r="12"/><text x="22" y="-13.5" text-anchor="middle">CR</text></g></g>`).join('');
   return `<div class="nzd" id="nzd">
-  <p class="nzd-def"><b>What are emissions?</b> Think of them as pollution: gases, mostly carbon dioxide (CO₂), that go up into the air when we burn coal, oil and gas. Each puff below is one tenth of a year’s emissions.</p>
+  <p class="nzd-def"><b>What are emissions?</b> Think of them as pollution: gases, mostly carbon dioxide (CO₂), that go up into the air when we burn coal, oil and gas. Each cloud below is one tenth of a year’s emissions.</p>
   <div class="seg nzseg" id="nzseg" role="group" aria-label="Step">${NZM.map((m, i) => `<button data-m="${m}" class="${i ? '' : 'on'}"><b>${i < 3 ? i + 1 : '✗'}</b> ${['Today', 'Cut', 'Remove', 'Offsets only'][i]}</button>`).join('')}</div>
-  <svg viewBox="0 0 520 232" id="nzsvg" role="img" aria-label="Ten pollution clouds, each one tenth of emissions, rising from a factory, showing what is cut, removed or only offset">${puffs}<g class="fac" aria-hidden="true"><rect x="175" y="208" width="170" height="24" rx="3" fill="#3d1f5a"/>${[195, 245, 295].map(x => `<rect x="${x}" y="160" width="22" height="50" fill="#5b3f7a"/><rect x="${x - 2}" y="160" width="26" height="7" fill="#271039"/><circle cx="${x + 11}" cy="150" r="5" fill="#A5865C" opacity=".7"/><circle cx="${x + 14}" cy="140" r="4" fill="#A5865C" opacity=".5"/>`).join('')}<rect x="318" y="216" width="8" height="8" fill="#FAA542"/><rect x="332" y="216" width="8" height="8" fill="#FAA542"/><text x="360" y="214" font-size="11.5" fill="#5f5869">Power plants, factories,</text><text x="360" y="228" font-size="11.5" fill="#5f5869">cars and heating</text></g></svg>
+  <svg viewBox="0 0 520 285" id="nzsvg" role="img" aria-label="Ten pollution clouds, each one tenth of emissions, rising from power plants, cars, cows and homes, showing what is cut, removed or only offset">${puffs}${nzdScene()}</svg>
   <div class="nzd-legend" id="nzlegend"><span data-k="smoke"><i class="k-smoke"></i>Pollution going up</span><span data-k="cut"><i class="k-cut"></i>Cut at the source</span><span data-k="cap"><i class="k-cap"></i>Removed and stored</span><span data-k="off"><i class="k-off"></i>Credit, still going up</span></div>
   <h4 class="nzd-h" id="nzd-h"></h4><p class="nzd-p" id="nzd-p"></p>
   <div class="nzd-cap" id="nzd-cap" aria-live="polite"></div></div>`;
@@ -924,6 +954,9 @@ function nzdWire(){
   let m = 'today';
   const draw = hl => {
     $$('#nzsvg .pf').forEach(g => { const k = nzdState(m, +g.dataset.i); g.setAttribute('class', `pf s-${k}${hl ? (hl === k ? ' hlon' : ' hloff') : ''}`); g.dataset.k = k; });
+    const T = NZ_SLOT[m];
+    $$('#nzsvg .slot').forEach(g => { const mm = g.id.match(/sl-([a-z]+)(\d)/), st = T[mm[1]][+mm[2]], k = NZ_KIND[st]; g.dataset.st = st; g.dataset.k = k; g.setAttribute('class', 'slot' + (hl ? (hl === k ? ' hlon' : ' hloff') : '')); });
+    [['turb', 'turb'], ['forest', 'forest']].forEach(([id, key]) => { const g = $('#sl-' + id); if (g) g.setAttribute('class', `sl2 ${id}${T[key] ? ' show' : ''}${hl ? (hl === g.dataset.k ? ' hlon' : ' hloff') : ''}`); });
     $$('#nzlegend span').forEach(sp => sp.classList.toggle('on', sp.dataset.k === hl));
     $('#nzd-h').textContent = NZD[m][0]; $('#nzd-p').textContent = NZD[m][1];
     $('#nzd-cap').innerHTML = hl ? `<b>${esc(NZK[hl][0])}.</b> ${esc(NZK[hl][1])}` : `<b>${esc(NZD[m][2])}.</b> ${esc(NZD[m][3])} Hover or tap a cloud or key item for what it means.`;
@@ -1037,6 +1070,61 @@ function shareText(e){
   let x = isNZ(e) ? `${Nm(e)}: ${targetPhrase(e)}. It meets ${t.yes} of ${cs.length} Net Zero Tracker credibility checks${gaps.length ? `; gap: ${gaps[0]}` : ''}.` : `${Nm(e)} has no net zero target, according to the Net Zero Tracker.`;
   return x + ' #NetZero #ClimateAction';
 }
+/* ---------- EMAIL TRANSLATIONS ---------- */
+const EML_LANGS = {en:'English', es:'Español', fr:'Français', pt:'Português', de:'Deutsch', it:'Italiano', ar:'العربية', zh:'中文 (简体)'};
+const EML_ISO = {
+  es:'ESP MEX COL ARG PER CHL VEN ECU BOL GTM CUB DOM HND PRY NIC SLV CRI PAN URY PRI GNQ',
+  fr:'FRA SEN CIV MLI BFA NER TCD GIN BEN TGO COG COD CMR GAB MDG BDI HTI LUX MCO',
+  pt:'BRA PRT AGO MOZ GNB CPV STP', de:'DEU AUT LIE', it:'ITA SMR',
+  ar:'SAU ARE EGY IRQ SYR JOR KWT QAT BHR OMN YEM LBY TUN DZA MAR LBN SDN MRT PSE', zh:'CHN'
+};
+const emlLangOf = e => Object.keys(EML_ISO).find(l => EML_ISO[l].split(' ').includes(e.c)) || 'en';
+const EML = {
+es:{subj:n=>`Pregunta sobre el objetivo de cero emisiones netas de ${n}`,greet:'Estimado/a [nombre]:',
+  intro:(n,y,k,t,h)=>`Le escribo en relación con los compromisos climáticos de ${n}. Según el Net Zero Tracker, ${n} ${h?`tiene un objetivo de cero emisiones netas${y?` para ${y}`:''} y cumple ${k} de ${t} comprobaciones de credibilidad`:'no tiene un objetivo de cero emisiones netas'}.`,
+  grate:'Le agradecería que respondiera a las siguientes preguntas:',link:'La ficha completa está aquí:',thanks:'Gracias por su tiempo.',bye:'Atentamente,',you:'[Su nombre]',
+  q:{commit:n=>`¿Se comprometerá ${n} a alcanzar las cero emisiones netas, y en qué año?`,cut2030:n=>`¿Cuánto reducirá ${n} para 2030?`,who:()=>'¿Quién en el gobierno es responsable de los objetivos climáticos, y cuándo se publicará un plan?',board:()=>'¿Qué miembro de la junta directiva es responsable de la estrategia climática?',lock_g:n=>`¿Incluirá ${n} su objetivo de cero emisiones netas en la ley?`,lock_c:()=>'¿Adoptará formalmente la junta el objetivo y vinculará a él la remuneración de los directivos?',interim:n=>`¿Cuánto habrá reducido ${n} para 2030 y 2035, respecto de qué año base?`,gas:()=>'¿Por qué el objetivo excluye el metano y otros gases distintos del CO₂?',s3:()=>'¿Cubrirá el objetivo las emisiones de los proveedores y del uso de sus productos por los clientes (alcance 3)?',cons:n=>`¿Informará ${n} de las emisiones causadas por los bienes que importa?`,plan:()=>'¿Dónde está el plan que muestra qué medidas logran qué reducciones, y para cuándo?',rep:n=>`¿Publicará ${n} su progreso cada año?`,acc:()=>'¿Quién es formalmente responsable si no se cumple el objetivo?',offsets:()=>'¿Qué parte del objetivo depende de compensaciones de carbono, y qué normas de calidad se aplican?',rem:n=>`¿Fijará ${n} objetivos separados para reducir emisiones y para eliminar carbono?`,track:n=>`¿Va ${n} por buen camino para cumplir su hito, y qué dice la revisión independiente?`}},
+fr:{subj:n=>`Question sur l’objectif de neutralité carbone de ${n}`,greet:'Madame, Monsieur [nom],',
+  intro:(n,y,k,t,h)=>`Je vous écris au sujet des engagements climatiques de ${n}. Selon le Net Zero Tracker, ${n} ${h?`a fixé un objectif de neutralité carbone${y?` pour ${y}`:''} et satisfait ${k} des ${t} contrôles de crédibilité`:'n’a pas d’objectif de neutralité carbone'}.`,
+  grate:'Je vous serais reconnaissant(e) de bien vouloir répondre aux questions suivantes :',link:'La fiche complète est disponible ici :',thanks:'Je vous remercie de votre attention.',bye:'Cordialement,',you:'[Votre nom]',
+  q:{commit:n=>`${n} s’engagera-t-il à atteindre la neutralité carbone, et à quelle date ?`,cut2030:n=>`Quelle réduction ${n} réalisera-t-il d’ici 2030 ?`,who:()=>'Qui, au sein du gouvernement, est responsable des objectifs climatiques, et quand un plan sera-t-il publié ?',board:()=>'Quel membre du conseil d’administration est responsable de la stratégie climatique ?',lock_g:n=>`${n} inscrira-t-il son objectif de neutralité carbone dans la loi ?`,lock_c:()=>'Le conseil adoptera-t-il formellement l’objectif et y liera-t-il la rémunération des dirigeants ?',interim:n=>`Quelle réduction ${n} aura-t-il réalisée d’ici 2030 et 2035, par rapport à quelle année de référence ?`,gas:()=>'Pourquoi l’objectif exclut-il le méthane et les autres gaz que le CO₂ ?',s3:()=>'L’objectif couvrira-t-il les émissions des fournisseurs et de l’utilisation des produits par les clients (scope 3) ?',cons:n=>`${n} déclarera-t-il les émissions liées aux biens qu’il importe ?`,plan:()=>'Où se trouve le plan indiquant quelles mesures permettent quelles réductions, et pour quand ?',rep:n=>`${n} publiera-t-il ses progrès chaque année ?`,acc:()=>'Qui est formellement responsable si l’objectif n’est pas atteint ?',offsets:()=>'Quelle part de l’objectif dépend de compensations carbone, et quelles règles de qualité s’appliquent ?',rem:n=>`${n} fixera-t-il des objectifs distincts pour réduire les émissions et pour retirer du carbone ?`,track:n=>`${n} est-il en bonne voie pour atteindre son jalon, et que dit l’évaluation indépendante ?`}},
+pt:{subj:n=>`Pergunta sobre a meta de emissões líquidas zero de ${n}`,greet:'Prezado(a) [nome],',
+  intro:(n,y,k,t,h)=>`Escrevo a respeito dos compromissos climáticos de ${n}. Segundo o Net Zero Tracker, ${n} ${h?`tem uma meta de emissões líquidas zero${y?` para ${y}`:''} e cumpre ${k} de ${t} verificações de credibilidade`:'não tem uma meta de emissões líquidas zero'}.`,
+  grate:'Agradeceria se pudesse responder às seguintes perguntas:',link:'A ficha completa está aqui:',thanks:'Obrigado(a) pela atenção.',bye:'Atenciosamente,',you:'[Seu nome]',
+  q:{commit:n=>`${n} se comprometerá a atingir emissões líquidas zero e em que ano?`,cut2030:n=>`Quanto ${n} vai reduzir até 2030?`,who:()=>'Quem no governo é responsável pelas metas climáticas e quando um plano será publicado?',board:()=>'Qual membro do conselho de administração é responsável pela estratégia climática?',lock_g:n=>`${n} vai transformar sua meta de emissões líquidas zero em lei?`,lock_c:()=>'O conselho adotará formalmente a meta e vinculará a ela a remuneração dos executivos?',interim:n=>`Quanto ${n} terá reduzido até 2030 e 2035, em relação a qual ano-base?`,gas:()=>'Por que a meta exclui o metano e outros gases além do CO₂?',s3:()=>'A meta cobrirá as emissões de fornecedores e do uso dos produtos pelos clientes (escopo 3)?',cons:n=>`${n} informará as emissões causadas pelos bens que importa?`,plan:()=>'Onde está o plano que mostra quais medidas geram quais reduções e até quando?',rep:n=>`${n} publicará o progresso todos os anos?`,acc:()=>'Quem é formalmente responsável se a meta não for cumprida?',offsets:()=>'Que parte da meta depende de compensações de carbono e quais regras de qualidade se aplicam?',rem:n=>`${n} definirá metas separadas para reduzir emissões e para remover carbono?`,track:n=>`${n} está no caminho certo para cumprir seu marco, e o que diz a revisão independente?`}},
+de:{subj:n=>`Frage zum Netto-Null-Ziel von ${n}`,greet:'Sehr geehrte/r [Name],',
+  intro:(n,y,k,t,h)=>`ich schreibe Ihnen zu den Klimazusagen von ${n}. Laut dem Net Zero Tracker ${h?`hat ${n} ein Netto-Null-Ziel${y?` bis ${y}`:''} und erfüllt ${k} von ${t} Glaubwürdigkeitsprüfungen`:`hat ${n} kein Netto-Null-Ziel`}.`,
+  grate:'Ich wäre Ihnen dankbar, wenn Sie die folgenden Fragen beantworten könnten:',link:'Den vollständigen Eintrag finden Sie hier:',thanks:'Vielen Dank für Ihre Zeit.',bye:'Mit freundlichen Grüßen',you:'[Ihr Name]',
+  q:{commit:n=>`Wird sich ${n} zu Netto-Null verpflichten, und bis zu welchem Jahr?`,cut2030:n=>`Um wie viel wird ${n} die Emissionen bis 2030 senken?`,who:()=>'Wer in der Regierung ist für die Klimaziele verantwortlich, und wann wird ein Plan veröffentlicht?',board:()=>'Welches Vorstandsmitglied ist für die Klimastrategie verantwortlich?',lock_g:n=>`Wird ${n} sein Netto-Null-Ziel gesetzlich verankern?`,lock_c:()=>'Wird der Vorstand das Ziel formell beschließen und die Vergütung der Führungskräfte daran koppeln?',interim:n=>`Um wie viel wird ${n} die Emissionen bis 2030 und 2035 gesenkt haben, gemessen an welchem Basisjahr?`,gas:()=>'Warum klammert das Ziel Methan und andere Gase außer CO₂ aus?',s3:()=>'Wird das Ziel auch die Emissionen von Lieferanten und aus der Nutzung der Produkte durch Kunden (Scope 3) erfassen?',cons:n=>`Wird ${n} die Emissionen der importierten Güter ausweisen?`,plan:()=>'Wo ist der Plan, der zeigt, welche Maßnahmen welche Minderungen bringen, und bis wann?',rep:n=>`Wird ${n} jedes Jahr über Fortschritte berichten?`,acc:()=>'Wer ist formell verantwortlich, wenn das Ziel verfehlt wird?',offsets:()=>'Welcher Anteil des Ziels hängt von CO₂-Kompensationen ab, und welche Qualitätsregeln gelten?',rem:n=>`Wird ${n} getrennte Ziele für die Senkung von Emissionen und für die Entnahme von CO₂ festlegen?`,track:n=>`Ist ${n} auf Kurs für sein Zwischenziel, und was sagt die unabhängige Überprüfung?`}},
+it:{subj:n=>`Domanda sull’obiettivo di zero emissioni nette di ${n}`,greet:'Gentile [nome],',
+  intro:(n,y,k,t,h)=>`Le scrivo in merito agli impegni climatici di ${n}. Secondo il Net Zero Tracker, ${n} ${h?`ha un obiettivo di zero emissioni nette${y?` entro il ${y}`:''} e soddisfa ${k} dei ${t} controlli di credibilità`:'non ha un obiettivo di zero emissioni nette'}.`,
+  grate:'Le sarei grato/a se potesse rispondere alle seguenti domande:',link:'La scheda completa è qui:',thanks:'La ringrazio per l’attenzione.',bye:'Cordiali saluti,',you:'[Il suo nome]',
+  q:{commit:n=>`${n} si impegnerà a raggiungere lo zero netto di emissioni, e entro quale anno?`,cut2030:n=>`Di quanto ridurrà le emissioni ${n} entro il 2030?`,who:()=>'Chi nel governo è responsabile degli obiettivi climatici, e quando sarà pubblicato un piano?',board:()=>'Quale membro del consiglio di amministrazione è responsabile della strategia climatica?',lock_g:n=>`${n} inserirà il suo obiettivo di zero emissioni nette in una legge?`,lock_c:()=>'Il consiglio adotterà formalmente l’obiettivo e vi collegherà la retribuzione dei dirigenti?',interim:n=>`Di quanto avrà ridotto le emissioni ${n} entro il 2030 e il 2035, rispetto a quale anno di riferimento?`,gas:()=>'Perché l’obiettivo esclude il metano e gli altri gas diversi dalla CO₂?',s3:()=>'L’obiettivo coprirà le emissioni dei fornitori e dell’uso dei prodotti da parte dei clienti (scope 3)?',cons:n=>`${n} rendicontherà le emissioni causate dai beni che importa?`,plan:()=>'Dov’è il piano che mostra quali misure producono quali riduzioni, e entro quando?',rep:n=>`${n} pubblicherà i progressi ogni anno?`,acc:()=>'Chi è formalmente responsabile se l’obiettivo non viene raggiunto?',offsets:()=>'Quale quota dell’obiettivo dipende dalle compensazioni di carbonio, e quali regole di qualità si applicano?',rem:n=>`${n} fisserà obiettivi separati per ridurre le emissioni e per rimuovere carbonio?`,track:n=>`${n} è sulla buona strada per raggiungere il suo traguardo, e cosa dice la revisione indipendente?`}},
+ar:{rtl:1,subj:n=>`سؤال حول هدف صافي الانبعاثات الصفرية لدى ${n}`,greet:'السيد/السيدة [الاسم] المحترم/ة،',
+  intro:(n,y,k,t,h)=>`أكتب إليكم بشأن التزامات ${n} المناخية. وفقًا لـ Net Zero Tracker، ${h?`لدى ${n} هدف لصافي انبعاثات صفري${y?` بحلول عام ${y}`:''}، ويستوفي ${k} من أصل ${t} من فحوص المصداقية`:`ليس لدى ${n} هدف لصافي انبعاثات صفري`}.`,
+  grate:'أكون ممتنًا لو تفضلتم بالإجابة عن الأسئلة التالية:',link:'الصفحة الكاملة هنا:',thanks:'شكرًا لكم على وقتكم.',bye:'مع خالص التقدير،',you:'[اسمك]',
+  q:{commit:n=>`هل ستلتزم ${n} بتحقيق صافي انبعاثات صفري، وفي أي عام؟`,cut2030:n=>`ما مقدار الخفض الذي ستحققه ${n} بحلول عام 2030؟`,who:()=>'من المسؤول في الحكومة عن الأهداف المناخية، ومتى ستُنشر خطة؟',board:()=>'أي عضو في مجلس الإدارة مسؤول عن استراتيجية المناخ؟',lock_g:n=>`هل ستدرج ${n} هدف صافي الانبعاثات الصفرية في القانون؟`,lock_c:()=>'هل سيعتمد مجلس الإدارة الهدف رسميًا ويربط به مكافآت المديرين التنفيذيين؟',interim:n=>`ما الذي ستكون ${n} قد خفضته بحلول عامي 2030 و2035، مقارنةً بأي سنة أساس؟`,gas:()=>'لماذا يستثني الهدف غاز الميثان والغازات الأخرى غير ثاني أكسيد الكربون؟',s3:()=>'هل سيشمل الهدف انبعاثات الموردين وانبعاثات استخدام العملاء للمنتجات (النطاق 3)؟',cons:n=>`هل ستُبلغ ${n} عن الانبعاثات الناتجة عن السلع التي تستوردها؟`,plan:()=>'أين الخطة التي توضح أي الإجراءات تحقق أي تخفيضات، وبحلول متى؟',rep:n=>`هل ستنشر ${n} تقريرًا عن التقدم كل عام؟`,acc:()=>'من المسؤول رسميًا إذا لم يتحقق الهدف؟',offsets:()=>'ما حصة الهدف التي تعتمد على تعويضات الكربون، وما قواعد الجودة المطبقة؟',rem:n=>`هل ستضع ${n} أهدافًا منفصلة لخفض الانبعاثات ولإزالة الكربون؟`,track:n=>`هل ${n} على المسار الصحيح لتحقيق هدفها المرحلي، وماذا تقول المراجعة المستقلة؟`}},
+zh:{subj:n=>`关于${n}净零目标的询问`,greet:'尊敬的[姓名]：',
+  intro:(n,y,k,t,h)=>`我写信是想了解${n}的气候承诺。根据净零追踪器（Net Zero Tracker），${h?`${n}设定了${y?`${y}年`:''}净零目标，并满足${t}项可信度检查中的${k}项`:`${n}没有净零目标`}。`,
+  grate:'恳请您回答以下问题：',link:'完整条目见：',thanks:'感谢您抽出时间。',bye:'此致敬礼，',you:'[您的姓名]',
+  q:{commit:n=>`${n}是否会承诺实现净零排放？目标年份是哪一年？`,cut2030:n=>`${n}到2030年将减排多少？`,who:()=>'政府中由谁负责气候目标？计划何时发布？',board:()=>'董事会中哪位成员负责气候战略？',lock_g:n=>`${n}是否会把净零目标写入法律？`,lock_c:()=>'董事会是否会正式通过该目标，并将高管薪酬与之挂钩？',interim:n=>`${n}到2030年和2035年将减排多少？以哪一年为基准年？`,gas:()=>'为什么该目标不包括甲烷和二氧化碳以外的其他气体？',s3:()=>'该目标是否会涵盖供应商排放以及客户使用产品产生的排放（范围3）？',cons:n=>`${n}是否会报告其进口商品所造成的排放？`,plan:()=>'说明哪些措施带来多少减排、何时完成的计划在哪里？',rep:n=>`${n}是否会每年公布进展？`,acc:()=>'如果未能达成目标，由谁正式负责？',offsets:()=>'目标有多大比例依赖碳抵消，适用哪些质量规则？',rem:n=>`${n}是否会分别为减排和碳移除设定独立目标？`,track:n=>`${n}是否有望实现其阶段性目标？独立评估结果如何？`}}
+};
+function emlKeys(e){
+  const cs = checks(e), gv = e.t !== 'company';
+  if (!isNZ(e)) return ['commit', 'cut2030', gv ? 'who' : 'board'];
+  const key = c => c.id === 'lock' ? (gv ? 'lock_g' : 'lock_c') : c.id;
+  const ok = ['lock','interim','gas','s3','cons','plan','rep','acc','offsets','rem'];
+  const out = cs.filter(c => (c.v === 'no' || c.v === 'part') && ok.includes(c.id)).map(key);
+  cs.filter(c => c.v === 'unk' && ok.includes(c.id)).slice(0, 2).forEach(c => out.push(key(c)));
+  return out.length ? out : ['track'];
+}
+function emailDraftLang(e, lang){
+  if (lang === 'en' || !EML[lang]) return Object.assign(emailDraft(e), {rtl:false});
+  const L = EML[lang], cs = checks(e), t = tally(cs), n = e.n, y = isNZ(e) ? year(e) : '';
+  const qs = emlKeys(e).slice(0, 3).map(k => L.q[k](n));
+  const body = `${L.greet}\n\n${L.intro(n, y, t.yes, cs.length, isNZ(e))}\n\n${L.grate}\n\n${qs.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n${L.link} ${official(e)}\n\n${L.thanks}\n\n${L.bye}\n${L.you}`;
+  return {subject: L.subj(n), body, rtl: !!L.rtl};
+}
 function emailDraft(e){
   const qs = asks(e).slice(0, 3), cs = checks(e), t = tally(cs);
   const subject = `Question about ${nm(e)}'s net zero target`;
@@ -1064,7 +1152,7 @@ function shareCard(e, fmt){
   return c;
 }
 function renderShare(e){
-  const em = emailDraft(e), tx = shareText(e);
+  const em = emailDraftLang(e, emlLangOf(e)), tx = shareText(e);
   $('#sh-out').innerHTML = `<div class="grid2" style="align-items:start">
     <div class="card"><h3>Post</h3>
       <textarea id="sh-text" rows="5" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(tx)}</textarea>
@@ -1079,6 +1167,8 @@ function renderShare(e){
       <div class="actions" style="flex-wrap:wrap"><button class="btn btn-purple btn-sm" data-card="story">Download story (1080×1920)</button><button class="btn btn-ghost btn-sm" data-card="post">Download square post</button></div>
       <canvas id="sh-prev" style="max-width:220px;margin-top:14px;border-radius:8px;box-shadow:var(--shadow)"></canvas></div>
     <div class="card"><h3>Email a policymaker</h3>
+      <label class="muted" style="font-size:14px" for="em-lang">Language</label><select id="em-lang" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:4px">${Object.entries(EML_LANGS).map(([k, v]) => `<option value="${k}"${k === emlLangOf(e) ? ' selected' : ''}>${v}${k === emlLangOf(e) && k !== 'en' ? ' (language of this country)' : ''}</option>`).join('')}</select>
+      <p class="muted" id="em-langnote" style="font-size:13px;margin:0 0 10px" ${emlLangOf(e) === 'en' ? 'hidden' : ''}>Translations are drafts. Please have a fluent speaker check them before sending. Changing the language replaces any edits to the subject and message.</p>
       <label class="muted" style="font-size:14px">To (their email address)</label><input id="em-to" type="email" placeholder="name@council.gov" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
       <label class="muted" style="font-size:14px">Subject</label><input id="em-sub" value="${esc(em.subject)}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
       <label class="muted" style="font-size:14px">Message</label><textarea id="em-body" rows="13" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(em.body)}</textarea>
@@ -1094,6 +1184,9 @@ function renderShare(e){
     $('#em-go').href = `mailto:${encodeURIComponent($('#em-to').value.trim())}?subject=${q($('#em-sub').value)}&body=${q($('#em-body').value)}`;
   };
   ['#sh-text', '#em-to', '#em-sub', '#em-body'].forEach(i => $(i).addEventListener('input', upd)); upd();
+  const rtl = d => { $('#em-sub').dir = $('#em-body').dir = d ? 'rtl' : 'ltr'; };
+  rtl(em.rtl);
+  $('#em-lang').onchange = () => { const l = $('#em-lang').value, d = emailDraftLang(e, l); $('#em-sub').value = d.subject; $('#em-body').value = d.body; rtl(d.rtl); $('#em-langnote').hidden = l === 'en'; upd(); };
   $('#sh-copy').onclick = () => copy(ta.value + ' ' + url);
   $('#em-copy').onclick = () => copy('Subject: ' + $('#em-sub').value + '\n\n' + $('#em-body').value);
   const pv = shareCard(e, 'story'), pc = $('#sh-prev'); pc.width = pv.width; pc.height = pv.height; pc.getContext('2d').drawImage(pv, 0, 0);
