@@ -704,7 +704,7 @@ P.entity = (params, slug) => {
     <h2 class="h-brand" style="font-size:24px">Timeline</h2>
     <div class="timeline">${timelineSVG(e)}</div>
     <h3 class="mt2" style="font-size:19px">How firm is the commitment?</h3>
-    <div class="ladder">${LADDER.map(l => `<div class="${Math.floor(L.k)===l.k ? 'on' : L.k>l.k ? 'past' : ''}"><b>${l.label}</b>${l.plain}</div>`).join('')}<div class="${L.k<=0 ? 'on' : ''}" style="background:#f3f1f5"><b>${L.k<0 ? 'Other target' : 'No net zero target'}</b>${L.k<0 ? 'Not net zero' : 'Nothing found'}</div></div>
+    <div class="ladder">${LADDER.map(l => `<div class="${Math.floor(L.k)===l.k ? 'on' : ''}${l.k >= 4 ? ' dk' : ''}" style="background:${l.hex}"><b>${l.label}</b>${l.plain}</div>`).join('')}<div class="${L.k<=0 ? 'on' : ''}" style="background:${L.k<0 ? OTHER.hex : NONE.hex}"><b>${L.k<0 ? 'Other target' : 'No net zero target'}</b>${L.k<0 ? 'Not net zero' : 'Nothing found'}</div></div>
     <div style="height:26px"></div>
   </div></section>
 
@@ -895,47 +895,47 @@ P.learn = (params, sub) => `
 P.learn.after = (params, sub) => {
   $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').textContent = GHG_CAP[l]; $$('#ghgseg button').forEach(x => x.classList.toggle('on', x === b)); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
-  today:['Today’s emissions','Gases released when we burn coal, oil and gas for electricity, transport, heating and industry. Shown as 100 units so the other bars read as percentages.'],
-  cut:['Cutting emissions','Releasing less in the first place: clean electricity from sun and wind, electric vehicles, better insulated buildings, less waste. Net zero standards ask for roughly 90% or more.'],
-  left:['What is left over','Emissions that are very hard to avoid, such as from making cement and steel or from farming. This should be small.'],
-  rem:['Removing the remainder','Pulling carbon dioxide back out of the air and storing it for good, for example capturing it and locking it underground. It only balances this small leftover.'],
-  net:['Net zero','What goes into the air is balanced by what is taken out, so no extra CO₂ is added to the atmosphere.']
+  today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each puff here is 10% of a year’s emissions. They come mostly from burning coal, oil and gas for electricity, cars, heating and factories, and they trap heat.','10 puffs','All 10 puffs are still going up.'],
+  cut:['2. Cut it at the source','Stop making the smoke in the first place: power homes with sun and wind instead of coal, switch to electric vehicles, insulate buildings, waste less. Net zero standards ask for roughly 90% of emissions to be cut. One puff is left.','1 puff left','Nine puffs are gone for good. One is left.'],
+  remove:['3. Take out what is left','A small amount is very hard to avoid, such as from making cement or from farming. Take that carbon back out of the air, with trees and soils or machines that store it underground, and no extra carbon is added in total. That is net zero.','Net zero','The last puff is removed from the air and stored, so the total added is zero.'],
+  offset:['Not the same: cutting less, then buying offsets','Cut only half, then buy carbon credits to “cover” the rest. Credits pay someone else to cut or absorb emissions elsewhere, but your own smoke still goes up. Credits vary in quality, so experts warn they should not replace deep cuts.','5 puffs still going up','Half the puffs are cut. The rest are only covered on paper, and are still going up.']
 };
+const NZK = {
+  smoke:['Pollution still going up','Emissions released into the air. This is what warms the planet.'],
+  cut:['Cut at the source','Never released, because the activity was cleaned up: clean power, electric transport, better buildings, less waste.'],
+  cap:['Removed and stored','Carbon taken back out of the air and kept out, for example by trees and soils or by capturing it and storing it underground. Needed only for the small leftover.'],
+  off:['Covered by a credit, still going up','A carbon credit pays someone else to cut or absorb emissions. It is a paper claim: your own smoke still goes up, and credits can be low quality or double counted.']
+};
+const NZM = ['today','cut','remove','offset'];
+function nzdState(m, i){ return m === 'today' ? 'smoke' : m === 'cut' ? (i < 9 ? 'cut' : 'smoke') : m === 'remove' ? (i < 9 ? 'cut' : 'cap') : (i < 5 ? 'cut' : 'off'); }
 function netZeroDiagram(){
+  const cloud = 'M-26 14 C-38 14 -38 -6 -22 -6 C-20 -22 4 -26 10 -12 C24 -20 38 -4 28 6 C40 8 38 14 28 14 Z';
+  const puffs = Array.from({length: 10}, (_, i) => `<g class="pf s-smoke" data-k="smoke" data-i="${i}" transform="translate(${70 + (i % 5) * 95} ${i < 5 ? 52 : 112})" tabindex="0"><path d="${cloud}"/><g class="coin"><circle cx="22" cy="-18" r="12"/><text x="22" y="-13.5" text-anchor="middle">CR</text></g></g>`).join('');
   return `<div class="nzd" id="nzd">
-  <p class="nzd-def"><b>What are emissions?</b> Gases, mostly carbon dioxide (CO₂), that go into the air when we burn coal, oil and gas for electricity, cars, heating and factories. They trap heat and warm the planet.</p>
-  <div class="nzs"><h4><i>1</i>Today</h4><svg viewBox="0 0 520 46" id="nz1" role="img" aria-label="One bar showing all of today’s emissions"></svg><p id="nzt1"></p></div>
-  <div class="nzs"><h4><i>2</i>Cut emissions at the source</h4><svg viewBox="0 0 520 46" id="nz2" role="img" aria-label="The bar shrinks after cuts, leaving a small remainder"></svg><p id="nzt2"></p></div>
-  <div class="nzs"><h4><i>3</i>Take out what is left</h4><svg viewBox="0 0 520 46" id="nz3" role="img" aria-label="Removal of the remainder balances it to net zero"></svg><p id="nzt3"></p></div>
-  <div class="nzd-cap" id="nzd-cap" aria-live="polite"></div>
-  <label class="nzd-ctl" for="nzd-cut"><span>Try it: how much do emissions get cut?</span><input type="range" id="nzd-cut" min="40" max="98" value="90"><output id="nzd-out">90%</output></label></div>`;
-}
-function nzdDraw(cut, act){
-  const L = 100 - cut, X = 4, K = 5.12, ok = L <= 15, wL = Math.max(L * K, 3), wC = cut * K, y = 3, h = 40;
-  const G = (key, inner) => `<g class="nzp ${act && act !== key ? 'dim' : ''} ${act === key ? 'hot' : ''}" data-p="${key}" tabindex="0" role="button" aria-label="${esc(NZD[key][0])}">${inner}</g>`;
-  const tx = (x, t, col, sz = 16) => `<text x="${x}" y="${y + 26}" text-anchor="middle" font-size="${sz}" font-weight="800" fill="${col}">${t}</text>`;
-  $('#nz1').innerHTML = G('today', `<rect x="${X}" y="${y}" width="512" height="${h}" rx="5" fill="#A5865C"/>${tx(260, '100 units of emissions', '#fff', 17)}`);
-  $('#nz2').innerHTML = G('left', `<rect x="${X}" y="${y}" width="${wL}" height="${h}" rx="4" fill="#A5865C"/>${wL > 34 ? tx(X + wL / 2, L, '#fff') : ''}`)
-    + G('cut', `<rect x="${X + wL}" y="${y}" width="${wC}" height="${h}" rx="4" fill="#e6f3df" stroke="#5EA845" stroke-width="1.5" stroke-dasharray="5 4"/>${tx(X + wL + wC / 2, cut + '% cut', '#3d7a2b', 17)}`);
-  $('#nz3').innerHTML = `<rect x="${X + wL}" y="${y}" width="${wC}" height="${h}" rx="4" fill="none" stroke="#d9d3df" stroke-dasharray="3 4"/>`
-    + G('rem', `<rect x="${X}" y="${y}" width="${wL}" height="${h}" rx="4" fill="${ok ? '#3B7CC3' : '#E13B26'}"/>${wL > 34 ? tx(X + wL / 2, '−' + L, '#fff') : ''}`)
-    + G('net', ok ? `<rect x="404" y="${y}" width="112" height="${h}" rx="20" fill="#3B7CC3"/>${tx(460, '= net zero', '#fff')}` : `<rect x="384" y="${y}" width="132" height="${h}" rx="20" fill="#fff" stroke="#E13B26" stroke-width="2"/>${tx(450, 'not net zero', '#c8331f')}`);
-  $('#nzt1').textContent = 'The whole bar is every bit of CO₂ and other heat-trapping gases released in a year. We call it 100 units.';
-  $('#nzt2').textContent = `Stop releasing them: power homes with sun and wind instead of coal, switch to electric cars, insulate buildings, waste less. After a ${cut}% cut, ${L} of the 100 units are left.`;
-  $('#nzt3').textContent = ok ? `A small amount is very hard to avoid, such as emissions from making cement or from farming. Capturing that carbon and storing it underground cancels it out. Result: net zero.` : `Removing ${L} units would take far more carbon removal than exists today.`;
-  const cap = act ? `<b>${esc(NZD[act][0])}.</b> ${esc(NZD[act][1])}` : (ok ? '<b>Cut deeply first, then take out only what is left.</b> Hover or tap any part of the picture to see what it means.' : `<b class="bad">Too little cut.</b> With ${L}% left over, you would need to remove carbon equal to ${L}% of today’s emissions. Removal on that scale is not available with today’s technology, so targets like this tend to lean on offsets instead. <a href="#/learn/offsets">Why offsets can be greenwashing →</a>`);
-  $('#nzd-cap').innerHTML = cap; $('#nzd-cap').classList.toggle('warn', !ok && !act);
+  <p class="nzd-def"><b>What are emissions?</b> Think of them as pollution: gases, mostly carbon dioxide (CO₂), that go up into the air when we burn coal, oil and gas. Each puff below is one tenth of a year’s emissions.</p>
+  <div class="seg nzseg" id="nzseg" role="group" aria-label="Step">${NZM.map((m, i) => `<button data-m="${m}" class="${i ? '' : 'on'}"><b>${i < 3 ? i + 1 : '✗'}</b> ${['Today', 'Cut', 'Remove', 'Offsets only'][i]}</button>`).join('')}</div>
+  <svg viewBox="0 0 520 170" id="nzsvg" role="img" aria-label="Ten pollution clouds, each one tenth of emissions, showing what is cut, removed or only offset">${puffs}</svg>
+  <div class="nzd-legend" id="nzlegend"><span data-k="smoke"><i class="k-smoke"></i>Pollution going up</span><span data-k="cut"><i class="k-cut"></i>Cut at the source</span><span data-k="cap"><i class="k-cap"></i>Removed and stored</span><span data-k="off"><i class="k-off"></i>Credit, still going up</span></div>
+  <h4 class="nzd-h" id="nzd-h"></h4><p class="nzd-p" id="nzd-p"></p>
+  <div class="nzd-cap" id="nzd-cap" aria-live="polite"></div></div>`;
 }
 function nzdWire(){
-  let cut = 90, act = null; const svg = $('#nzd'); if (!svg) return;
-  const draw = () => nzdDraw(cut, act);
-  const set = k => { if (k !== act) { act = k; draw(); } };
-  svg.addEventListener('mouseover', ev => set(ev.target.closest('[data-p]')?.dataset.p || null));
-  svg.addEventListener('mouseleave', () => set(null));
-  svg.addEventListener('focusin', ev => set(ev.target.closest('[data-p]')?.dataset.p || null));
-  svg.addEventListener('focusout', () => set(null));
-  svg.addEventListener('click', ev => set(ev.target.closest('[data-p]')?.dataset.p || null));
-  $('#nzd-cut').oninput = e => { cut = +e.target.value; $('#nzd-out').textContent = cut + '%'; draw(); };
+  const root = $('#nzd'); if (!root) return;
+  let m = 'today';
+  const draw = hl => {
+    $$('#nzsvg .pf').forEach(g => { const k = nzdState(m, +g.dataset.i); g.setAttribute('class', `pf s-${k}${hl ? (hl === k ? ' hlon' : ' hloff') : ''}`); g.dataset.k = k; });
+    $$('#nzlegend span').forEach(sp => sp.classList.toggle('on', sp.dataset.k === hl));
+    $('#nzd-h').textContent = NZD[m][0]; $('#nzd-p').textContent = NZD[m][1];
+    $('#nzd-cap').innerHTML = hl ? `<b>${esc(NZK[hl][0])}.</b> ${esc(NZK[hl][1])}` : `<b>${esc(NZD[m][2])}.</b> ${esc(NZD[m][3])} Hover or tap a cloud or key item for what it means.`;
+    $('#nzd-cap').classList.toggle('warn', m === 'offset');
+  };
+  $$('#nzseg button').forEach(b => b.onclick = () => { m = b.dataset.m; $$('#nzseg button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
+  const kind = ev => ev.target.closest('[data-k]')?.dataset.k || null;
+  root.addEventListener('mouseover', ev => draw(kind(ev)));
+  root.addEventListener('mouseleave', () => draw());
+  root.addEventListener('focusin', ev => draw(kind(ev)));
+  root.addEventListener('focusout', () => draw());
+  root.addEventListener('click', ev => { const k = kind(ev); if (k) draw(k); });
   draw();
 }
 

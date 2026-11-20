@@ -561,3 +561,18 @@ ul.flags.plain li{margin-bottom:10px}
 .peerseg{margin:0 0 6px}.peerseg button{min-width:0;padding:8px 18px;flex-direction:row}.peerseg button b{font-size:15px}.peerseg button:disabled{opacity:.4;cursor:not-allowed}
 .peerseg{display:flex;width:max-content;max-width:100%;margin-top:14px}
 .ghgseg{display:flex;margin-top:14px;width:max-content;max-width:100%}.ghgseg button{min-width:0;padding:8px 16px;flex-direction:row}.ghgseg button b{font-size:15px}
+
+.nzseg{display:flex;margin:0 0 10px;width:100%}.nzseg button{min-width:0;flex:1;padding:8px 6px;flex-direction:row;justify-content:center;gap:6px;font-size:14px;text-align:center}.nzseg button b{font-size:14px}
+#nzsvg{width:100%;height:auto;display:block;background:linear-gradient(#f4f8fc,#fff);border-radius:8px}
+.pf{cursor:pointer;outline:none}.pf path{stroke-width:2;transition:fill .4s,stroke .4s,opacity .4s}
+.pf.s-smoke path,.pf.s-off path{fill:#A5865C;stroke:#A5865C}
+.pf.s-cut path{fill:#e6f3df;stroke:#5EA845;stroke-dasharray:5 4}
+.pf.s-cap path{fill:#3B7CC3;stroke:#3B7CC3}
+.pf .coin{opacity:0;transition:opacity .4s}.pf.s-off .coin{opacity:1}
+.pf .coin circle{fill:#FAA542;stroke:#fff;stroke-width:2}.pf .coin text{font-size:10px;font-weight:800;fill:#271039}
+.pf.hloff{opacity:.25}.pf.hlon path{filter:drop-shadow(0 2px 4px rgba(39,16,57,.35))}.pf:focus-visible path{stroke:#271039}
+.nzd-legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin:8px 0 6px;font-size:13.5px}.nzd-legend span{cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:2px 6px;border-radius:6px}.nzd-legend span.on{background:var(--band)}
+.nzd-legend i{width:16px;height:12px;border-radius:6px;display:inline-block}.k-smoke{background:#A5865C}.k-cut{background:#e6f3df;border:1.5px dashed #5EA845}.k-cap{background:#3B7CC3}.k-off{background:#A5865C;box-shadow:inset -5px -3px 0 #FAA542}
+.nzd-h{margin:10px 0 2px;font-size:18px;color:var(--purple)}.nzd-p{margin:0 0 10px;font-size:15.5px;line-height:1.5;color:var(--ink-2);min-height:96px}
+.ladder div.on{background-clip:padding-box}.ladder div.dk,.ladder div.dk b{color:#fff}
+.ladder div.on{box-shadow:0 0 0 2px #fff,0 0 0 4px var(--purple)}
