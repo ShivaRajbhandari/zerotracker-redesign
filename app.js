@@ -568,14 +568,54 @@ function timelineSVG(e){
   </svg>`;
 }
 const CITY_MIN = 500000;
-function peers(e){
-  if (e.t === 'company') return {label: e.sec && e.sec !== 'NA' ? `${e.sec} companies` : 'all companies', xs: byType('company').filter(x => e.sec && e.sec !== 'NA' ? x.sec === e.sec : true)};
-  if (e.t === 'country') return {label:`countries in ${e.g}`, xs: byType('country').filter(x => x.g === e.g)};
+const NAF = ['Egypt','Morocco','Algeria','Tunisia','Libya'];
+const CAS = ['Kazakhstan','Uzbekistan','Turkmenistan','Kyrgyzstan','Tajikistan','Afghanistan','Azerbaijan','Georgia','Armenia'];
+function grp(e){
+  const g = e.g, n = e.cn || e.n;
+  if (e.t === 'country') {  // too few countries for the city groupings, so China and the Americas are folded in
+    if (n === 'China' || g === 'East Asia' || g === 'Oceania') return 'East Asia and the Pacific';
+    if (g === 'North America' || g === 'Latin America and the Caribbean') return 'the Americas';
+  }
+  if (n === 'Mexico') return 'Latin America and the Caribbean';
+  if (g === 'North America') return 'the United States and Canada';
+  if (n === 'China') return 'China';
+  if (g === 'East Asia' || g === 'Oceania') return 'East Asia and the Pacific (excluding China)';
+  if (g === 'South Asia' || CAS.includes(n)) return 'South and Central Asia';
+  if (g === 'Western and Central Asia' || NAF.includes(n)) return 'the Middle East and North Africa';
+  if (g === 'Africa') return 'Sub-Saharan Africa';
+  return g || 'the rest of the world';
+}
+const PM = {};  // chosen comparison mode per entry type, kept while browsing
+function peerModes(e){
+  if (e.t === 'company') return [['sector','Same sector'],['world','All companies'],['size','Similar revenue']];
+  if (e.t === 'country') return [['region','Region'],['world','World'],['size','Similar population']];
+  return [['region','Region'],['country','Same country'],['world','World'],['size','Similar size']];
+}
+function peerMode(e){
+  const ms = peerModes(e).map(m => m[0]);
+  const want = PM[e.t] && ms.includes(PM[e.t]) ? PM[e.t] : ms[0];
+  return want;
+}
+function peers(e, mode){
+  if (e.t === 'city' && !(e.pop >= CITY_MIN)) return {label:'', xs:[], small:true, mode:''};
+  mode = mode || peerMode(e);
+  const T = TYPE[e.t][1].toLowerCase(), key = e.t === 'company' ? 'rev' : 'pop';
   // cities: the Tracker's coverage rule is 500,000+ people, so smaller cities never count as peers
   const pool = e.t === 'city' ? byType('city').filter(x => x.pop >= CITY_MIN) : byType(e.t);
-  if (e.t === 'city' && !(e.pop >= CITY_MIN)) return {label:'', xs:[], small:true};
-  const same = pool.filter(x => x.c === e.c);
-  return same.length >= 5 ? {label:`${TYPE[e.t][1].toLowerCase()} in ${e.cn}`, xs: same} : {label:`${TYPE[e.t][1].toLowerCase()} in ${e.g}`, xs: pool.filter(x => x.g === e.g)};
+  const tail = e.t === 'city' ? ' with over 500,000 population' : '';
+  let xs, label;
+  if (mode === 'sector') { const ok = e.sec && e.sec !== 'NA'; xs = pool.filter(x => ok ? x.sec === e.sec : true); label = ok ? `${e.sec} companies` : 'companies'; }
+  else if (mode === 'world') { xs = pool; label = e.t === 'company' ? 'companies in the Tracker' : `${T} in the world${tail}`; }
+  else if (mode === 'country') { xs = pool.filter(x => x.c === e.c); label = `${T} in ${e.cn}${tail}`; }
+  else if (mode === 'size') {
+    const v = e[key] || 0, N = 25;
+    xs = pool.filter(x => x[key] > 0).sort((a, b) => Math.abs(Math.log(a[key] / v)) - Math.abs(Math.log(b[key] / v))).slice(0, N);
+    const lo = Math.min(...xs.map(x => x[key])), hi = Math.max(...xs.map(x => x[key]));
+    const rng = key === 'rev' ? `${money(lo)} to ${money(hi)} in annual revenue` : `${people(lo)} to ${people(hi)} people`;
+    label = `${T} closest in ${key === 'rev' ? 'revenue' : e.t === 'city' ? 'size' : 'population'} (${rng})`;
+  }
+  else { const G = grp(e); xs = pool.filter(x => grp(x) === G); label = `${T} in ${G}${tail}`; }
+  return {label, xs, mode};
 }
 function peerBasis(e){
   if (e.t === 'city') return '';
@@ -677,7 +717,8 @@ P.entity = (params, slug) => {
   <section class="tight band"><div class="wrap">
     <h2 class="h-brand" style="font-size:24px">How it compares</h2>
     ${pr.small ? `<p class="muted mt0">${esc(e.n)} has about ${fmt(e.pop)} people. The Tracker's city coverage starts at 500,000, so there is no peer group for it. Choose a city to compare it with.</p>
-    <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <p class="muted mt0">Compared with ${e.t === 'city' ? 'the ' : ''}${fmt(px.length)} ${esc(pr.label)}${e.t === 'city' ? ' with over 500,000 population' : ''}. ${esc(peerBasis(e))} Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
+    <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <div class="seg peerseg" id="peerseg" role="group" aria-label="Compare with">${peerModes(e).map(([m, l]) => `<button data-m="${m}" class="${m === pr.mode ? 'on' : ''}"${m === 'country' && byType(e.t).filter(x => x.c === e.c && (e.t !== 'city' || x.pop >= CITY_MIN)).length < 3 ? ' disabled title="Too few entries in this country"' : ''}><b>${l}</b></button>`).join('')}</div>
+    <p class="muted mt1">Compared with ${pr.mode === 'size' ? '' : pr.mode === 'world' && e.t === 'company' ? 'all ' : 'the '}${fmt(px.length)} ${esc(pr.label)}. ${esc(peerBasis(e))}${peerBasis(e) ? ' ' : ''}Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
     <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:110px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap">${me ? '✓ ' : '✗ '}${esc(e.n.length > 14 ? (e.t==='company'?'This company':'This entry') : e.n)}</td></tr>`; }).join('')}</table>`}
   </div></section>
 
@@ -706,6 +747,7 @@ P.entity.after = (params, slug) => {
   $('#b-cmp').onclick = () => { let a = compareSet.get(); if (a.includes(e.s)) { location.hash = '#/compare'; return; } a = [...a, e.s].slice(-4); compareSet.set(a); $('#b-cmp').textContent = '✓ In comparison: view'; toast(`Added. ${a.length} in comparison.`); };
   $('#b-brief').onclick = $('#b-brief2').onclick = () => copy(briefing(e));
   $('#b-link').onclick = () => copy(location.href);
+  $$('#peerseg button').forEach(b => b.onclick = () => { PM[e.t] = b.dataset.m; const y = scrollY; route(); scrollTo(0, y); });
   if ($('#s-peer')) wireSearch('s-peer', o => { if (o.s === e.s) return; compareSet.set([e.s, o.s]); location.hash = '#/compare'; }, x => x.t === 'city' && x.s !== slug);
 };
 
