@@ -874,15 +874,15 @@ function ghgSvg(l){
     return d;
   };
   const heat = (x, i) => back[i]
-    ? `<path class="hp" d="${wave(x, G - 6, 168)} A13 13 0 0 1 ${x + 26} 168 ${wave(x + 26, 168, G - 10).replace(/^M[^L]*/, '')}" marker-end="url(#ghg-ah)"/>`
-    : `<path class="hp" d="${wave(x, G - 6, 22)}" marker-end="url(#ghg-ah)"/>`;
+    ? `<path class="hp hl s2" d="${wave(x, G - 6, 168)}"/><path class="hp hl s3" d="M${x} 168 A13 13 0 0 1 ${x + 26} 168 ${wave(x + 26, 168, G - 10).replace(/^M[^L]*/, '')}" marker-end="url(#ghg-ah)"/>`
+    : `<path class="hp hl s2" d="${wave(x, G - 6, 22)}" marker-end="url(#ghg-ah)"/>`;
   // greenhouse-gas molecules (CO2-style glyphs), deterministic layout
   const mol = []; const n = l ? 30 : 9;
   for (let i = 0; i < n; i++) {
     const x = 24 + ((i + .5) / n) * 464 + ((i * .618034) % 1 - .5) * (232 / n), y = B0 + 20 + ((i * .7548776 + .3) % 1) * (B1 - B0 - 40), r = (i * 47) % 180;
-    mol.push(`<g transform="translate(${x} ${y}) rotate(${r})"><circle cx="-7" r="3.4" fill="#c8302a"/><circle cx="7" r="3.4" fill="#c8302a"/><circle r="4.6" fill="#3a3340"/></g>`);
+    mol.push(`<g class="hl s3" transform="translate(${x} ${y}) rotate(${r})"><circle cx="-7" r="3.4" fill="#c8302a"/><circle cx="7" r="3.4" fill="#c8302a"/><circle r="4.6" fill="#3a3340"/></g>`);
   }
-  const badge = (x, y, t) => `<g transform="translate(${x} ${y})"><circle r="12" fill="#271039" stroke="#fff" stroke-width="2"/><text y="4.5" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">${t}</text></g>`;
+  const badge = (x, y, t) => `<g class="hl s${t}" data-step="${t}" style="cursor:pointer" transform="translate(${x} ${y})"><circle r="12" fill="#271039" stroke="#fff" stroke-width="2"/><text y="4.5" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">${t}</text></g>`;
   const label = (x, y, a, b, c = '#3c3546') => `<text x="${x}" y="${y}" font-size="13" font-weight="600" fill="${c}">${a}${b ? `<tspan x="${x}" dy="16" font-weight="400" fill="#5f5869">${b}</tspan>` : ''}</text>`;
   // human activity on the land when there are more gases: factories, cars and cows
   const BY0 = 352;
@@ -907,10 +907,10 @@ function ghgSvg(l){
     <g clip-path="url(#ghg-clip)">
       <rect width="${W}" height="${H}" fill="url(#ghg-sky)"/>
       ${[[540, 18], [600, 44], [500, 52], [612, 12], [430, 30], [362, 14]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.2" fill="#fff" opacity=".7"/>`).join('')}
-      <rect x="0" y="${B0}" width="${W}" height="${B1 - B0}" fill="url(#ghg-band)"><title>Layer of greenhouse gases</title></rect>
+      <rect class="hl s3" x="0" y="${B0}" width="${W}" height="${B1 - B0}" fill="url(#ghg-band)"><title>Layer of greenhouse gases</title></rect>
       ${mol.join('')}
-      <path d="M49 51 L75 41 L201 ${G + 6} L141 ${G + 30}Z" fill="url(#ghg-beam)"><title>Sunlight passes through the gases and warms the ground</title></path>
-      <circle cx="62" cy="46" r="54" fill="url(#ghg-sun)"/><circle cx="62" cy="46" r="24" fill="#FFC56B"><title>The sun</title></circle>
+      <path class="hl s1" d="M49 51 L75 41 L201 ${G + 6} L141 ${G + 30}Z" fill="url(#ghg-beam)"><title>Sunlight passes through the gases and warms the ground</title></path>
+      <g class="hl s1"><circle cx="62" cy="46" r="54" fill="url(#ghg-sun)"/><circle cx="62" cy="46" r="24" fill="#FFC56B"><title>The sun</title></circle></g>
       <path d="M0 ${G + 8} Q${W / 2} ${G - 16} ${W} ${G + 8} V${H} H0Z" fill="url(#ghg-land)"/>
       ${l ? `<path d="M0 ${G + 8} Q${W / 2} ${G - 16} ${W} ${G + 8} V${H} H0Z" fill="url(#ghg-hot)"/>` : ''}
       ${hum}
@@ -934,9 +934,9 @@ P.learn = (params, sub) => `
     </div>
     <div class="grid2 mt2" style="align-items:center">
       <div><h3 style="font-size:22px">The greenhouse effect, in three steps</h3>
-        <ol class="asks"><li>Sunlight reaches the Earth and warms the ground.<small>About half of the sun’s energy that reaches Earth is absorbed at the surface.</small></li>
-        <li>The warm ground sends heat back up.<small>Some of it escapes to space.</small></li>
-        <li>Greenhouse gases catch some of that heat and send it back down.<small>This keeps the planet livable. But the more gases we add, the more heat is sent back, and the warmer it gets.</small></li></ol>
+        <ol class="asks ghg-steps" id="ghgsteps"><li data-step="1" tabindex="0">Sunlight reaches the Earth and warms the ground.<small>About half of the sun’s energy that reaches Earth is absorbed at the surface.</small></li>
+        <li data-step="2" tabindex="0">The warm ground sends heat back up.<small>Some of it escapes to space.</small></li>
+        <li data-step="3" tabindex="0">Greenhouse gases catch some of that heat and send it back down.<small>This keeps the planet livable. But the more gases we add, the more heat is sent back, and the warmer it gets.</small></li></ol>
       </div>
       <figure class="card ghg-fig"><div class="ghg-top"><div class="ghg-tog" id="ghgseg" role="tablist" aria-label="Amount of greenhouse gas"><button data-l="0" class="on" role="tab" aria-selected="true">Before: fewer gases</button><button data-l="1" role="tab" aria-selected="false">Now: more gases</button></div></div><p class="ghg-lede" id="ghg-lede">${GHG_LEDE[0]}</p>
         <div id="ghg">${ghgSvg(0)}</div><figcaption id="ghg-cap">${GHG_CAP[0]}</figcaption></figure>
@@ -997,6 +997,11 @@ P.learn = (params, sub) => `
     <div class="gloss mt2">${GLOSS.map(([t,d,w]) => `<details><summary>${t}</summary><p class="plain">${d}</p><p>${w}</p></details>`).join('')}</div>
   </div></section>`;
 P.learn.after = (params, sub) => {
+  (() => { const fig = $('#ghg'), lis = $$('#ghgsteps li'); if (!fig) return;
+    const set = n => { if (n) fig.dataset.hl = n; else delete fig.dataset.hl; lis.forEach(l => l.classList.toggle('on', l.dataset.step === String(n))); };
+    lis.forEach(l => { l.addEventListener('mouseenter', () => set(l.dataset.step)); l.addEventListener('focus', () => set(l.dataset.step)); l.addEventListener('mouseleave', () => set(null)); l.addEventListener('blur', () => set(null)); });
+    fig.addEventListener('mouseover', ev => { const b = ev.target.closest('[data-step]'); if (b) set(b.dataset.step); });
+    fig.addEventListener('mouseout', ev => { if (ev.target.closest('[data-step]')) set(null); }); })();
   $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $('#ghg-lede').textContent = GHG_LEDE[l]; $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
   today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each cloud is 10% of a year’s emissions. They come from power plants and factories, petrol and diesel cars, heating homes, and even cows, which release methane. They all trap heat.','10 of 10 units released','Each cloud represents 10% of annual emissions, and all ten are still entering the atmosphere.'],
