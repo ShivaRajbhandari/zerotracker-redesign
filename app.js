@@ -798,28 +798,62 @@ const GLOSS = [
   ['Just transition','Making sure workers and communities that depend on high-carbon industries are not left behind.','Increasingly expected in national plans and company strategies.'],
   ['Base year','The year that a percentage cut is measured against, such as "45% below 2010".','An early or high-emissions base year can make a target look bigger than it is.'],
 ];
-const GHG_CAP = ['A natural amount of greenhouse gas lets most heat escape, and keeps the Earth warm enough to live on.', 'With more greenhouse gases, more heat is trapped and sent back down. Less escapes to space, so the planet warms.'];
+const GHG_CAP = ['<b>Balanced.</b> A thin layer of greenhouse gas returns some heat to the ground and lets most escape. Heat in matches heat out, so the temperature stays steady and livable.', '<b>Out of balance.</b> A thicker layer sends more heat back down and lets less escape. More heat comes in than goes out, so the surface keeps warming.'];
 function ghgSvg(l){
-  const esc4 = l ? [1, 0, 0, 0] : [1, 1, 1, 0], xs = [210, 260, 310, 360];
-  const dots = []; const n = l ? 22 : 7; for (let i = 0; i < n; i++) dots.push([150 + (i * 97 % 235), 128 + (i * 53 % 44)]);
-  const arrow = (x1, y1, x2, y2, c) => `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${c}" stroke-width="4" stroke-linecap="round" marker-end="url(#ah-${c.slice(1)})"/>`;
-  const mk = c => `<marker id="ah-${c.slice(1)}" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0 0L10 5L0 10z" fill="${c}"/></marker>`;
-  return `<svg viewBox="0 0 440 340" role="img" aria-label="Diagram of the greenhouse effect with ${l ? 'more' : 'fewer'} greenhouse gases" style="width:100%;height:auto">
-    <defs>${mk('#FAA542')}${mk('#E13B26')}</defs>
-    <rect width="440" height="340" fill="#f4f8fc" rx="8"/>
-    <rect x="0" y="118" width="440" height="64" fill="#A5865C" opacity="${l ? .28 : .12}"><title>Layer of greenhouse gases</title></rect>
-    <text x="430" y="112" font-size="12" text-anchor="end" fill="#5f5869">Greenhouse gases in the air</text>
-    ${dots.map(([x, y]) => `<circle cx="${x}" cy="${y}" r="5" fill="#A5865C"><title>A greenhouse gas molecule, such as carbon dioxide</title></circle>`).join('')}
-    <circle cx="60" cy="52" r="26" fill="#FAA542"><title>The sun</title></circle><text x="60" y="95" font-size="12" text-anchor="middle" fill="#5f5869">Sun</text>
-    ${arrow(92, 64, 150, 276, '#FAA542')}${arrow(110, 54, 175, 276, '#FAA542')}
-    <text x="124" y="214" font-size="12" fill="#a8670a" transform="rotate(68 124 214)">Sunlight</text>
-    <path d="M0 292 Q220 270 440 292 V340 H0z" fill="${l ? '#c98b4a' : '#7aa95c'}"><title>${l ? 'The ground gets warmer' : 'The ground'}</title></path>
-    <text x="220" y="326" font-size="13" text-anchor="middle" fill="#fff" font-weight="600">${l ? 'Warmer Earth' : 'Earth'}</text>
-    ${xs.map((x, i) => esc4[i] ? arrow(x, 268, x, 28, '#E13B26') : `${arrow(x, 268, x, 150, '#E13B26')}${arrow(x + 14, 152, x + 14, 262, '#E13B26')}`).join('')}
-    <text x="430" y="14" font-size="12" text-anchor="end" fill="#b92a17">Heat escaping to space</text>
-    <text x="430" y="246" font-size="12" text-anchor="end" fill="#b92a17" paint-order="stroke" stroke="#f4f8fc" stroke-width="4">Heat sent back down</text>
+  const W = 640, H = 400, G = 322;                       // canvas, ground line
+  const cols = [262, 328, 394, 460];                     // heat columns
+  const back = l ? [0, 1, 1, 1] : [0, 0, 0, 1];          // which columns are sent back down
+  const B0 = 104, B1 = 184;                              // gas layer band
+  const wave = (x, y0, y1) => {                          // vertical wavy line with tapered ends
+    let d = `M${x} ${y0}`; const n = Math.abs(y1 - y0), s = Math.sign(y1 - y0);
+    for (let t = 2; t <= n; t += 2) { const env = Math.min(1, t / 18, (n - t) / 18); d += `L${(x + 5 * env * Math.sin(t / 5)).toFixed(1)} ${y0 + s * t}`; }
+    return d;
+  };
+  const heat = (x, i) => back[i]
+    ? `<path class="hp" d="${wave(x, G - 6, 168)} A13 13 0 0 1 ${x + 26} 168 ${wave(x + 26, 168, G - 10).replace(/^M[^L]*/, '')}" marker-end="url(#ghg-ah)"/>`
+    : `<path class="hp" d="${wave(x, G - 6, 22)}" marker-end="url(#ghg-ah)"/>`;
+  // greenhouse-gas molecules (CO2-style glyphs), deterministic layout
+  const mol = []; const n = l ? 30 : 9;
+  for (let i = 0; i < n; i++) {
+    const x = 24 + ((i + .5) / n) * 464 + ((i * .618034) % 1 - .5) * (232 / n), y = B0 + 20 + ((i * .7548776 + .3) % 1) * (B1 - B0 - 40), r = (i * 47) % 180;
+    mol.push(`<g transform="translate(${x} ${y}) rotate(${r})"><circle cx="-7" r="3.4" fill="#c8302a"/><circle cx="7" r="3.4" fill="#c8302a"/><circle r="4.6" fill="#3a3340"/></g>`);
+  }
+  const badge = (x, y, t) => `<g transform="translate(${x} ${y})"><circle r="12" fill="#271039" stroke="#fff" stroke-width="2"/><text y="4.5" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">${t}</text></g>`;
+  const label = (x, y, a, b, c = '#3c3546') => `<text x="${x}" y="${y}" font-size="13" font-weight="600" fill="${c}">${a}${b ? `<tspan x="${x}" dy="16" font-weight="400" fill="#5f5869">${b}</tspan>` : ''}</text>`;
+  const outN = back.filter(v => !v).length, inN = 4 - outN;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagram of the greenhouse effect: ${outN} of 4 heat arrows escape to space and ${inN} are sent back to the ground" style="width:100%;height:auto;display:block;font-family:inherit">
+    <defs>
+      <linearGradient id="ghg-sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#1f0d2f"/><stop offset=".2" stop-color="#3d2a63"/><stop offset=".42" stop-color="#9fb8db"/><stop offset=".8" stop-color="#e4eef8"/></linearGradient>
+      <radialGradient id="ghg-sun"><stop offset=".45" stop-color="#FFC56B"/><stop offset=".6" stop-color="#FAA542" stop-opacity=".55"/><stop offset="1" stop-color="#FAA542" stop-opacity="0"/></radialGradient>
+      <linearGradient id="ghg-beam" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFC56B" stop-opacity=".85"/><stop offset="1" stop-color="#FAA542" stop-opacity=".45"/></linearGradient>
+      <linearGradient id="ghg-band" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#A5865C" stop-opacity="0"/><stop offset=".5" stop-color="#A5865C" stop-opacity="${l ? .55 : .22}"/><stop offset="1" stop-color="#A5865C" stop-opacity="0"/></linearGradient>
+      <linearGradient id="ghg-land" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#6fa552"/><stop offset="1" stop-color="#3f7a34"/></linearGradient>
+      <radialGradient id="ghg-hot" cx=".55" cy="0" r=".7"><stop offset="0" stop-color="#E13B26" stop-opacity=".7"/><stop offset="1" stop-color="#E13B26" stop-opacity="0"/></radialGradient>
+      <marker id="ghg-ah" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4.2" markerHeight="4.2" orient="auto"><path d="M0 0L10 5L0 10z" fill="#E13B26"/></marker>
+      <clipPath id="ghg-clip"><rect width="${W}" height="${H}" rx="10"/></clipPath>
+    </defs>
+    <style>#ghg .hp{fill:none;stroke:#E13B26;stroke-width:3.2;stroke-linecap:round;stroke-linejoin:round}</style>
+    <g clip-path="url(#ghg-clip)">
+      <rect width="${W}" height="${H}" fill="url(#ghg-sky)"/>
+      ${[[540, 18], [600, 44], [500, 52], [612, 12], [430, 30], [362, 14]].map(([x, y]) => `<circle cx="${x}" cy="${y}" r="1.2" fill="#fff" opacity=".7"/>`).join('')}
+      <rect x="0" y="${B0}" width="${W}" height="${B1 - B0}" fill="url(#ghg-band)"><title>Layer of greenhouse gases</title></rect>
+      ${mol.join('')}
+      <circle cx="62" cy="46" r="54" fill="url(#ghg-sun)"/><circle cx="62" cy="46" r="24" fill="#FFC56B"><title>The sun</title></circle>
+      <path d="M78 66 L102 58 L196 ${G + 2} L146 ${G + 6}Z" fill="url(#ghg-beam)"><title>Sunlight passes through the gases and warms the ground</title></path>
+      <path d="M0 ${G + 8} Q${W / 2} ${G - 16} ${W} ${G + 8} V${H} H0Z" fill="url(#ghg-land)"/>
+      ${l ? `<path d="M0 ${G + 8} Q${W / 2} ${G - 16} ${W} ${G + 8} V${H} H0Z" fill="url(#ghg-hot)"/>` : ''}
+      ${cols.map(heat).join('')}
+      ${badge(126, 196, 1)}${badge(cols[0] - 22, 286, 2)}${badge(cols[3] + 13, 140, 3)}
+      ${label(512, 36, 'Space', '', '#fff')}
+      ${label(512, 134, 'Greenhouse', 'gases in the air')}
+      ${label(512, 266, 'Heat', 'rising from the ground')}
+      <text x="${W / 2}" y="372" text-anchor="middle" font-size="14" font-weight="600" fill="#fff">${l ? 'Earth’s surface is warming' : 'Earth’s surface'}</text>
+    </g>
   </svg>`;
 }
+const ghgScore = l => l
+  ? '<span class="ghg-chip hot"><b>1</b> of 4 escapes · <b>3</b> sent back</span><span class="ghg-chip hot">Warming</span>'
+  : '<span class="ghg-chip"><b>3</b> of 4 escape · <b>1</b> sent back</span><span class="ghg-chip ok">Steady</span>';
 P.learn = (params, sub) => `
   <section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">Net zero explained</p><h1 style="font-size:clamp(30px,4.5vw,46px)">What net zero means, and how to tell a real target from a slogan</h1><p>A 2-minute primer, a glossary, and how we assess every target.</p></div></section>
   <section id="why"><div class="wrap">
@@ -834,8 +868,9 @@ P.learn = (params, sub) => `
         <ol class="asks"><li>Sunlight reaches the Earth and warms the ground.<small>About half of the sun’s energy that reaches Earth is absorbed at the surface.</small></li>
         <li>The warm ground sends heat back up.<small>Some of it escapes to space.</small></li>
         <li>Greenhouse gases catch some of that heat and send it back down.<small>This keeps the planet livable. But the more gases we add, the more heat is sent back, and the warmer it gets.</small></li></ol>
-        <div class="seg ghgseg" id="ghgseg"><button data-l="0" class="on"><b>Before: fewer gases</b></button><button data-l="1"><b>Now: more gases</b></button></div></div>
-      <div class="card" style="padding:12px"><div id="ghg">${ghgSvg(0)}</div><p id="ghg-cap" class="muted" style="font-size:14.5px;margin:8px 4px 2px">${GHG_CAP[0]}</p></div>
+      </div>
+      <figure class="card ghg-fig"><div class="ghg-top"><div class="ghg-tog" id="ghgseg" role="tablist" aria-label="Amount of greenhouse gas"><button data-l="0" class="on" role="tab" aria-selected="true">Before: fewer gases</button><button data-l="1" role="tab" aria-selected="false">Now: more gases</button></div><div id="ghg-score" class="ghg-score">${ghgScore(0)}</div></div>
+        <div id="ghg">${ghgSvg(0)}</div><figcaption id="ghg-cap">${GHG_CAP[0]}</figcaption></figure>
     </div>
     <div class="card mt2" style="background:var(--band)"><h3>The global goal: the Paris Agreement</h3>
       <p>In 2015, nearly every country agreed in Paris to keep global warming <b>well below 2°C</b> above pre-industrial levels, and to try to keep it to <b>1.5°C</b>. The world has already warmed by more than 1°C.</p>
@@ -893,7 +928,7 @@ P.learn = (params, sub) => `
     <div class="gloss mt2">${GLOSS.map(([t,d,w]) => `<details><summary>${t}</summary><p class="plain">${d}</p><p>${w}</p></details>`).join('')}</div>
   </div></section>`;
 P.learn.after = (params, sub) => {
-  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').textContent = GHG_CAP[l]; $$('#ghgseg button').forEach(x => x.classList.toggle('on', x === b)); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
+  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $('#ghg-score').innerHTML = ghgScore(l); $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
   today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each cloud is 10% of a year’s emissions. They come from power plants and factories, petrol and diesel cars, heating homes, and even cows, which release methane. They all trap heat.','10 puffs','All 10 puffs are still going up.'],
   cut:['2. Cut it at the source','Stop making the smoke in the first place: sun and wind instead of coal, electric cars, efficient homes, less methane from farming. Net zero standards ask for roughly 90% of emissions to be cut. One cloud is left.','1 puff left','Nine puffs are gone for good. One is left.'],
