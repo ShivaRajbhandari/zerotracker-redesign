@@ -483,7 +483,7 @@ function filtered(){
 }
 
 /* ---------- EXPLORE: how countries add up to global emissions, and the pathways ahead ---------- */
-function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bn'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bo'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const GL_STACK = ['#cdb998', '#a9c4e4', '#ecd49a', '#b9d8a8', '#c5bdd0', '#dcbcd6', '#e8e4ec'];
 const GL_SCN = {paris:['#2f8a4c', 'Paris-aligned pathway', 'Paris-aligned'], ndc:['#1f4e8c', 'All 2030 and 2035 NDCs met', 'NDCs met'], pledges:['#6b3fa0', 'All pledges and net zero targets met', 'All pledges met'], pol:['#c27a00', 'Current policies', 'Current policies'], none:['#E13B26', 'No further action (past trend continues)', 'No further action']};
 function glScenarios(G){
@@ -510,6 +510,7 @@ function globalChartHtml(G, st){
     ${yt.map(t => `<line x1="${Lm}" x2="${W - Rm}" y1="${y(t)}" y2="${y(t)}" stroke="#ece8ef"/><text x="${Lm - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${t}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text>`).join('')}
     <text x="10" y="${T - 8}" font-size="12" fill="#7a7385">Gt CO₂e per year</text>
+    ${pmarks(x, x0, x1, T, H - B)}
     ${G.s.map((_, k) => `<path d="${area(k)}" fill="${GL_STACK[k]}" stroke="#fff" stroke-width=".6"><title>${esc(G.names[k])}</title></path>`).join('')}
     <path d="${path(G.world.map((v, i) => [x0 + i, v]))}" fill="none" stroke="#271039" stroke-width="2.4"/>
     <line x1="${x(2024)}" x2="${x(2024)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
@@ -647,7 +648,12 @@ function timelineSVG(e){
 }
 
 /* ---------- EMISSIONS HISTORY (countries: Our World in Data 1850-; cities and regions: EDGAR v8.0 1970-2022) ---------- */
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bn'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+
+// Kyoto Protocol (adopted 1997) and Paris Agreement (adopted 2015) markers for the emissions charts
+function pmarks(x, xa, xb, T, bottom){
+  return [[1997, 'Kyoto Protocol, 1997', 'end'], [2015, 'Paris Agreement, 2015', 'start']].filter(([yr]) => yr >= xa && yr <= xb).map(([yr, l, a]) => `<line x1="${x(yr)}" x2="${x(yr)}" y1="${T}" y2="${bottom}" stroke="#2f8a4c" stroke-width="1.6" stroke-dasharray="4 4" opacity=".75"/><text x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3">${l}</text>`).join('');
+}
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bo'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
@@ -671,6 +677,7 @@ function emisChart(e){
     ${yt.map(t => `<line x1="${L}" x2="${W - R}" y1="${yy(t)}" y2="${yy(t)}" stroke="#ece8ef"/><text x="${L - 8}" y="${yy(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${fmt(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text><line x1="${x(t)}" x2="${x(t)}" y1="${H - B}" y2="${H - B + 4}" stroke="#bbb"/>`).join('')}
     <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">Mt CO₂e per year</text>
+    ${pmarks(x, y0, endY, T, H - B)}
     <path d="${line}L${lx} ${yy(0)}L${x(y0)} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/><path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>
     <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
     ${path.join('')}
@@ -986,12 +993,13 @@ function cmpEmisHtml(es, st){
   const nice = (ymax - ymin) / 4, mag = 10 ** Math.floor(Math.log10(nice)), ny = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= nice), yt = []; for (let t = Math.ceil(ymin / ny) * ny; t <= ymax; t += ny) yt.push(t);
   const pf = t => idx ? (t > 0 ? '+' : t < 0 ? '−' : '') + fmt(Math.abs(t)) + '%' : fmt(t);
   // direct labels at the right end, spread apart
-  const ends = S2.map(r => ({r, yy: y((r.tg ? r.tg[r.tg.length - 1] : r.pts[r.pts.length - 1])[1])})).sort((a, b) => a.yy - b.yy); for (let i = 1; i < ends.length; i++) if (ends[i].yy - ends[i - 1].yy < 17) ends[i].yy = ends[i - 1].yy + 17;
+  const ends = S2.map(r => ({r, yy: y((r.tg ? r.tg[r.tg.length - 1] : r.pts[r.pts.length - 1])[1])})).sort((a, b) => a.yy - b.yy); for (let i = 1; i < ends.length; i++) if (ends[i].yy - ends[i - 1].yy < 17) ends[i].yy = ends[i - 1].yy + 17; { const over = ends[ends.length - 1].yy - (H - B + 4); if (over > 0) { ends.forEach(e => { e.yy -= over; }); for (let i = ends.length - 2; i >= 0; i--) if (ends[i + 1].yy - ends[i].yy < 17) ends[i].yy = ends[i + 1].yy - 17; } }
   const nameOf = e => (e.t === 'city' ? e.n.replace(/\s*\(.*\)/, '') : e.n);
   const svg = `<svg viewBox="0 0 ${W} ${H}" id="cmpe-svg" data-x0="${x0}" data-x1="${x1}" data-t="${T}" data-b="${B}" data-h="${H}" data-lm="${Lm}" data-rm="${Rm}" data-w="${W}" role="img" aria-label="Emissions of ${S2.map(r => esc(r.e.n)).join(', ')}" style="width:100%;height:auto;display:block">
     ${yt.map(t => `<line x1="${Lm}" x2="${W - Rm}" y1="${y(t)}" y2="${y(t)}" stroke="#ece8ef"/><text x="${Lm - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${pf(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text>`).join('')}
     <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">${idx ? 'Change since 1990' : 'Mt CO₂e per year'}</text>
+    ${pmarks(x, x0, x1, T, H - B)}
     ${idx ? `<line x1="${Lm}" x2="${W - Rm}" y1="${y(0)}" y2="${y(0)}" stroke="#9a93a6" stroke-dasharray="4 4"/>` : ''}
     ${S2.map(r => `<path d="${r.pts.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${y(p[1]).toFixed(1)}`).join('')}" fill="none" stroke="${r.c}" stroke-width="2.8" stroke-linejoin="round"/>`).join('')}
     ${S2.map(r => r.tg ? `<path d="${r.tg.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${y(p[1]).toFixed(1)}`).join('')}" fill="none" stroke="${r.c}" stroke-width="2.4" stroke-dasharray="6 5"/>${r.tg.slice(1).map(p => p[2] === 'nz' ? `<path d="M${x(p[0])} ${y(p[1]) - 8} l8 8 l-8 8 l-8 -8z" fill="${r.c}" stroke="#fff" stroke-width="2"><title>${esc(r.e.n)}: net zero ${p[0]}</title></path>` : `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="5.5" fill="${r.c}" stroke="#fff" stroke-width="2"><title>${esc(r.e.n)}: milestone ${p[0]}</title></circle>`).join('')}` : '').join('')}
