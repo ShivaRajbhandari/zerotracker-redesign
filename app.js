@@ -758,6 +758,61 @@ P.entity.after = (params, slug) => {
 };
 
 /* ---------- COMPARE ---------- */
+
+/* ---------- COMPARE: shared timeline of milestones and targets ---------- */
+function tlPoints(e){
+  const ms = msList(e).filter(([yr]) => yr >= NOW && yr <= 2100).map(([yr, l]) => ({yr, l, k:'ms'}));
+  const y = year(e), pts = ms.slice();
+  if (y && y >= NOW && y <= 2100 && hasAnyTarget(e)) pts.push({yr:y, l:targetPhrase(e), k:'end', nz:isNZ(e)});
+  return {pts, passed: y && y < NOW && hasAnyTarget(e) ? y : null};
+}
+function compareTimeline(es){
+  const L = es.map(e => ({e, ...tlPoints(e)}));
+  const maxY = Math.max(2050, ...L.flatMap(r => r.pts.map(p => p.yr)));
+  const end = Math.min(2100, Math.ceil((maxY + 1) / 5) * 5);
+  const W = 960, X0 = 200, X1 = 925, x = v => X0 + (v - NOW) / (end - NOW) * (X1 - X0), RH = 112, TOP = 40, H = TOP + RH * es.length + 14;
+  const ticks = []; for (let t = NOW; t <= end; t += 1) if (t % 5 === 0 || t === NOW) ticks.push(t);
+  const cw = (txt, sz) => txt.length * sz * 0.56;
+  const short = (t, n) => t.length > n ? t.slice(0, n - 1).trim() + '…' : t;
+  const name = e => { const w = (e.t === 'city' ? e.n.replace(/\s*\(.*\)/, '') : e.n).split(' '); let a = '', b = ''; w.forEach(x => { if ((a + ' ' + x).trim().length <= 20 && !b) a = (a + ' ' + x).trim(); else b = (b + ' ' + x).trim(); }); return [a, short(b, 22)]; };
+  const lanes = L.map((r, i) => {
+    const by = TOP + RH * i + 66, e = r.e, nz = r.pts.filter(p => p.k === 'end')[0], last = nz ? nz.yr : (r.pts.length ? r.pts[r.pts.length - 1].yr : null);
+    const tiers = [-1e9, -1e9, -1e9], nm = name(e);
+    const ptHtml = r.pts.map((p, j) => {
+      const px = x(p.yr), tip = `<div class="tipms"><b>${esc(e.n)}</b><div class="mrow"><span class="my">${p.yr}</span><span>${esc(p.l)}${p.k === 'end' ? '<em> · end target</em>' : ''}</span></div></div>`;
+      const data = `data-tl="${esc(tip.replace(/"/g, '&quot;'))}" tabindex="0" role="img" aria-label="${esc(e.n + ', ' + p.yr + ': ' + p.l)}"`;
+      if (p.k === 'ms') {
+        const lab = p.yr + ': ' + short(p.l, 24), w = cw(lab, 11.5), flip = px + w > X1 + 30; let t = 0; const from = flip ? px - w : px;
+        while (t < 2 && tiers[t] > from - 6) t++;
+        tiers[t] = flip ? px : px + w;
+        return `<g class="tlp" ${data}><line x1="${px}" x2="${px}" y1="${by}" y2="${by - 16 - t * 16 + 4}" stroke="#d9c9a3"/><circle cx="${px}" cy="${by}" r="7" fill="#c27a00" stroke="#fff" stroke-width="2"/><text x="${px}" y="${by - 16 - t * 16}" text-anchor="${flip ? 'end' : 'start'}" font-size="11.5" fill="#7a4a00" font-weight="600">${esc(lab)}</text></g>`;
+      }
+      const col = p.nz ? '#3B7CC3' : '#8a6a3d', lab = short(p.l, 26), flip = px > X1 - 150;
+      return `<g class="tlp" ${data}><path d="M${px} ${by - 11} L${px + 11} ${by} L${px} ${by + 11} L${px - 11} ${by} Z" fill="${col}" stroke="#fff" stroke-width="2"/><text x="${px}" y="${by + 30}" text-anchor="${flip ? 'end' : 'middle'}" font-size="12.5" font-weight="700" fill="${col}" ${flip ? `dx="12"` : ''}>${esc(lab)}</text><text x="${px}" y="${by + 44}" text-anchor="${flip ? 'end' : 'middle'}" font-size="11" fill="#5f5869" ${flip ? `dx="12"` : ''}>${p.yr - NOW} years away</text></g>`;
+    }).join('');
+    const note = !r.pts.length ? `<text x="${x(NOW) + 18}" y="${by + 4}" font-size="13" fill="#7a7385" font-style="italic">${r.passed ? 'Target year ' + r.passed + ' has already passed' : hasAnyTarget(e) ? 'No dated milestones' : 'No target'}</text>` : '';
+    return `<g class="tl-lane">
+      <a href="#/e/${e.s}"><text x="14" y="${by - 4}" font-size="14.5" font-weight="800" fill="#271039">${esc(nm[0])}</text>${nm[1] ? `<text x="14" y="${by + 13}" font-size="14.5" font-weight="800" fill="#271039">${esc(nm[1])}</text>` : ''}<text x="14" y="${by + (nm[1] ? 31 : 14)}" font-size="11.5" fill="#6d6677">${TYPE[e.t][0]}${e.cn && e.t !== 'country' ? ' · ' + esc(short(e.cn, 16)) : ''}</text></a>
+      <line x1="${x(NOW)}" x2="${X1}" y1="${by}" y2="${by}" stroke="#dcdcdc" stroke-width="6" stroke-linecap="round"/>
+      ${last ? `<line x1="${x(NOW)}" x2="${x(last)}" y1="${by}" y2="${by}" stroke="${nz && nz.nz ? '#b2d49b' : '#e6d6bd'}" stroke-width="6" stroke-linecap="round"/>` : ''}
+      <circle cx="${x(NOW)}" cy="${by}" r="7" fill="#271039" stroke="#fff" stroke-width="2"><title>Today, ${NOW}</title></circle>
+      ${note}${ptHtml}</g>`;
+  }).join('');
+  const grid = ticks.map(t => `<line x1="${x(t)}" x2="${x(t)}" y1="${TOP - 6}" y2="${H - 10}" stroke="#e6e2ea" stroke-width="1"/><text x="${x(t)}" y="${TOP - 12}" text-anchor="middle" font-size="12" fill="${t === NOW ? '#271039' : '#7a7385'}" font-weight="${t === NOW ? 800 : 500}">${t === NOW ? 'Today' : t}</text>`).join('');
+  const ref = [[2030, '2030'], [2050, '2050']].filter(([v]) => v <= end).map(([v, l]) => `<line x1="${x(v)}" x2="${x(v)}" y1="${TOP - 6}" y2="${H - 10}" stroke="#5EA845" stroke-width="2" stroke-dasharray="5 4"/>`).join('');
+  const bg = es.map((e, i) => `<rect x="0" y="${TOP + RH * i + 6}" width="${W}" height="${RH - 8}" rx="8" fill="${i % 2 ? '#fff' : '#f4f3f7'}"/>`).join('');
+  return `<section class="tight"><div class="wrap"><h2 class="h-brand" style="font-size:24px">Timeline of milestones and targets</h2>
+    <p class="muted mt0">One row per entry. <b style="color:#7a4a00">Dots</b> are interim milestones, <b style="color:#3B7CC3">diamonds</b> are end targets. Hover or tap a marker for details. The dashed green lines mark 2030 and 2050, the years the UN climate science panel uses for a 1.5°C path (about 45% cut by 2030, net zero around 2050).</p>
+    <div class="tlwrap"><svg viewBox="0 0 ${W} ${H}" class="tlsvg" role="group" aria-label="Timeline comparing milestones and targets for ${es.map(e => esc(e.n)).join(', ')}">${bg}${bg}${grid}${ref}${lanes}</svg></div></div></section>`;
+}
+function wireTl(){
+  $$('.tlp').forEach(g => { const t = () => g.dataset.tl;
+    g.addEventListener('mousemove', ev => showTip(t(), ev));
+    g.addEventListener('mouseleave', hideTip);
+    g.addEventListener('focus', () => { const r = g.getBoundingClientRect(); showTip(t(), {clientX:r.left, clientY:r.bottom}); });
+    g.addEventListener('blur', hideTip);
+    g.addEventListener('click', ev => showTip(t(), ev)); });
+}
 P.compare = (params) => {
   if (params.ids) compareSet.set(params.ids.split(',').filter(s => BY[s]).slice(0,4));
   let ids = compareSet.get();
@@ -772,6 +827,7 @@ P.compare = (params) => {
     <div class="light mt1" style="max-width:520px">${searchBox('s-cmp', es.length >= 4 ? 'Remove one to add another (max 4)' : 'Add an entry…')}</div>
     ${compareSet.get().length ? '' : '<p class="muted" style="font-size:14px">Showing an example. Add your own to replace it.</p>'}
   </div></section>
+  ${compareTimeline(es)}
   <section class="tight"><div class="wrap"><div class="tablewrap" style="border:0"><table class="cmp">
     <thead><tr><th></th>${es.map(e => `<th><a href="#/e/${e.s}" style="color:inherit">${e.t==='country'?flag(e.a2)+' ':''}${esc(e.n)}</a><div style="font-weight:400;font-size:13px">${TYPE[e.t][0]}${e.cn && e.t!=='country' ? ' · ' + esc(e.cn) : ''}</div></th>`).join('')}</tr></thead>
     <tbody>
@@ -786,6 +842,7 @@ P.compare = (params) => {
   </div></section>`;
 };
 P.compare.after = () => {
+  wireTl();
   wireSearch('s-cmp', e => { const a = compareSet.get(); if (a.length >= 4 || a.includes(e.s)) return toast(a.includes(e.s) ? 'Already added' : 'Maximum of 4'); compareSet.set([...a, e.s]); route(); });
   $$('[data-rm]').forEach(b => b.onclick = () => { const cur = compareSet.get().length ? compareSet.get() : $$('[data-rm]').map(x => x.dataset.rm); compareSet.set(cur.filter(s => s !== b.dataset.rm)); history.replaceState(null, '', '#/compare'); route(); });
   $('#cmp-link').onclick = () => { const ids = compareSet.get().length ? compareSet.get() : $$('[data-rm]').map(x => x.dataset.rm); copy(location.href.split('#')[0] + '#/compare?ids=' + ids.join(',')); };
@@ -827,6 +884,13 @@ function ghgSvg(l){
   }
   const badge = (x, y, t) => `<g transform="translate(${x} ${y})"><circle r="12" fill="#271039" stroke="#fff" stroke-width="2"/><text y="4.5" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">${t}</text></g>`;
   const label = (x, y, a, b, c = '#3c3546') => `<text x="${x}" y="${y}" font-size="13" font-weight="600" fill="${c}">${a}${b ? `<tspan x="${x}" dy="16" font-weight="400" fill="#5f5869">${b}</tspan>` : ''}</text>`;
+  // human activity on the land when there are more gases: factories, cars and cows
+  const BY0 = 352;
+  const puff = (x, y, r) => `<circle cx="${x}" cy="${y}" r="${r}" fill="#8a7a6a" opacity=".62"/>`;
+  const fac = (x, w, n) => `<rect x="${x}" y="${BY0 - 18}" width="${w}" height="18" fill="#3d1f5a"/>${Array.from({length: n}, (_, i) => { const cx = x + 8 + i * 20; return `<rect x="${cx}" y="${BY0 - 36}" width="9" height="18" fill="#5b3f7a"/><rect x="${cx - 1.5}" y="${BY0 - 37}" width="12" height="3.5" fill="#271039"/>${puff(cx + 5, BY0 - 44, 4)}${puff(cx + 10, BY0 - 54, 5.5)}${puff(cx + 4, BY0 - 65, 6.5)}`; }).join('')}${[0, 1, 2, 3].map(i => `<rect x="${x + 6 + i * (w - 18) / 3}" y="${BY0 - 11}" width="5" height="4" fill="#FAA542"/>`).join('')}`;
+  const car = (x, c) => `<rect x="${x}" y="${BY0 - 9}" width="34" height="7" rx="2.5" fill="${c}"/><path d="M${x + 8} ${BY0 - 9} L${x + 12} ${BY0 - 16} H${x + 24} L${x + 28} ${BY0 - 9}Z" fill="${c}"/><path d="M${x + 13} ${BY0 - 9} L${x + 15} ${BY0 - 14.5} H${x + 21} V${BY0 - 9}Z M${x + 22.5} ${BY0 - 9} V${BY0 - 14.5} H${x + 24} L${x + 26.5} ${BY0 - 9}Z" fill="#dbe8f4"/><circle cx="${x + 9}" cy="${BY0 - 2}" r="3.4" fill="#1c1622"/><circle cx="${x + 25}" cy="${BY0 - 2}" r="3.4" fill="#1c1622"/>${puff(x - 4, BY0 - 5, 2.6)}${puff(x - 9, BY0 - 9, 3.2)}`;
+  const cow = x => `<g stroke="#271039" stroke-width="1"><rect x="${x + 3}" y="${BY0 - 17}" width="19" height="9" rx="4" fill="#fff"/><rect x="${x - 3}" y="${BY0 - 19}" width="8" height="7" rx="2.5" fill="#fff"/><path d="M${x + 6} ${BY0 - 8} v8 M${x + 10} ${BY0 - 8} v8 M${x + 16} ${BY0 - 8} v8 M${x + 20} ${BY0 - 8} v8" fill="none" stroke-width="1.6"/></g><circle cx="${x + 10}" cy="${BY0 - 14}" r="2.3" fill="#271039"/><circle cx="${x + 17}" cy="${BY0 - 12.5}" r="1.8" fill="#271039"/>${puff(x + 24, BY0 - 22, 2.8)}${puff(x + 29, BY0 - 29, 3.4)}`;
+  const hum = l ? `<g aria-hidden="true">${fac(20, 82, 3)}${car(122, '#c8302a')}${car(166, '#3B7CC3')}${car(210, '#f2efe9')}${cow(300)}${cow(352)}${cow(404)}${fac(520, 62, 2)}</g>` : '';
   const outN = back.filter(v => !v).length, inN = 4 - outN;
   return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Diagram of the greenhouse effect: ${outN} of 4 heat arrows escape to space and ${inN} are sent back to the ground" style="width:100%;height:auto;display:block;font-family:inherit">
     <defs>
@@ -849,6 +913,7 @@ function ghgSvg(l){
       <circle cx="62" cy="46" r="54" fill="url(#ghg-sun)"/><circle cx="62" cy="46" r="24" fill="#FFC56B"><title>The sun</title></circle>
       <path d="M0 ${G + 8} Q${W / 2} ${G - 16} ${W} ${G + 8} V${H} H0Z" fill="url(#ghg-land)"/>
       ${l ? `<path d="M0 ${G + 8} Q${W / 2} ${G - 16} ${W} ${G + 8} V${H} H0Z" fill="url(#ghg-hot)"/>` : ''}
+      ${hum}
       ${cols.map(heat).join('')}
       ${badge(126, 196, 1)}${badge(cols[0] - 22, 286, 2)}${badge(cols[3] + 13, 140, 3)}
       ${label(512, 36, 'Space', '', '#fff')}

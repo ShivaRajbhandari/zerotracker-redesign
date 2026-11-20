@@ -647,3 +647,5 @@ footer.site .fol a{display:inline-flex;color:#fff}footer.site .fol a:hover{color
 @media (hover:none){.tph .tbio{opacity:0}.tph:focus .tbio{opacity:1}}
 
 .tinfo .soc{display:flex;gap:12px;align-items:center;min-height:22px}.tinfo .soc a{display:inline-flex;color:var(--purple)}.tinfo .soc a:hover{color:var(--red)}
+
+.tlwrap{overflow-x:auto;margin-top:12px;border:1px solid var(--line);border-radius:var(--radius);background:#fff}.tlsvg{display:block;width:100%;min-width:720px;height:auto}.tlp{cursor:pointer;outline:none}.tlp:focus-visible circle,.tlp:focus-visible path{stroke:#271039;stroke-width:3}.tl-lane a{text-decoration:none}.tl-lane{transition:opacity .15s}.tlsvg:hover .tl-lane{opacity:.55}.tlsvg .tl-lane:hover{opacity:1}
