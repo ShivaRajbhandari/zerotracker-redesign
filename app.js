@@ -1554,7 +1554,7 @@ P.insights = () => listPage('Insights', 'Insights', 'The Net Zero Tracker teamâ€
 P.insights.after = listWire;
 P.news = () => listPage('In the news', 'In the news', 'Net Zero Tracker events and news highlights.', NZP.news || []);
 P.news.after = listWire;
-P.methodology = () => pageHero('Methodology', 'Methodology', (NZP.methodology || {}).sum || 'How the Net Zero Tracker collects, assesses and cites its data.') + `<section class="tight"><div class="wrap"><div class="prose">${(NZP.methodology || {}).html || ''}</div>
+P.methodology = () => pageHero('Methodology', 'Methodology', (NZP.methodology || {}).sum || 'How the Net Zero Tracker collects, assesses and cites its data.') + `<section class="tight"><div class="wrap"><div class="prose">${((NZP.methodology || {}).html || '').replace(/<ul>(?:(?!<\/ul>)[\s\S])*<\/ul>/g, m => (m.match(/<li>/g) || []).length > 40 ? m.replace('<ul>', '<ul class="names">') : m)}</div>
   <div class="note mt2">The prototypeâ€™s plain-language checklist is explained on <a href="#/learn/method">How we assess targets</a>.</div></div></section>`;
 P.terms = () => pageHero('Legal', 'Terms and conditions', '') + `<section class="tight"><div class="wrap"><div class="prose">${NZP.terms || ''}</div></div></section>`;
 P['data-terms'] = () => pageHero('Data', 'Data and terms of use', 'How you can use Net Zero Tracker data.') + `<section class="tight"><div class="wrap"><div class="prose">${NZP.dtou || ''}</div></div></section>`;
