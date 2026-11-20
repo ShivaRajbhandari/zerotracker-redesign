@@ -483,7 +483,7 @@ function filtered(){
 }
 
 /* ---------- EXPLORE: how countries add up to global emissions, and the pathways ahead ---------- */
-function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120by'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bz'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const GL_STACK = ['#cdb998', '#a9c4e4', '#c5bdd0', '#dcbcd6', '#e8c3a0', '#b9d8a8', '#f0d98f', '#e4b4b4', '#e8e4ec'];
 const GL_SCN = {paris:['#2f8a4c', 'Paris-aligned pathway', 'Paris-aligned'], ndc:['#1f4e8c', 'All 2030 and 2035 NDCs met', 'NDCs met'], pledges:['#6b3fa0', 'All pledges and net zero targets met', 'All pledges met'], pol:['#c27a00', 'Current policies', 'Current policies'], none:['#E13B26', 'No further action (past trend continues)', 'No further action']};
 function glScenarios(G){
@@ -514,7 +514,7 @@ function globalChartHtml(G, st){
     ${Gs.map((_, k) => `<path d="${area(k)}" fill="${GL_STACK[k]}" stroke="#fff" stroke-width=".6"><title>${esc(G.names[k])}</title></path>`).join('')}
     <path d="${path(Gw.map((v, i) => [x0 + i, v]))}" fill="none" stroke="#271039" stroke-width="2.4"/>
     <line x1="${x(2024)}" x2="${x(2024)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
-    ${pmarks(x, x0, x1, T, H - B)}
+    ${pmarks(x, x0, x1, T, H - B, 'lines')}
     ${['paris', 'pledges', 'pol'].map(k => `<path d="${band(SC[k].hi, SC[k].lo)}" fill="${GL_SCN[k][0]}" opacity=".13"/>`).join('')}
     ${[2030, 2035, 2050].filter(v => v <= x1).map(v => '').join('')}
     ${['pol', 'pledges', 'ndc', 'paris', 'none'].map(k => `<path d="${path(lineOf(SC[k].mid))}" fill="none" stroke="${GL_SCN[k][0]}" stroke-width="2.8" ${k === 'none' ? 'stroke-dasharray="7 5"' : ''} stroke-linejoin="round"/>`).join('')}
@@ -523,7 +523,7 @@ function globalChartHtml(G, st){
   const ends = ['pol', 'pledges', 'ndc', 'paris', 'none'].map(k => { const a = lineOf(SC[k].mid), p = a[a.length - 1]; return {k, yy: y(p[1]), v: p[1]}; }).sort((a, b) => a.yy - b.yy);
   for (let i = 1; i < ends.length; i++) if (ends[i].yy - ends[i - 1].yy < 44) ends[i].yy = ends[i - 1].yy + 44;
   out += ends.map(e => `<text x="${x(x1) + 8}" y="${e.yy - 2}" font-size="12" font-weight="700" fill="${GL_SCN[e.k][0]}">${esc(GL_SCN[e.k][2])}</text><text x="${x(x1) + 8}" y="${e.yy + 12}" font-size="11.5" fill="#5f5869">${e.v.toFixed(0)} Gt in ${x1}</text>${(G.cat.temp || {})[e.k] ? `<text x="${x(x1) + 8}" y="${e.yy + 26}" font-size="11.5" font-weight="700" fill="${GL_SCN[e.k][0]}">+${G.cat.temp[e.k].y2100.toFixed(1)}°C by 2100</text>` : ''}`).join('');
-  out += `<rect id="gl-hit" x="${Lm}" y="${T}" width="${W - Lm - Rm}" height="${H - T - B}" fill="transparent"/></svg>`;
+  out += `<rect id="gl-hit" x="${Lm}" y="${T}" width="${W - Lm - Rm}" height="${H - T - B}" fill="transparent"/>${pmarks(x, x0, x1, T, H - B, 'labels')}</svg>`;
   window.__gl = {G, SC, x0, x1, from: x0};
   const g30 = (SC.pol.mid[6] - SC.paris.mid[6]);
   const stat = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
@@ -551,6 +551,7 @@ function globalWire(st){
       sp.addEventListener('mousemove', tip); sp.addEventListener('mouseleave', hideTip);
       sp.addEventListener('focus', () => { const r = sp.getBoundingClientRect(); showTip(glRegionTip(+sp.dataset.g), {clientX: r.left, clientY: r.bottom}); }); sp.addEventListener('blur', hideTip); });
     const svg = $('#gl-svg'), hit = $('#gl-hit'), vx = $('#gl-x'); if (!svg) return;
+    treatyWire(svg, []);
     hit.addEventListener('mousemove', ev => {
       const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
       const {G, SC, x0, x1} = window.__gl, hx = +hit.getAttribute('x'), hw = +hit.getAttribute('width'), yr = Math.round(x0 + Math.max(0, Math.min(1, (p.x - hx) / hw)) * (x1 - x0));
@@ -662,10 +663,35 @@ function timelineSVG(e){
 /* ---------- EMISSIONS HISTORY (countries: Our World in Data 1850-; cities and regions: EDGAR v8.0 1970-2022) ---------- */
 
 // Kyoto Protocol (adopted 1997) and Paris Agreement (adopted 2015) markers for the emissions charts
-function pmarks(x, xa, xb, T, bottom){
-  return [[1997, 'Kyoto Protocol, 1997', 'end'], [2015, 'Paris Agreement, 2015', 'start']].filter(([yr]) => yr >= xa && yr <= xb).map(([yr, l, a]) => `<line x1="${x(yr)}" x2="${x(yr)}" y1="${T}" y2="${bottom}" stroke="#2f8a4c" stroke-width="1.6" stroke-dasharray="4 4" opacity=".75"/><text x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3">${l}</text>`).join('');
+function pmarks(x, xa, xb, T, bottom, part){
+  const L = [[1997, 'kyoto', 'Kyoto Protocol, 1997', 'end'], [2015, 'paris', 'Paris Agreement, 2015', 'start']].filter(([yr]) => yr >= xa && yr <= xb);
+  if (part === 'labels') return L.map(([yr, k, l, a]) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${l}</text>`).join('');
+  return L.map(([yr]) => `<line x1="${x(yr)}" x2="${x(yr)}" y1="${T}" y2="${bottom}" stroke="#2f8a4c" stroke-width="1.6" stroke-dasharray="4 4" opacity=".75"/>`).join('');
 }
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120by'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+const TREATY = {
+  kyoto: ['Kyoto Protocol', 'Adopted in December 1997 and in force since 2005. It was the first treaty to set binding emission-reduction targets, but only for developed countries. Developing countries could join without binding targets.'],
+  paris: ['Paris Agreement', 'Adopted in December 2015 and in force since November 2016. Every country sets its own national climate plan (an NDC) to keep warming well below 2°C and pursue 1.5°C, and updates it every five years.']
+};
+function treatyLine(e, key){
+  const row = (window.NZTR || {})[e.c]; if (!row) return '';
+  const [st, yr] = key === 'paris' ? row.p : row.k, T = TREATY[key][0], isC = e.t === 'country', cname = isC ? nm(e) : (e.cn || e.c);
+  const who = isC ? Nm(e) : e.t === 'company' ? `${e.n} is based in ${cname}, which` : `${e.n} is in ${cname}, which`;
+  const what = st === 'party' ? `is a party to the ${T} (since ${yr})`
+    : st === 'withdrawn' ? (key === 'paris' ? `joined the ${T} in 2016 but withdrew, with effect from January ${yr}, so it is not currently a party` : `was a party to the ${T} but withdrew in ${yr}`)
+    : st === 'signed' ? `signed the ${T} in ${yr} but has not ratified it, so it is not a party`
+    : `is not a party to the ${T}`;
+  return `${who} ${what}.`;
+}
+function treatyTip(key, ents){
+  const lines = (ents || []).map(e => treatyLine(e, key)).filter(Boolean);
+  return `<div class="tipms"><b>${TREATY[key][0]}</b><div class="trtxt">${esc(TREATY[key][1])}</div>${lines.map(l => `<div class="trtxt trst">${esc(l)}</div>`).join('')}</div>`;
+}
+function treatyWire(svg, ents){
+  if (!svg) return;
+  svg.addEventListener('mousemove', ev => { const t = ev.target.closest && ev.target.closest('.trl'); if (t) showTip(treatyTip(t.dataset.tr, typeof ents === 'function' ? ents() : ents), ev); });
+  svg.addEventListener('mouseout', ev => { if (ev.target.closest && ev.target.closest('.trl')) hideTip(); });
+}
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bz'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
@@ -691,12 +717,12 @@ function emisChart(e){
     <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">Mt CO₂e per year</text>
     <path d="${line}L${lx} ${yy(0)}L${x(y0)} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/><path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>
     <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
-    ${pmarks(x, y0, endY, T, H - B)}
+    ${pmarks(x, y0, endY, T, H - B, 'lines')}
     ${path.join('')}
     <circle cx="${lx}" cy="${ly}" r="5" fill="#A5865C" stroke="#fff" stroke-width="2"/>
     <text x="${lx - 10}" y="${ly - 26 > T + 30 ? ly - 26 : ly + 34}" text-anchor="end" font-size="12.5" font-weight="700" fill="#5b4a2e" paint-order="stroke" stroke="#fff" stroke-width="4">${fmtMt(last)} Mt in ${y1}</text>
     <line id="emis-x" y1="${T}" y2="${H - B}" stroke="#271039" stroke-width="1" opacity="0"/><circle id="emis-d" r="5" fill="#271039" stroke="#fff" stroke-width="2" opacity="0"/>
-    <rect id="emis-hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
+    <rect id="emis-hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>${pmarks(x, y0, endY, T, H - B, 'labels')}</svg>`;
   let pk = 0; v.forEach((m, i) => { if (m > v[pk]) pk = i; });
   const facts = [[`Latest (${y1})`, `${fmtMt(last)} Mt CO₂e`], [`Peak (${y0 + pk})`, `${fmtMt(v[pk])} Mt CO₂e`]];
   if (y0 <= 1990 && y1 > 1990) { const c = (last / val(1990) - 1) * 100; facts.push(['Change since 1990', `${c > 0 ? '+' : '−'}${Math.abs(c).toFixed(0)}%`]); }
@@ -712,6 +738,7 @@ function emisChart(e){
 }
 function emisWire(e){
   const se = emisSeries(e), svg = $('#emis-svg'); if (!se || !svg) return;
+  treatyWire(svg, [e]);
   const hit = $('#emis-hit'), vx = $('#emis-x'), vd = $('#emis-d'), {y0, v} = se, y1 = y0 + v.length - 1;
   const bb = () => { const r = svg.viewBox.baseVal; return r; };
   hit.addEventListener('mousemove', ev => {
@@ -910,7 +937,7 @@ P.entity = (params, slug) => {
 P.entity.after = (params, slug) => {
   const e = BY[slug]; if (!e) return;
   loadEmis().then(E => { if (!E || location.hash.indexOf('/e/' + slug) < 0) return; const html = emisChart(e); if (!html) return;
-    $('#emis').innerHTML = html; const se = emisSeries(e); $('#emis-lede').textContent = `How greenhouse gas emissions ${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : (e.t === 'company' ? 'of this' : 'in this') + ' ' + TYPE[e.t][0].toLowerCase()} have changed since ${se.y0}${isNZ(e) || iyear(e) ? ', and what the target would require from here' : ''}.`;
+    $('#emis').innerHTML = html; const se = emisSeries(e); $('#emis-lede').textContent = `How greenhouse gas emissions ${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : e.t === 'company' ? 'of ' + e.n : e.t === 'region' ? 'in ' + e.n + ' region' : 'in ' + nm(e)} have changed since ${se.y0}${isNZ(e) || iyear(e) ? ', and what the target would require from here' : ''}.`;
     $('#emis-sec').hidden = false; emisWire(e); });
   $('#b-cmp').onclick = () => { let a = compareSet.get(); if (a.includes(e.s)) { location.hash = '#/compare'; return; } a = [...a, e.s].slice(-4); compareSet.set(a); $('#b-cmp').textContent = '✓ In comparison: view'; toast(`Added. ${a.length} in comparison.`); };
   $('#b-share').onclick = () => $('#share-box').scrollIntoView({behavior:'smooth', block:'center'});
@@ -1038,13 +1065,13 @@ function cmpEmisHtml(es, st){
     ${yt.map(t => `<line x1="${Lm}" x2="${W - Rm}" y1="${y(t)}" y2="${y(t)}" stroke="#ece8ef"/><text x="${Lm - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${pf(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text>`).join('')}
     <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">${idx ? 'Change since 1990' : 'Mt CO₂e per year'}</text>
-    ${pmarks(x, x0, x1, T, H - B)}
+    ${pmarks(x, x0, x1, T, H - B, 'lines')}
     ${idx ? `<line x1="${Lm}" x2="${W - Rm}" y1="${y(0)}" y2="${y(0)}" stroke="#9a93a6" stroke-dasharray="4 4"/>` : ''}
     ${S2.map(r => `<path d="${r.pts.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${y(p[1]).toFixed(1)}`).join('')}" fill="none" stroke="${r.c}" stroke-width="2.8" stroke-linejoin="round"/>`).join('')}
     ${S2.map(r => r.tg ? `<path d="${r.tg.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${y(p[1]).toFixed(1)}`).join('')}" fill="none" stroke="${r.c}" stroke-width="2.4" stroke-dasharray="6 5"/>${r.tg.slice(1).map(p => p[2] === 'nz' ? `<path d="M${x(p[0])} ${y(p[1]) - 8} l8 8 l-8 8 l-8 -8z" fill="${r.c}" stroke="#fff" stroke-width="2"><title>${esc(r.e.n)}: net zero ${p[0]}</title></path>` : `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="5.5" fill="${r.c}" stroke="#fff" stroke-width="2"><title>${esc(r.e.n)}: milestone ${p[0]}</title></circle>`).join('')}` : '').join('')}
     ${ends.map(({r, yy}) => { const lp = r.tg ? r.tg[r.tg.length - 1] : r.pts[r.pts.length - 1], dp = r.pts[r.pts.length - 1]; return `<circle cx="${x(dp[0])}" cy="${y(dp[1])}" r="4.5" fill="${r.c}" stroke="#fff" stroke-width="2"/><text x="${x(x1) + 12}" y="${yy + 4}" font-size="12.5" font-weight="700" fill="${r.c}">${esc(nameOf(r.e).slice(0, 18))}</text>`; }).join('')}
     <line id="cmpe-x" y1="${T}" y2="${H - B}" stroke="#271039" opacity="0"/>
-    <rect id="cmpe-hit" x="${Lm}" y="${T}" width="${W - Lm - Rm}" height="${H - T - B}" fill="transparent"/></svg>`;
+    <rect id="cmpe-hit" x="${Lm}" y="${T}" width="${W - Lm - Rm}" height="${H - T - B}" fill="transparent"/>${pmarks(x, x0, x1, T, H - B, 'labels')}</svg>`;
   const missing = es.filter(e => !emisSeries(e)).map(e => e.n);
   const mixed = new Set(S2.map(r => r.se.kind)).size > 1;
   window.__cmpe = {S2, x0, x1, idx};
@@ -1062,6 +1089,7 @@ function cmpEmisWire(es, st){
     $$('#cmpe-from button').forEach(b => b.onclick = () => { st.from = b.dataset.f; draw(); });
     $$('#cmpe-paths button').forEach(b => b.onclick = () => { st.paths = b.dataset.p === '1'; draw(); });
     const svg = $('#cmpe-svg'), hit = $('#cmpe-hit'), vx = $('#cmpe-x'); if (!svg) return;
+    treatyWire(svg, es);
     hit.addEventListener('mousemove', ev => {
       const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
       const {S2, x0, x1, idx} = window.__cmpe, hx = +hit.getAttribute('x'), hw = +hit.getAttribute('width'), yr = Math.round(x0 + Math.max(0, Math.min(1, (p.x - hx) / hw)) * (x1 - x0));

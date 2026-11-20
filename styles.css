@@ -706,3 +706,5 @@ nav.main .more-menu a.cnz:hover .cnz-go{transform:translate(2px,-2px);opacity:1}
 .sharemenu[hidden]{display:none}.sharemenu a,.sharemenu button{display:block;text-align:left;font:inherit;font-size:15px;font-weight:600;color:var(--purple);background:none;border:0;padding:9px 12px;border-radius:7px;cursor:pointer;text-decoration:none}.sharemenu a:hover,.sharemenu button:hover{background:var(--band-2)}
 
 .glr{cursor:default}.glr:hover,.glr:focus-visible{background:var(--band);border-radius:6px;outline:none}
+
+.tip .trtxt{max-width:320px;white-space:normal;font-size:13.5px;line-height:1.4;margin-top:5px}.tip .trst{font-weight:600;color:var(--purple)}
