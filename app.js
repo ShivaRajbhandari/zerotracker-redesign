@@ -976,7 +976,6 @@ function netZeroDiagram(){
   const cloud = 'M-26 14 C-38 14 -38 -6 -22 -6 C-20 -22 4 -26 10 -12 C24 -20 38 -4 28 6 C40 8 38 14 28 14 Z';
   const puffs = Array.from({length: 10}, (_, i) => `<g class="pf s-smoke" data-k="smoke" data-i="${i}" transform="translate(${70 + (i % 5) * 95} ${i < 5 ? 52 : 112})" tabindex="0"><path d="${cloud}"/><g class="coin"><circle cx="22" cy="-18" r="12"/><text x="22" y="-13.5" text-anchor="middle">CR</text></g></g>`).join('');
   return `<div class="nzd" id="nzd">
-  <p class="nzd-def"><b>What are emissions?</b> Think of them as pollution: gases, mostly carbon dioxide (CO₂), that go up into the air when we burn coal, oil and gas. Each cloud below is one tenth of a year’s emissions.</p>
   <div class="seg nzseg" id="nzseg" role="group" aria-label="Step">${NZM.map((m, i) => `<button data-m="${m}" class="${i ? '' : 'on'}"><b>${i < 3 ? i + 1 : '✗'}</b> ${['Today', 'Cut', 'Remove', 'Offsets only'][i]}</button>`).join('')}</div>
   <svg viewBox="0 0 520 285" id="nzsvg" role="img" aria-label="Ten pollution clouds, each one tenth of emissions, rising from power plants, cars, cows and homes, showing what is cut, removed or only offset">${puffs}${nzdScene()}</svg>
   <div class="nzd-legend" id="nzlegend"><span data-k="smoke"><i class="k-smoke"></i>Pollution going up</span><span data-k="cut"><i class="k-cut"></i>Cut at the source</span><span data-k="cap"><i class="k-cap"></i>Removed and stored</span><span data-k="off"><i class="k-off"></i>Credit, still going up</span></div>
