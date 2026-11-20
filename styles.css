@@ -627,3 +627,9 @@ footer.site .fol a{display:inline-flex;color:#fff}footer.site .fol a:hover{color
 
 .prose ul.names{columns:3;column-gap:28px;list-style:none;padding:0;max-width:none}.prose ul.names li{break-inside:avoid;font-size:15.5px;padding:2px 0}.prose:has(ul.names){max-width:none}.prose:has(ul.names)>p{max-width:820px}
 @media (max-width:700px){.prose ul.names{columns:2}}
+
+.vcard{display:block;text-decoration:none;color:inherit;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}.vcard:hover{box-shadow:var(--shadow);border-color:var(--purple-3)}
+.vcard img{display:block;width:100%;aspect-ratio:16/8.5;object-fit:cover;background:var(--band)}.vcard h3{margin:14px 18px 4px;font-size:19px;color:var(--purple)}.vcard p{margin:0 18px 18px;color:var(--ink-2);font-size:15.5px}
+
+.aitem{display:flex;gap:16px;align-items:flex-start}.aitem .th{flex:none;width:168px;aspect-ratio:16/10;object-fit:cover;border-radius:6px;background:var(--band)}.aitem .tx{min-width:0}
+@media (max-width:640px){.aitem{flex-direction:column}.aitem .th{width:100%}}

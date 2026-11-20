@@ -1539,7 +1539,7 @@ function listPage(eyebrow, title, lede, items, kinds){
   return pageHero(eyebrow, title, lede) + `<section class="tight"><div class="wrap">
     <div class="lpbar"><input type="search" id="lp-q" placeholder="Search…" aria-label="Search"/>${ks.length ? `<div class="chips" id="lp-k"><button class="on" data-k="">All</button>${ks.map(k => `<button data-k="${esc(k)}">${esc(k)}</button>`).join('')}</div>` : ''}</div>
     <p class="muted" id="lp-n" style="margin:6px 0 0;font-size:14px"></p>
-    <div class="alist" id="lp-list">${items.map(i => { const body = `<div class="meta">${esc(fdate(i.d))}${i.k ? ' · ' + esc(i.k) : ''}${i.src ? ' · ' + esc(i.src) : ''}</div><h3>${esc(i.t)}${i.u ? ' ↗' : ''}</h3>${i.s ? `<p>${esc(i.s)}</p>` : ''}`; const q = esc((i.t + ' ' + (i.s || '') + ' ' + (i.src || '') + ' ' + (i.k || '')).toLowerCase()); return i.u ? `<a class="aitem" href="${esc(i.u)}" target="_blank" rel="noopener" data-q="${q}" data-k="${esc(i.k || '')}">${body}</a>` : `<div class="aitem" data-q="${q}" data-k="${esc(i.k || '')}">${body}</div>`; }).join('')}</div>
+    <div class="alist" id="lp-list">${items.map(i => { const body = `${i.img ? `<img class="th" src="${esc(i.img)}" alt="" loading="lazy">` : ''}<div class="tx"><div class="meta">${esc(fdate(i.d))}${i.k ? ' · ' + esc(i.k) : ''}${i.src ? ' · ' + esc(i.src) : ''}</div><h3>${esc(i.t)}${i.u ? ' ↗' : ''}</h3>${i.s ? `<p>${esc(i.s)}</p>` : ''}</div>`; const q = esc((i.t + ' ' + (i.s || '') + ' ' + (i.src || '') + ' ' + (i.k || '')).toLowerCase()); return i.u ? `<a class="aitem" href="${esc(i.u)}" target="_blank" rel="noopener" data-q="${q}" data-k="${esc(i.k || '')}">${body}</a>` : `<div class="aitem" data-q="${q}" data-k="${esc(i.k || '')}">${body}</div>`; }).join('')}</div>
     <p class="muted mt2" style="font-size:14.5px">Items open on zerotracker.net, where the full articles live.</p>
   </div></section>`;
 }
@@ -1559,9 +1559,10 @@ P.methodology = () => pageHero('Methodology', 'Methodology', (NZP.methodology ||
 P.terms = () => pageHero('Legal', 'Terms and conditions', '') + `<section class="tight"><div class="wrap"><div class="prose">${NZP.terms || ''}</div></div></section>`;
 P['data-terms'] = () => pageHero('Data', 'Data and terms of use', 'How you can use Net Zero Tracker data.') + `<section class="tight"><div class="wrap"><div class="prose">${NZP.dtou || ''}</div></div></section>`;
 P.volunteering = () => { const v = NZP.vol || {}; return pageHero('Volunteering', 'Volunteer hub', v.intro) + `<section><div class="wrap">
-  <div class="flex"><a class="btn btn-red" href="${esc(v.signup)}" target="_blank" rel="noopener">Sign up now</a><a class="btn btn-ghost" href="${esc(v.onboard)}" target="_blank" rel="noopener">Onboarding resources</a></div>
-  <h2 class="h-brand mt3">Why volunteer with the Net Zero Tracker?</h2>
-  <div class="alist">${(v.articles || []).map(a => `<a class="aitem" href="${esc(a.u)}" target="_blank" rel="noopener"><h3>${esc(a.t)} ↗</h3><p>${esc(a.s)}</p></a>`).join('')}</div>
+  <div class="flex"><a class="btn btn-red" href="${esc(v.signup)}" target="_blank" rel="noopener">Sign up now</a></div>
+  <div class="grid2 mt2">${(v.links || []).map(l => `<a class="vcard" href="${esc(l.u)}"${l.u.startsWith('http') ? ' target="_blank" rel="noopener"' : ' onclick="document.getElementById(\'vol-why\').scrollIntoView();return false"'}>${l.img ? `<img src="${esc(l.img)}" alt="" loading="lazy">` : ''}<h3>${esc(l.t)}</h3><p>${esc(l.s)}</p></a>`).join('')}</div>
+  <h2 class="h-brand mt3" id="vol-why">Why volunteer with the Net Zero Tracker?</h2>
+  <div class="grid3 mt2">${(v.articles || []).map(a => `<a class="vcard" href="${esc(a.u)}" target="_blank" rel="noopener">${a.img ? `<img src="${esc(a.img)}" alt="" loading="lazy">` : ''}<h3>${esc(a.t)} ↗</h3><p>${esc(a.s)}</p></a>`).join('')}</div>
   <div class="grid2 mt2">${(v.quotes || []).map(q => `<div class="card" style="border-top:5px solid var(--green)"><p style="margin:0">“${esc(q.replace(/\s+[–-]\s+[^–-]+$/, '').replace(/^["“]|["”]$/g, ''))}”</p><p class="muted" style="margin:.6em 0 0;font-size:14.5px">${esc((q.match(/[–-]\s+([^–-]+)$/) || [, ''])[1])}</p></div>`).join('')}</div>
   <div class="card mt2" style="background:var(--band)"><h3>Volunteer newsletter</h3><p>Want to learn more about net zero, events and what’s happening at the Tracker? Join the bi-weekly volunteer newsletter.</p><a class="btn btn-purple btn-sm" href="${esc(v.news)}" target="_blank" rel="noopener">Subscribe</a></div>
   </div></section>`; };
