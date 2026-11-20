@@ -483,7 +483,7 @@ function filtered(){
 }
 
 /* ---------- EXPLORE: how countries add up to global emissions, and the pathways ahead ---------- */
-function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bl'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadGlobal(){ return window.NZG ? Promise.resolve(window.NZG) : new Promise(res => { const t = document.createElement('script'); t.src = 'global.js?v=20261120bm'; t.onload = () => res(window.NZG); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const GL_STACK = ['#cdb998', '#a9c4e4', '#ecd49a', '#b9d8a8', '#c5bdd0', '#dcbcd6', '#e8e4ec'];
 const GL_SCN = {paris:['#2f8a4c', 'Paris-aligned pathway', 'Paris-aligned'], ndc:['#1f4e8c', 'All 2030 and 2035 NDCs met', 'NDCs met'], pledges:['#6b3fa0', 'All pledges and net zero targets met', 'All pledges met'], pol:['#c27a00', 'Current policies', 'Current policies'], none:['#E13B26', 'No further action (past trend continues)', 'No further action']};
 function glScenarios(G){
@@ -647,7 +647,7 @@ function timelineSVG(e){
 }
 
 /* ---------- EMISSIONS HISTORY (countries: Our World in Data 1850-; cities and regions: EDGAR v8.0 1970-2022) ---------- */
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bl'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bm'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
@@ -882,7 +882,7 @@ P.entity = (params, slug) => {
       <div class="card"><h4>Primary source</h4><p>The document our researchers used for this entry.</p>${e.src ? `<a href="${esc(e.src)}" target="_blank" rel="noopener">Open source document ↗</a>` : '<span class="muted">Not listed</span>'}</div>
       ${e.cat ? `<div class="card"><h4>Climate Action Tracker</h4><p>Independent rating of this net zero target: <b>${esc(e.cat)}</b>.</p>${e.catu ? `<a href="${esc(e.catu)}" target="_blank" rel="noopener">See assessment ↗</a>` : ''}</div>` : ''}
       ${e.clw ? `<div class="card"><h4>Climate Change Laws of the World</h4><p>The country's climate laws and policies.</p><a href="${esc(e.clw)}" target="_blank" rel="noopener">Country profile ↗</a></div>` : ''}
-      ${e.eciu ? `<div class="card"><h4>ECIU Net Zero Scorecard</h4><p>Status: <b>${esc(e.eciu)}</b>.</p></div>` : ''}
+      ${e.eciu ? `<div class="card"><h4>ECIU Net Zero Scorecard</h4><p>Benchmarks national net zero targets. Status of this entry: <b>${esc(e.eciu)}</b>.</p><a href="https://eciu.net/netzerotracker" target="_blank" rel="noopener">Open the scorecard ↗</a></div>` : ''}
       <div class="card"><h4>Is this out of date?</h4><p>Entry last updated ${esc(e.upd || 'n/a')}. Our researchers review submissions.</p><a href="https://form.typeform.com/to/ZyfGb9tZ" target="_blank" rel="noopener">Request an update ↗</a></div>
     </div>
     <div class="cite mt2"><b>Cite this entry:</b> Net Zero Tracker (${(e.upd||'').slice(0,4) || NOW}). <i>${esc(e.n)}</i>. Energy &amp; Climate Intelligence Unit, Data-Driven EnviroLab, NewClimate Institute and Oxford Net Zero. ${official(e)}</div>
