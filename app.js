@@ -577,6 +577,12 @@ function peers(e){
   const same = pool.filter(x => x.c === e.c);
   return same.length >= 5 ? {label:`${TYPE[e.t][1].toLowerCase()} in ${e.cn}`, xs: same} : {label:`${TYPE[e.t][1].toLowerCase()} in ${e.g}`, xs: pool.filter(x => x.g === e.g)};
 }
+function peerBasis(e){
+  if (e.t === 'city') return 'These are the cities in the Tracker with 500,000 or more people, which the Tracker covers whether or not they have a climate target, so the group is not limited to cities that made a commitment.';
+  if (e.t === 'company') return 'The Tracker covers the Forbes Global 2000 (the largest public companies by sales) plus the 100 largest private companies.';
+  if (e.t === 'country') return 'The Tracker covers every country that is a member of the UN climate convention.';
+  return 'The Tracker covers all regions in the 25 highest-emitting countries.';
+}
 function asks(e){
   const cs = checks(e), out = [], n = nm(e), gv = e.t !== 'company';
   if (!isNZ(e)) {
@@ -671,7 +677,7 @@ P.entity = (params, slug) => {
   <section class="tight band"><div class="wrap">
     <h2 class="h-brand" style="font-size:24px">How it compares</h2>
     ${pr.small ? `<p class="muted mt0">${esc(e.n)} has about ${fmt(e.pop)} people. The Tracker's city coverage starts at 500,000, so there is no peer group for it. Choose a city to compare it with.</p>
-    <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <p class="muted mt0">Compared with ${fmt(px.length)} ${esc(pr.label)}. Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
+    <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <p class="muted mt0">Compared with ${fmt(px.length)} ${esc(pr.label)}. ${esc(peerBasis(e))} Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
     <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:110px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap">${me ? '✓ ' : '✗ '}${esc(e.n.length > 14 ? (e.t==='company'?'This company':'This entry') : e.n)}</td></tr>`; }).join('')}</table>`}
   </div></section>
 
