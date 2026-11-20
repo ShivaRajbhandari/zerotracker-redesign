@@ -800,6 +800,7 @@ const GLOSS = [
   ['Base year','The year that a percentage cut is measured against, such as "45% below 2010".','An early or high-emissions base year can make a target look bigger than it is.'],
 ];
 const GHG_CAP = ['<b>Balanced.</b> A thin layer of greenhouse gas returns some heat to the ground and lets most escape. Heat in matches heat out, so the temperature stays steady and livable.', '<b>Out of balance.</b> A thicker layer sends more heat back down and lets less escape. More heat comes in than goes out, so the surface keeps warming.'];
+const GHG_LEDE = ['Before we started burning coal, oil and gas, the Earth gave off about as much heat as it took in from the sun, so its temperature stayed steady.', 'Burning coal, oil and gas adds greenhouse gases to the air, which traps more of the Earth’s heat and warms the planet.'];
 function ghgSvg(l){
   const W = 640, H = 400, G = 322;                       // canvas, ground line
   const cols = [262, 328, 394, 460];                     // heat columns
@@ -867,7 +868,7 @@ P.learn = (params, sub) => `
         <li>The warm ground sends heat back up.<small>Some of it escapes to space.</small></li>
         <li>Greenhouse gases catch some of that heat and send it back down.<small>This keeps the planet livable. But the more gases we add, the more heat is sent back, and the warmer it gets.</small></li></ol>
       </div>
-      <figure class="card ghg-fig"><div class="ghg-top"><div class="ghg-tog" id="ghgseg" role="tablist" aria-label="Amount of greenhouse gas"><button data-l="0" class="on" role="tab" aria-selected="true">Before: fewer gases</button><button data-l="1" role="tab" aria-selected="false">Now: more gases</button></div></div><p class="ghg-lede">Burning coal, oil and gas adds greenhouse gases to the air, which traps more of the Earth’s heat and warms the planet.</p>
+      <figure class="card ghg-fig"><div class="ghg-top"><div class="ghg-tog" id="ghgseg" role="tablist" aria-label="Amount of greenhouse gas"><button data-l="0" class="on" role="tab" aria-selected="true">Before: fewer gases</button><button data-l="1" role="tab" aria-selected="false">Now: more gases</button></div></div><p class="ghg-lede" id="ghg-lede">${GHG_LEDE[0]}</p>
         <div id="ghg">${ghgSvg(0)}</div><figcaption id="ghg-cap">${GHG_CAP[0]}</figcaption></figure>
     </div>
     <div class="card mt2" style="background:var(--band)"><h3>The global goal: the Paris Agreement</h3>
@@ -926,7 +927,7 @@ P.learn = (params, sub) => `
     <div class="gloss mt2">${GLOSS.map(([t,d,w]) => `<details><summary>${t}</summary><p class="plain">${d}</p><p>${w}</p></details>`).join('')}</div>
   </div></section>`;
 P.learn.after = (params, sub) => {
-  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
+  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $('#ghg-lede').textContent = GHG_LEDE[l]; $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
   today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each cloud is 10% of a year’s emissions. They come from power plants and factories, petrol and diesel cars, heating homes, and even cows, which release methane. They all trap heat.','10 puffs','All 10 puffs are still going up.'],
   cut:['2. Cut it at the source','Stop making the smoke in the first place: sun and wind instead of coal, electric cars, efficient homes, less methane from farming. Net zero standards ask for roughly 90% of emissions to be cut. One cloud is left.','1 puff left','Nine puffs are gone for good. One is left.'],
