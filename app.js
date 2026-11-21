@@ -865,7 +865,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zv';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zw';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -915,7 +915,7 @@ const FX_SRC_CCKP = 'World Bank Climate Change Knowledge Portal, CMIP6 climate m
 
 async function fxRender(e){
   const body = $('#fx-body'); if (!body) return;
-  let S, F, SL, DS, SN; try { [S, F, SL, DS, SN] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN')]); } catch (err) { console.error(err); }
+  let S, F, SL, DS, SN, PR; try { [S, F, SL, DS, SN, PR] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR')]); } catch (err) { console.error(err); }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
   const P = fxPlace(e), blocks = [], wires = [], fxg = {snow: [], precip: [], humid: []};   // the three weather groups sit in their own dropdowns at the bottom
   let G = null, dv = null;   // set inside the sections, used for the sub-title
@@ -964,6 +964,19 @@ async function fxRender(e){
     }
   }
   } catch (err) { console.error(err); }
+  // 4a. rainfall so far (CRU TS observation-based grid)
+  try {
+  const PRD = PR && PR.d[e.s];
+  if (PRD) {
+    const IN = F_LANDS.has(e.c), k = IN ? 1 / 25.4 : 1, u = IN ? ' in' : ' mm', dec = IN ? 1 : 0, y0 = PR.y0;
+    const raw = PRD.map((v, i) => [y0 + i, v == null ? null : v * k]), sm = fxMean(raw, 11), seg = (a, b) => raw.filter(p => p[0] >= a && p[0] <= b && p[1] != null).map(p => p[1]), avg = xs => xs.reduce((t, c) => t + c, 0) / xs.length;
+    const a1 = avg(seg(1951, 1980)), a2 = avg(seg(1994, 2023)), ch = (a2 / a1 - 1) * 100, fm = v => v.toFixed(dec) + u;
+    const svg = fxLine('fx-pr', {x0: y0, x1: PR.y1, zero: true, series: [{name: 'Each year', color: '#9ecae1', pts: raw, w: 1.2, op: .9}, {name: '11-year average', color: '#08519c', smooth: true, pts: sm, w: 2.8}], aria: `Yearly rainfall and snowfall in ${P}, ${y0} to ${PR.y1}`, yfmt: v => IN ? v.toFixed(0) : Math.round(v), vfmt: v => fm(v), snap: 2, note: IN ? 'inches of rain and snow a year' : 'mm of rain and snow a year'});
+    const facts = `<div class="emis-facts"><div><span>1951–1980 average</span><b>${fm(a1)} a year</b></div><div><span>1994–2023 average</span><b>${fm(a2)} a year</b></div><div><span>Change</span><b>${ch >= 0 ? '+' : '−'}${Math.abs(Math.round(ch))}%</b></div></div>`;
+    fxg.precip.push(fxBlock('fx-pr', 'How much rain has fallen?', `The total rain and snow that fell in a year in ${esc(P)}, measured by weather stations and mapped on a grid.`, facts + svg + `<div class="emis-key"><span><i style="background:#08519c;height:4px"></i>11-year average</span><span><i style="background:#9ecae1;height:2px"></i>Each year</span></div>`, `<b>Source:</b> Climatic Research Unit, University of East Anglia, <a href="https://crudata.uea.ac.uk/cru/data/hrg/" target="_blank" rel="noopener">CRU TS 4.08</a> (Harris et al., 2020), via the World Bank Climate Change Knowledge Portal; Open Database License. Gridded at 0.5° (about 50 km) from rain-gauge records, averaged over ${e.t === 'city' ? 'the grid cell around the city' : 'the place’s outline'}. Where there are few weather stations the maps are smoother and less certain, and individual years are noisier than the average.`));
+    wires.push(() => { fxLineWire('fx-pr'); fxShare('fx-pr', e, 'rainfall-history', 'Rainfall: ' + P, `${P} received about ${fm(a2)} of rain and snow a year in 1994–2023, ${Math.abs(Math.round(ch)) < 1 ? 'about the same as' : Math.abs(Math.round(ch)) + '% ' + (ch < 0 ? 'less than' : 'more than')} in 1951–1980 (CRU TS). #ClimateAction`); });
+  }
+  } catch (err) { console.error(err); }
   // 4. rain
   try {
   const RN = F && F.p && F.p[e.s];
@@ -971,7 +984,7 @@ async function fxRender(e){
     const series = FX_SCN.map((sc, k) => ({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], smooth: true, pts: fxSoft(F.years.map((y, i) => [y, RN[k][i] == null ? null : RN[k][i] / 10]))}));
     const end = RN.map(a => a[a.length - 1] / 10), lo = Math.min(...end), hi = Math.max(...end), dir = lo > 2 ? 'wetter' : hi < -2 ? 'drier' : 'a mixed picture';
     const svg = fxLine('fx-r', {x0: 2020, x1: 2100, series, aria: `Projected change in yearly rainfall for ${P} to 2100 under three emissions paths`, yfmt: v => fxSign(v, 0) + '%', vfmt: v => fxSign(v) + '%', snap: 5, note: 'change in yearly rainfall vs 1995–2014'});
-    fxg.precip.push(fxBlock('fx-r', 'Will it get wetter or drier?', `Change in the total rain and snow that falls in a year in ${esc(P)}, compared with 1995–2014. The models point to ${dir} conditions overall, but rainfall is much harder to project than temperature.`, `<div class="emis-facts">${FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k], 0)}%</b></div>`).join('')}</div>${svg}<div class="emis-key">${FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('')}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Yearly totals hide big changes within the year: rain tends to arrive in heavier bursts with longer dry spells in between. Where the three lines disagree about whether rainfall goes up or down, treat the direction as uncertain.`));
+    fxg.precip.push(fxBlock('fx-r', 'Will it get wetter or drier in future?', `Change in the total rain and snow that falls in a year in ${esc(P)}, compared with 1995–2014. The models point to ${dir} conditions overall, but rainfall is much harder to project than temperature.`, `<div class="emis-facts">${FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k], 0)}%</b></div>`).join('')}</div>${svg}<div class="emis-key">${FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('')}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Yearly totals hide big changes within the year: rain tends to arrive in heavier bursts with longer dry spells in between. Where the three lines disagree about whether rainfall goes up or down, treat the direction as uncertain.`));
     wires.push(() => { fxLineWire('fx-r'); fxShare('fx-r', e, 'rainfall-change', 'Rainfall change: ' + P, `Climate models suggest yearly rainfall in ${P} could change by ${fxSign(end[1], 0)}% by 2100 on the middle emissions path (${fxSign(end[0], 0)}% if emissions fall fast, ${fxSign(end[2], 0)}% on a high path), compared with 1995–2014. #ClimateAction`); });
   }
   } catch (err) { console.error(err); }
@@ -1397,7 +1410,7 @@ function svgToPng(svg, title, name){
   const xml = new XMLSerializer().serializeToString(c), img = new Image(), url = URL.createObjectURL(new Blob([xml], {type: 'image/svg+xml;charset=utf-8'}));
   img.onload = () => { const k = 2, cv = document.createElement('canvas'); cv.width = W * k; cv.height = (H + TOP + BOT) * k; const g = cv.getContext('2d'); g.scale(k, k);
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H + TOP + BOT); g.fillStyle = '#271039'; g.font = '700 20px Outfit, Helvetica, Arial, sans-serif'; g.fillText(title.slice(0, 90), 16, 30);
-    g.drawImage(img, 0, TOP, W, H); g.fillStyle = '#5f5869'; g.font = '13px Outfit, Helvetica, Arial, sans-serif'; g.fillText('Net Zero Tracker (design prototype). Sources: ' + (name.includes('timeline') ? 'Net Zero Tracker' : /^warming-stripes/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^(projected-warming|hot-days|rainfall-change)/.test(name) ? 'World Bank Climate Change Knowledge Portal, CMIP6' : /^global-warming/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^global-co2/.test(name) ? 'NOAA Global Monitoring Laboratory' : /^global-disasters/.test(name) ? 'EM-DAT via Our World in Data' : /^snow/.test(name) ? 'Copernicus ERA5 (CC BY)' : /^sea-level/.test(name) ? 'PSMSL tide gauges' : /^disaster-damage/.test(name) ? 'EM-DAT via Our World in Data' : 'Our World in Data, EDGAR v8.0'), 16, H + TOP + 20);
+    g.drawImage(img, 0, TOP, W, H); g.fillStyle = '#5f5869'; g.font = '13px Outfit, Helvetica, Arial, sans-serif'; g.fillText('Net Zero Tracker (design prototype). Sources: ' + (name.includes('timeline') ? 'Net Zero Tracker' : /^warming-stripes/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^(projected-warming|hot-days|rainfall-change)/.test(name) ? 'World Bank Climate Change Knowledge Portal, CMIP6' : /^global-warming/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^global-co2/.test(name) ? 'NOAA Global Monitoring Laboratory' : /^global-disasters/.test(name) ? 'EM-DAT via Our World in Data' : /^snow/.test(name) ? 'Copernicus ERA5 (CC BY)' : /^rainfall-history/.test(name) ? 'CRU TS 4.08 (University of East Anglia)' : /^sea-level/.test(name) ? 'PSMSL tide gauges' : /^disaster-damage/.test(name) ? 'EM-DAT via Our World in Data' : 'Our World in Data, EDGAR v8.0'), 16, H + TOP + 20);
     URL.revokeObjectURL(url); const a = document.createElement('a'); a.download = name + '.png'; a.href = cv.toDataURL('image/png'); a.click(); };
   img.src = url;
 }
