@@ -848,3 +848,5 @@ footer.site{padding:26px 0}
 @media(max-width:1000px){.pgrid{grid-template-columns:1fr}.pgrid .pmaps{justify-content:flex-start;max-width:none}.pgrid .pmaps .lm-cap{text-align:left}}
 @media(max-width:520px){.pgrid .pmaps{gap:10px}.pgrid .lmapfig{width:calc(50% - 5px)}.lmapfig figcaption{font-size:11.5px}.phead .yr-inline .n{font-size:40px}}
 .pgrid .pmaps .lm-base{fill:#d9d3e2}
+
+.fxhit:hover{fill:rgba(122,74,158,.1)}
