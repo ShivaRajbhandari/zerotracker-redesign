@@ -823,3 +823,5 @@ footer.site{padding:26px 0}
 .pside .lmap{width:100%;align-self:stretch}
 @media(max-width:900px){.pside{width:100%;flex-direction:row;align-items:flex-end;justify-content:space-between;gap:16px}.pside .lmap{width:200px;flex:none;align-self:auto}.lm-cap{display:none}}
 .pside .yr{text-align:right}
+
+.fxblock{margin-top:28px}.fxblock:first-child{margin-top:0}.fxblock h3{margin:0;font-size:20px}.fxblock .card.emis{margin-top:0}
