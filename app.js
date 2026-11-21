@@ -1084,8 +1084,8 @@ P.entity = (params, slug) => {
     <div class="ptop"><div>${typeBadge(e.t, e)}
       <h1>${e.t==='country' ? `<span class="flag">${flag(e.a2)}</span>` : ''}${esc(e.n)}</h1>
       <div class="facts">${facts.map(([k,v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('')}</div></div>
-      <div class="lmap" id="lmap"></div>
-      <div class="yr"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div>
+      <div class="pside"><div class="lmap" id="lmap"></div>
+      <div class="yr"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div></div>
     </div>
   </div></div>
 
