@@ -835,3 +835,16 @@ footer.site{padding:26px 0}
 .pmaps .lm-dot{fill:#E13B26;stroke:#fff;stroke-width:2}.pmaps .lm-dot2{fill:var(--purple);stroke:#fff;stroke-width:1.5}.pmaps .lm-dot2:hover,.pmaps .lm-dot2:focus{fill:#E13B26;outline:none}
 .pmaps .lm-cap{flex-basis:100%;font-size:12.5px;color:var(--muted);margin-top:-6px}
 .pmaps .lm-cap{text-align:left}
+
+/* header: title, facts and target year on the left, maps on the right */
+.pgrid{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:30px;align-items:center}
+.pleft{min-width:0}
+.phead .yr-inline{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;margin-top:16px;text-align:left}
+.phead .yr-inline .n{font-size:46px}
+.phead .yr-inline small{display:inline;font-size:13px}
+.pgrid .pmaps{margin-top:0;display:flex;flex-wrap:wrap;gap:14px;justify-content:flex-end;max-width:640px}
+.pgrid .lmapfig{width:250px}
+.pgrid .pmaps .lm-cap{flex-basis:100%;margin-top:0;text-align:right}
+@media(max-width:1000px){.pgrid{grid-template-columns:1fr}.pgrid .pmaps{justify-content:flex-start;max-width:none}.pgrid .pmaps .lm-cap{text-align:left}}
+@media(max-width:520px){.pgrid .pmaps{gap:10px}.pgrid .lmapfig{width:calc(50% - 5px)}.lmapfig figcaption{font-size:11.5px}.phead .yr-inline .n{font-size:40px}}
+.pgrid .pmaps .lm-base{fill:#d9d3e2}

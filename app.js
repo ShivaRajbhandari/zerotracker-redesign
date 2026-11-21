@@ -1190,7 +1190,7 @@ async function localeMapShow(e){
   const fig = (svg, cap) => figs.push(`<figure class="lmapfig"><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(cap)}">${svg}</svg><figcaption>${esc(cap)}</figcaption></figure>`);
   if (e.t === 'country') {
     const proj = d3.geoNaturalEarth1().fitExtent([[4, 4], [W - 4, H - 4]], {type:'Sphere'}), P = d3.geoPath(proj);
-    fig(`<path d="${P({type:'Sphere'})}" class="lm-sea"/>` + all.map(f => { const x = byIso[f.id], me = mineIds.includes(f.id); return mk(P(f), me ? 'lm-me' : 'lm-c', x ? x.s : '', x ? x.n : ''); }).join(''), 'Where ' + (e.c === 'EUU' ? 'the European Union is' : nm(e) + ' is'));
+    fig(`<path d="${P({type:'Sphere'})}" class="lm-sea"/>` + all.map(f => { const x = byIso[f.id], me = mineIds.includes(f.id); return mk(P(f), me ? 'lm-me' : 'lm-c', x ? x.s : '', x ? x.n : ''); }).join(''), 'Location in the world');
     if (e.c !== 'EUU' && (regs.length || cities.length)) {
       const pj = countryProj(), P2 = d3.geoPath(pj);
       fig(mine.map(f => mk(P2(f), 'lm-c lm-base', '', '')).join('') + (regs.length ? regs.map(f => { const r = BY[f.properties.s]; return mk(P2(f), 'lm-r', r.s, r.n); }).join('') : cities.map(c => dotAt(pj, c, 'lm-dot2')).join('')), regs.length ? capW(regTerm(regs.map(f => BY[f.properties.s])[0] || e)[1]) + ' of ' + nm(e) : 'Cities in ' + nm(e));
@@ -1230,13 +1230,12 @@ P.entity = (params, slug) => {
   return `
   <div class="phead"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a> › <a href="#/explore?type=${e.t}">${typePlural(e)}</a>${e.t!=='country' && e.cn ? ` › ${(() => { const c = D.find(x => x.t==='country' && x.c===e.c); return c ? `<a href="#/e/${c.s}">${esc(e.cn)}</a>` : esc(e.cn); })()}` : ''}</div>
-    <div class="ptop"><div>${typeBadge(e.t, e)}
+    <div class="pgrid"><div class="pleft">${typeBadge(e.t, e)}
       <h1>${e.t==='country' ? `<span class="flag">${flag(e.a2)}</span>` : ''}${esc(e.n)}</h1>
-      <div class="facts">${facts.map(([k,v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('')}</div></div>
-      <div class="pside">
-      <div class="yr"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div></div>
+      <div class="facts">${facts.map(([k,v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('')}</div>
+      <div class="yr yr-inline"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div></div>
+      <div class="pmaps" id="lmap"></div>
     </div>
-    <div class="pmaps" id="lmap"></div>
   </div></div>
 
   <section class="tight"><div class="wrap">
