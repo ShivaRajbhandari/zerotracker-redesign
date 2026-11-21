@@ -1151,7 +1151,7 @@ function compareTimeline(es){
         return `<g class="tlp" ${data}><line x1="${px}" x2="${px}" y1="${by}" y2="${by - 14 - t * 14 + 3}" stroke="#d9c9a3"/><circle cx="${px}" cy="${by}" r="7" fill="#c27a00" stroke="#fff" stroke-width="2"/><text x="${px}" y="${by - 14 - t * 14}" text-anchor="${flip ? 'end' : 'start'}" font-size="11.5" fill="#7a4a00" font-weight="600">${esc(lab)}</text></g>`;
       }
       const col = p.nz ? '#3B7CC3' : '#8a6a3d', lab = short(p.l, 26), flip = px > X1 - 170;
-      return `<g class="tlp" ${data}><path d="M${px} ${by - 10} L${px + 10} ${by} L${px} ${by + 10} L${px - 10} ${by} Z" fill="${col}" stroke="#fff" stroke-width="2"/><text x="${flip ? px - 16 : px + 16}" y="${by + 4.5}" text-anchor="${flip ? 'end' : 'start'}" font-size="12.5" font-weight="700" fill="${col}">${esc(lab)}</text></g>`;
+      return `<g class="tlp" ${data}><path d="M${px} ${by - 10} L${px + 10} ${by} L${px} ${by + 10} L${px - 10} ${by} Z" fill="${col}" stroke="#fff" stroke-width="2"/><text x="${flip ? px - 6 : px + 6}" y="${by + 21}" text-anchor="${flip ? 'end' : 'start'}" font-size="12.5" font-weight="700" fill="${col}" paint-order="stroke" stroke="#fff" stroke-width="3.5" stroke-linejoin="round">${esc(lab)}</text></g>`;
     }).join('');
     const note = !r.pts.length ? `<text x="${x(NOW) + 18}" y="${by + 4}" font-size="13" fill="#7a7385" font-style="italic">${r.passed ? 'Target year ' + r.passed + ' has already passed' : hasAnyTarget(e) ? 'No dated milestones' : 'No target'}</text>` : '';
     return `<g class="tl-lane">
