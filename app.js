@@ -150,7 +150,69 @@ const compareSet = { get(){ try { return JSON.parse(localStorage.getItem('nzt-cm
   set(a){ this._m = a; try { localStorage.setItem('nzt-cmp', JSON.stringify(a)); } catch(e){} } };
 
 /* ---------- search box ---------- */
-const SEARCH = D.map(e => ({e, k:(e.n + ' ' + (e.cn||'')).toLowerCase()}));
+/* brands and subsidiaries that should find their parent company */
+const ALIAS_SRC = [
+ [/^Alphabet$/, 'google, youtube, android, waymo, gmail, chrome, deepmind, fitbit, nest'],
+ [/^Meta Platforms/, 'facebook, instagram, whatsapp, messenger, oculus, threads'],
+ [/^Amazon$/, 'aws, amazon web services, whole foods, twitch, audible, prime video, zappos, kindle'],
+ [/^Microsoft$/, 'linkedin, github, xbox, azure, skype, minecraft, bing, activision, windows, office'],
+ [/^Apple$/, 'iphone, ipad, macbook, itunes, beats'],
+ [/^Volkswagen$/, 'audi, porsche, skoda, seat, cupra, bentley, lamborghini, bugatti, scania, man trucks'],
+ [/^BMW/, 'mini, rolls-royce'],
+ [/^Mercedes-Benz/, 'mercedes, smart, maybach'],
+ [/^Daimler Truck/, 'freightliner, western star, mercedes trucks'],
+ [/^Toyota Motor/, 'lexus, daihatsu, hino'],
+ [/^Honda Motor/, 'acura'],
+ [/^Nissan Motor/, 'infiniti, datsun'],
+ [/^Hyundai Motor/, 'genesis'],
+ [/^Tata Motors/, 'jaguar, land rover, jlr, range rover'],
+ [/^Stellantis/, 'fiat, chrysler, jeep, dodge, ram, peugeot, citroen, citroën, opel, vauxhall, maserati, alfa romeo'],
+ [/^Renault/, 'dacia, alpine'],
+ [/^General Motors/, 'chevrolet, gmc, cadillac, buick, cruise'],
+ [/^Ford Motor/, 'lincoln'],
+ [/^Nestl/, 'nespresso, purina, kitkat, nescafe, nescafé, perrier, san pellegrino, gerber, maggi'],
+ [/^Unilever/, 'dove, lipton, ben & jerry, hellmann, knorr, magnum, axe, lux, vaseline'],
+ [/^Procter/, 'gillette, pampers, tide, ariel, oral-b, head & shoulders, old spice, p&g'],
+ [/^Coca-Cola Company/, 'coke, fanta, sprite, costa, minute maid, dasani, powerade'],
+ [/^PepsiCo/, 'pepsi, frito-lay, gatorade, quaker, lays, doritos, mountain dew, tropicana'],
+ [/^Walmart/, 'sam\'s club, asda, flipkart, walmart de mexico'],
+ [/^Walt Disney/, 'disney, espn, pixar, marvel, hulu, lucasfilm, abc, national geographic'],
+ [/^Comcast/, 'nbcuniversal, nbc, sky, universal, xfinity, peacock'],
+ [/^Anheuser/, 'budweiser, corona, stella artois, michelob, ab inbev'],
+ [/^Diageo/, 'guinness, johnnie walker, smirnoff, baileys, tanqueray'],
+ [/^Kraft Heinz/, 'heinz, kraft, oscar mayer'],
+ [/^Mondelez/, 'oreo, cadbury, toblerone, milka'],
+ [/^Inditex/, 'zara, massimo dutti, bershka, pull&bear, stradivarius'],
+ [/^LVMH/, 'louis vuitton, dior, moet, moët, hennessy, tiffany, sephora, bulgari, fendi, celine'],
+ [/^Kering/, 'gucci, saint laurent, balenciaga, bottega veneta'],
+ [/^Richemont/, 'cartier, van cleef, piaget'],
+ [/^Danone/, 'evian, activia, alpro'],
+ [/^Berkshire/, 'geico, bnsf, dairy queen, duracell'],
+ [/^Exxon/, 'esso, mobil'],
+ [/^Chevron$/, 'texaco, caltex'],
+ [/^BP$/, 'castrol, british petroleum'],
+ [/^Shell plc/, 'royal dutch shell, pennzoil'],
+ [/^Alibaba/, 'taobao, tmall, aliexpress, alipay, ant group, lazada'],
+ [/^Tencent/, 'wechat, weixin'],
+ [/^Sony$/, 'playstation'],
+ [/^Samsung Electronics/, 'galaxy'],
+ [/^UnitedHealth/, 'optum, unitedhealthcare'],
+ [/^CVS/, 'aetna, caremark'],
+ [/^Walgreens/, 'boots'],
+ [/^Johnson & Johnson/, 'janssen, band-aid, neutrogena'],
+ [/^Yum! Brands/, 'kfc, pizza hut, taco bell'],
+ [/^Hon Hai/, 'foxconn'],
+ [/^SoftBank/, 'arm holdings, vision fund'],
+ [/^Reckitt/, 'dettol, durex, lysol, enfamil'],
+ [/^Seven & I/, '7-eleven, seven-eleven'],
+ [/^Mitsubishi UFJ/, 'mufg'],
+ [/^Reliance Industries/, 'jio'],
+ [/^H&M/, 'hennes, cos, weekday']
+];
+const ALIAS = {}; ALIAS_SRC.forEach(([re, ks]) => { const e = D.find(x => x.t === 'company' && re.test(x.n)); if (e) ALIAS[e.s] = ks.split(',').map(t => t.trim().toLowerCase()).filter(Boolean); });
+const skey = e => (e.n + ' ' + (e.cn || '')).toLowerCase();
+const aliasHit = (e, q) => e.n.toLowerCase().includes(q) ? '' : ((ALIAS[e.s] || []).find(a => a === q || (q.length >= 4 && (a.startsWith(q) || a.includes(' ' + q)))) || '');
+const SEARCH = D.map(e => ({e, k: skey(e)}));
 function searchBox(id, ph, onPick){
   return `<div class="search" id="${id}">${MAG}<input type="search" autocomplete="off" placeholder="${esc(ph)}" aria-label="${esc(ph)}"><div class="sugg" hidden></div></div>`;
 }
@@ -161,8 +223,8 @@ function wireSearch(id, onPick, filter){
   inp.addEventListener('input', () => {
     const q = inp.value.trim().toLowerCase(); act = -1;
     if (q.length < 2) { sg.hidden = true; return; }
-    res = SEARCH.filter(x => x.k.includes(q) && (!filter || filter(x.e))).sort((a,b) => (b.e.n.toLowerCase().startsWith(q)) - (a.e.n.toLowerCase().startsWith(q)) || ['country','region','city','company'].indexOf(a.e.t) - ['country','region','city','company'].indexOf(b.e.t)).slice(0, 9).map(x => x.e);
-    sg.innerHTML = res.length ? res.map((e,i) => `<a href="#/e/${e.s}" data-i="${i}">${typeBadge(e.t)}<span>${esc(e.n)}</span><small>${esc(targetPhrase(e))}</small></a>`).join('') : '<div class="empty" style="padding:14px">No match. Try a country, city, region or company name.</div>';
+    res = SEARCH.filter(x => (x.k.includes(q) || aliasHit(x.e, q)) && (!filter || filter(x.e))).sort((a,b) => (b.e.n.toLowerCase().startsWith(q)) - (a.e.n.toLowerCase().startsWith(q)) || ['country','region','city','company'].indexOf(a.e.t) - ['country','region','city','company'].indexOf(b.e.t)).slice(0, 9).map(x => x.e);
+    sg.innerHTML = res.length ? res.map((e,i) => `<a href="#/e/${e.s}" data-i="${i}">${typeBadge(e.t)}<span>${esc(e.n)}${aliasHit(e, q) ? ` <em style="font-weight:400;color:var(--muted)">(owns ${esc(aliasHit(e, q))})</em>` : ''}</span><small>${esc(targetPhrase(e))}</small></a>`).join('') : '<div class="empty" style="padding:14px">No match. Try a country, city, region or company name.</div>';
     sg.hidden = false;
   });
   sg.addEventListener('click', ev => { const a = ev.target.closest('a'); if (!a) return; ev.preventDefault(); sg.hidden = true; inp.value = ''; pick(res[+a.dataset.i]); });
@@ -477,7 +539,7 @@ P.explore.after = () => {
 };
 function filtered(){
   const q = EX.q.trim().toLowerCase();
-  let xs = byType(EX.type).filter(e => (!q || (e.n + ' ' + (e.cn||'')).toLowerCase().includes(q)) && (!EX.g || e.g === EX.g) && (!EX.nz || isNZ(e)) && (!EX.st || String(level(e).k) === EX.st) && (!EX.sec || e.sec === EX.sec));
+  let xs = byType(EX.type).filter(e => (!q || skey(e).includes(q) || aliasHit(e, q)) && (!EX.g || e.g === EX.g) && (!EX.nz || isNZ(e)) && (!EX.st || String(level(e).k) === EX.st) && (!EX.sec || e.sec === EX.sec));
   const key = {name:e => e.n.toLowerCase(), where:e => (where(e)||'').toLowerCase(), target:e => isNZ(e) ? (year(e) || 9999) : 99999, level:e => -level(e).k, interim:e => iyear(e) || 9999, score:e => -(isNZ(e) ? tally(checks(e)).yes : -1), size:e => -(e.rev || e.pop || 0)}[EX.sort];
   return xs.sort((a,b) => { const A = key(a), B = key(b); return (A < B ? -1 : A > B ? 1 : 0) * EX.dir; });
 }
@@ -649,14 +711,15 @@ function timelineSVG(e){
   const end = Math.max(2070, (y||0) + 5);
   const W = 900, x = v => 30 + (v - start) / (end - start) * (W - 60);
   const ticks = []; for (let t = 2020; t <= end; t += 10) ticks.push(t);
-  const mk = (v, lab, sub, col, up) => `<g><line x1="${x(v)}" x2="${x(v)}" y1="${up?40:60}" y2="${up?60:80}" stroke="${col}" stroke-width="2"/><circle cx="${x(v)}" cy="60" r="8" fill="${col}" stroke="#fff" stroke-width="3"/><text x="${x(v)}" y="${up?22:104}" text-anchor="middle" font-size="15" font-weight="700" fill="${col}">${lab}</text><text x="${x(v)}" y="${up?36:120}" text-anchor="middle" font-size="12.5" fill="#5f5869">${sub}</text></g>`;
+  const close = y && hasAnyTarget(e) && Math.abs(x(y) - x(NOW)) < 130, tAn = !close ? 'middle' : y >= NOW ? 'start' : 'end', nAn = !close ? 'middle' : y >= NOW ? 'end' : 'start';
+  const mk = (v, lab, sub, col, up, an = 'middle') => `<g><line x1="${x(v)}" x2="${x(v)}" y1="${up?40:60}" y2="${up?60:80}" stroke="${col}" stroke-width="2"/><circle cx="${x(v)}" cy="60" r="8" fill="${col}" stroke="#fff" stroke-width="3"/><text x="${x(v) + (an === 'end' ? -12 : an === 'start' ? 12 : 0)}" y="${up?22:104}" text-anchor="${an}" font-size="15" font-weight="700" fill="${col}">${lab}</text><text x="${x(v) + (an === 'end' ? -12 : an === 'start' ? 12 : 0)}" y="${up?36:120}" text-anchor="${an}" font-size="12.5" fill="#5f5869">${sub}</text></g>`;
   return `<svg viewBox="0 0 ${W} 130" role="img" aria-label="Timeline: today ${NOW}${iy ? ', milestone ' + iy : ''}${y ? ', target ' + y : ''}">
     <line x1="${x(start)}" x2="${x(end)}" y1="60" y2="60" stroke="#dcdcdc" stroke-width="6" stroke-linecap="round"/>
     ${y && isNZ(e) ? `<line x1="${x(NOW)}" x2="${x(y)}" y1="60" y2="60" stroke="#b2d49b" stroke-width="6" stroke-linecap="round"/>` : ''}
     ${ticks.map(t => `<text x="${x(t)}" y="${y && Math.abs(t-y)<4 || iy && Math.abs(t-iy)<4 || Math.abs(t-NOW)<4 ? -100 : 66+28}" text-anchor="middle" font-size="12" fill="#9a94a3">${t}</text>`).join('')}
-    ${mk(NOW, 'Today', String(NOW), '#271039', true)}
+    ${mk(NOW, 'Today', String(NOW), '#271039', true, nAn)}
     ${iy && iy >= start ? mk(iy, 'Milestone ' + iy, e.ip ? e.ip + '% cut' : 'interim target', '#c27a00', false) : ''}
-    ${y && hasAnyTarget(e) ? mk(y, (isNZ(e) ? 'Net zero ' : 'Target ') + y, y > NOW ? (y - NOW) + ' years away' : 'target year', '#3B7CC3', true) : ''}
+    ${y && hasAnyTarget(e) ? mk(y, (isNZ(e) ? 'Net zero ' : 'Target ') + y, y > NOW ? (y - NOW) + ' years away' : 'target year', '#3B7CC3', true, tAn) : ''}
   </svg>`;
 }
 
@@ -1511,7 +1574,9 @@ P.advocates = () => {
       <p class="muted" style="font-size:14.5px">Each profile has a "Cite this entry" line and a "Copy briefing paragraph" button. To export a list, go to <a href="#/explore">Explore</a> and choose <b>Export CSV</b>.</p></div>
   </div></section>`;
 };
-function shareText(e){
+function shareText(e, lang){
+  const X = lang && lang !== 'en' && window.EMLS && window.EMLS[lang];
+  if (X) { const cs = checks(e), t = tally(cs); return X.post(emlName(e, lang), isNZ(e) ? year(e) : '', t.yes, cs.length, isNZ(e)) + ' #NetZero #ClimateAction'; }
   const cs = checks(e), t = tally(cs), gaps = cs.filter(c => c.v === 'no').map(c => shortGap[c.id]).filter(Boolean);
   let x = isNZ(e) ? `${Nm(e)}: ${targetPhrase(e)}. It meets ${t.yes} of ${cs.length} Net Zero Tracker credibility checks${gaps.length ? `; gap: ${gaps[0]}` : ''}.` : `${Nm(e)} has no net zero target, according to the Net Zero Tracker.`;
   return x + ' #NetZero #ClimateAction';
@@ -1596,28 +1661,30 @@ function emailDraft(e){
   const body = `Dear [name],\n\nI am writing about ${nm(e)}'s climate commitments. According to the Net Zero Tracker, ${isNZ(e) ? `${nm(e)} has set this target: ${targetPhrase(e)}, and meets ${t.yes} of ${cs.length} credibility checks.` : `${nm(e)} has no net zero target.`}\n\nI would be grateful if you could answer these questions:\n\n${qs.map((q, i) => `${i + 1}. ${q[0]}`).join('\n')}\n\nThe full entry is here: ${official(e)}\n\nThank you for your time.\n\n[Your name]`;
   return {subject, body};
 }
-function shareCard(e, fmt){
+function shareCard(e, fmt, lang){
+  const X = lang && lang !== 'en' && window.EMLS && window.EMLS[lang], RT = lang === 'ar', nmx = X ? emlName(e, lang) : nm(e);
   const W = 1080, H = fmt === 'story' ? 1920 : 1080, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), F = 'Outfit, Helvetica, Arial, sans-serif', cs = checks(e), t = tally(cs);
-  const wrap = (txt, x, y, w, lh) => { let line = ''; for (const wd of txt.split(' ')) { const tr = line ? line + ' ' + wd : wd; if (g.measureText(tr).width > w && line) { g.fillText(line, x, y); y += lh; line = wd; } else line = tr; } g.fillText(line, x, y); return y + lh; };
+  const wrap = (txt, x, y, w, lh) => { let line = ''; const cjk = /[\u3000-\u9fff\uac00-\ud7af]/.test(txt); for (const wd of (cjk ? [...txt] : txt.split(' '))) { const tr = line ? line + (cjk ? '' : ' ') + wd : wd; if (g.measureText(tr).width > w && line) { g.fillText(line, x, y); y += lh; line = wd; } else line = tr; } g.fillText(line, x, y); return y + lh; };
   g.fillStyle = '#271039'; g.fillRect(0, 0, W, H);
+  const PX = RT ? W - 80 : 80; g.direction = RT ? 'rtl' : 'ltr'; g.textAlign = RT ? 'right' : 'left';
   g.fillStyle = '#E13B26'; g.fillRect(0, 0, W, 16);
   const top = fmt === 'story' ? 260 : 120; let y = top;
-  g.fillStyle = '#ffb3a8'; g.font = `600 34px ${F}`; g.fillText((TYPE[e.t][0] + (e.cn && e.t !== 'country' ? ' · ' + e.cn : '')).toUpperCase(), 80, y); y += 90;
-  g.fillStyle = '#fff'; g.font = `700 78px ${F}`; y = wrap(nm(e), 80, y, W - 160, 92) + 10;
-  g.fillStyle = '#e0d6ea'; g.font = `400 46px ${F}`; y = wrap(targetPhrase(e), 80, y, W - 160, 60) + 30;
+  g.fillStyle = '#ffb3a8'; g.font = `600 34px ${F}`; g.fillText(((X ? X.ty[e.t] : TYPE[e.t][0]) + (e.cn && e.t !== 'country' ? ' · ' + e.cn : '')).toUpperCase(), PX, y); y += 90;
+  g.fillStyle = '#fff'; g.font = `700 78px ${F}`; y = wrap(nmx, PX, y, W - 160, 92) + 10;
+  g.fillStyle = '#e0d6ea'; g.font = `400 46px ${F}`; y = wrap(X ? (isNZ(e) ? X.tgt(year(e)) : X.no) : targetPhrase(e), PX, y, W - 160, 60) + 30;
   if (isNZ(e)) {
-    g.fillStyle = '#fff'; g.font = `700 150px ${F}`; g.fillText(t.yes + ' of ' + cs.length, 80, y + 120); y += 160;
-    g.fillStyle = '#e0d6ea'; g.font = `400 42px ${F}`; g.fillText('credibility checks met', 80, y + 40); y += 100;
+    g.fillStyle = '#fff'; g.font = `700 150px ${F}`; g.fillText(X ? X.of(t.yes, cs.length) : t.yes + ' of ' + cs.length, PX, y + 120); y += 160;
+    g.fillStyle = '#e0d6ea'; g.font = `400 42px ${F}`; g.fillText(X ? X.ck : 'credibility checks met', PX, y + 40); y += 100;
     const gaps = cs.filter(k => k.v === 'no').map(k => shortGap[k.id]).filter(Boolean).slice(0, 3);
-    if (gaps.length) { g.fillStyle = '#ffb3a8'; g.font = `600 36px ${F}`; g.fillText('GAPS', 80, y + 20); y += 60; g.fillStyle = '#fff'; g.font = `400 42px ${F}`; gaps.forEach(q => { y = wrap('✗  ' + q, 80, y + 20, W - 160, 56); }); }
-  } else { g.fillStyle = '#fff'; g.font = `700 96px ${F}`; g.fillText('No net zero target', 80, y + 100); }
-  g.fillStyle = '#ffffff'; g.font = `700 40px ${F}`; g.fillText('NET ZERO TRACKER', 80, H - 150);
-  g.fillStyle = '#e0d6ea'; g.font = `400 34px ${F}`; g.fillText(official(e).replace('https://', ''), 80, H - 96);
+    if (gaps.length && !X) { g.fillStyle = '#ffb3a8'; g.font = `600 36px ${F}`; g.fillText('GAPS', PX, y + 20); y += 60; g.fillStyle = '#fff'; g.font = `400 42px ${F}`; gaps.forEach(q => { y = wrap('✗  ' + q, PX, y + 20, W - 160, 56); }); }
+  } else { g.fillStyle = '#fff'; g.font = `700 96px ${F}`; g.fillText(X ? X.no : 'No net zero target', PX, y + 100); }
+  g.fillStyle = '#ffffff'; g.font = `700 40px ${F}`; g.fillText('NET ZERO TRACKER', PX, H - 150);
+  g.fillStyle = '#e0d6ea'; g.font = `400 34px ${F}`; g.fillText(official(e).replace('https://', ''), PX, H - 96);
   return c;
 }
 function renderShare(e){
-  const em = emailDraftLang(e, emlLangOf(e)), tx = shareText(e);
+  const em = emailDraftLang(e, emlLangOf(e)), tx = shareText(e, emlLangOf(e)); let LG = emlLangOf(e);
   $('#sh-out').innerHTML = `<div class="grid2" style="align-items:start">
     <div class="card"><h3>Post</h3>
       <textarea id="sh-text" rows="5" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(tx)}</textarea>
@@ -1634,7 +1701,7 @@ function renderShare(e){
       <canvas id="sh-prev" style="max-width:220px;margin-top:14px;border-radius:8px;box-shadow:var(--shadow)"></canvas></div>
     <div class="card"><h3>Email a policymaker</h3>
       <label class="muted" style="font-size:14px" for="em-lang">Language</label><select id="em-lang" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:4px">${Object.entries(EML_LANGS).map(([k, v]) => `<option value="${k}"${k === emlLangOf(e) ? ' selected' : ''}>${v}${k === emlLangOf(e) && k !== 'en' ? ' (language of this country)' : ''}</option>`).join('')}</select>
-      <p class="muted" id="em-langnote" style="font-size:13px;margin:0 0 10px" ${emlLangOf(e) === 'en' ? 'hidden' : ''}>Translations are drafts. Please have a fluent speaker check them before sending. Changing the language replaces any edits to the subject and message.</p>
+      <p class="muted" id="em-langnote" style="font-size:13px;margin:0 0 10px" ${emlLangOf(e) === 'en' ? 'hidden' : ''}>Translations are drafts. Please have a fluent speaker check them before sending. Changing the language also rewrites the post and picture card, and replaces any edits to the post, subject and message.</p>
       <label class="muted" style="font-size:14px">To (their email address)</label><input id="em-to" type="email" placeholder="name@council.gov" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
       <label class="muted" style="font-size:14px">Subject</label><input id="em-sub" value="${esc(em.subject)}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
       <label class="muted" style="font-size:14px">Message</label><textarea id="em-body" rows="13" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(em.body)}</textarea>
@@ -1653,11 +1720,11 @@ function renderShare(e){
   ['#sh-text', '#em-to', '#em-sub', '#em-body'].forEach(i => $(i).addEventListener('input', upd)); upd();
   const rtl = d => { $('#em-sub').dir = $('#em-body').dir = d ? 'rtl' : 'ltr'; };
   rtl(em.rtl);
-  $('#em-lang').onchange = () => { const l = $('#em-lang').value, d = emailDraftLang(e, l); $('#em-sub').value = d.subject; $('#em-body').value = d.body; rtl(d.rtl); $('#em-langnote').hidden = l === 'en'; upd(); };
+  $('#em-lang').onchange = () => { const l = $('#em-lang').value, d = emailDraftLang(e, l); LG = l; ta.value = shareText(e, l); drawPrev(); $('#em-sub').value = d.subject; $('#em-body').value = d.body; rtl(d.rtl); $('#em-langnote').hidden = l === 'en'; upd(); };
   $('#sh-copy').onclick = () => copy(ta.value + ' ' + url);
   $('#em-copy').onclick = () => copy('Subject: ' + $('#em-sub').value + '\n\n' + $('#em-body').value);
-  const pv = shareCard(e, 'story'), pc = $('#sh-prev'); pc.width = pv.width; pc.height = pv.height; pc.getContext('2d').drawImage(pv, 0, 0);
-  $$('[data-card]').forEach(b => b.onclick = () => { const a = document.createElement('a'); a.download = `${e.s}-${b.dataset.card}.png`; a.href = shareCard(e, b.dataset.card).toDataURL('image/png'); a.click(); });
+  function drawPrev() { const pv = shareCard(e, 'story', LG), pc = $('#sh-prev'); pc.width = pv.width; pc.height = pv.height; pc.getContext('2d').drawImage(pv, 0, 0); } drawPrev();
+  $$('[data-card]').forEach(b => b.onclick = () => { const a = document.createElement('a'); a.download = `${e.s}-${b.dataset.card}.png`; a.href = shareCard(e, b.dataset.card, LG).toDataURL('image/png'); a.click(); });
 }
 P.advocates.after = () => { wireSearch('s-act'); wireSearch('s-share', e => { $('#s-share input').value = e.n; $('#s-share .sugg').hidden = true; renderShare(e); }); };
 
