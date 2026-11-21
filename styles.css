@@ -708,3 +708,8 @@ nav.main .more-menu a.cnz:hover .cnz-go{transform:translate(2px,-2px);opacity:1}
 .glr{cursor:default}.glr:hover,.glr:focus-visible{background:var(--band);border-radius:6px;outline:none}
 
 .tip .trtxt{max-width:320px;white-space:normal;font-size:13.5px;line-height:1.4;margin-top:5px}.tip .trst{font-weight:600;color:var(--purple)}
+.sharedd>summary{cursor:pointer;list-style:none;padding:14px 18px;background:#fff;border:1px solid var(--line);border-radius:10px;position:relative;padding-right:44px}
+.sharedd>summary::-webkit-details-marker{display:none}
+.sharedd>summary::after{content:"▾";position:absolute;right:18px;top:18px;font-size:18px;color:var(--purple)}
+.sharedd[open]>summary::after{content:"▴"}
+.sharedd>summary:hover{border-color:var(--purple)}

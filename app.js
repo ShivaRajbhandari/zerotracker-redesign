@@ -913,13 +913,13 @@ P.entity = (params, slug) => {
     <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:190px;max-width:190px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(e.n)}">${me ? '✓ ' : '✗ '}${esc(shortName(e))}</td></tr>`; }).join('')}</table>`}
   </div></section>
 
-  <section class="tight"><div class="wrap grid2">
+  <section class="tight"><div class="wrap">
     <div><h2 class="h-brand" style="font-size:24px">Questions to ask</h2><p class="muted mt0">Generated from the gaps above. Use them in consultations, AGMs, council meetings or interviews.</p>
       <ol class="asks">${asks(e).map(([q, s]) => `<li>${esc(q)}<small>${esc(s)}</small></li>`).join('')}</ol></div>
-    <div id="share-box"><h2 class="h-brand" style="font-size:24px">Share this profile</h2><p class="muted mt0">A neutral summary you can post, or copy into a memo or briefing note. Edit it before you share.</p>
-      <textarea id="pf-text" rows="6" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(briefing(e).replace(/\nSource:.*$/, ''))}</textarea>
-      <p class="muted" id="pf-n" style="font-size:13.5px;margin:4px 0 10px"></p>
-      <div class="actions" style="flex-wrap:wrap"><a class="btn btn-purple btn-sm" id="pf-x" target="_blank" rel="noopener">Post on X</a><a class="btn btn-ghost btn-sm" id="pf-bs" target="_blank" rel="noopener">Bluesky</a><a class="btn btn-ghost btn-sm" id="pf-fb" target="_blank" rel="noopener">Facebook</a><a class="btn btn-ghost btn-sm" id="pf-li" target="_blank" rel="noopener">LinkedIn</a><button class="btn btn-ghost btn-sm" id="pf-copy">Copy text</button><button class="btn btn-ghost btn-sm" id="pf-card">Picture card</button></div></div>
+  </div></section>
+  <section class="tight band" id="share-box"><div class="wrap">
+    <details id="share-dd" class="sharedd"><summary><h2 class="h-brand" style="font-size:24px;display:inline">Share it, or write to someone who can act</h2><span class="muted" style="display:block;font-size:15px;margin-top:4px">Post about this profile, download a picture card, or draft an email to a policymaker, in 17 languages.</span></summary>
+      <div id="sh-out" class="mt2"></div></details>
   </div></section>
 
   <section class="tight band"><div class="wrap">
@@ -940,15 +940,9 @@ P.entity.after = (params, slug) => {
     $('#emis').innerHTML = html; const se = emisSeries(e); $('#emis-lede').textContent = `How greenhouse gas emissions ${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : e.t === 'company' ? 'of ' + e.n : e.t === 'region' ? 'in ' + e.n + ' region' : 'in ' + nm(e)} have changed since ${se.y0}${isNZ(e) || iyear(e) ? ', and what the target would require from here' : ''}.`;
     $('#emis-sec').hidden = false; emisWire(e); });
   $('#b-cmp').onclick = () => { let a = compareSet.get(); if (a.includes(e.s)) { location.hash = '#/compare'; return; } a = [...a, e.s].slice(-4); compareSet.set(a); $('#b-cmp').textContent = '✓ In comparison: view'; toast(`Added. ${a.length} in comparison.`); };
-  $('#b-share').onclick = () => $('#share-box').scrollIntoView({behavior:'smooth', block:'center'});
-  { const ta = $('#pf-text'), url = official(e), q = encodeURIComponent, short = () => { let t = ta.value.replace(/\s+/g, ' ').trim(); if (t.length > 250) { const cut = t.slice(0, 249); const i = Math.max(cut.lastIndexOf('. '), 0); t = i > 80 ? cut.slice(0, i + 1) : cut.trim() + '…'; } return t; };
-    const upd = () => { const t = short();
-      $('#pf-x').href = `https://twitter.com/intent/tweet?text=${q(t)}&url=${q(url)}`; $('#pf-bs').href = `https://bsky.app/intent/compose?text=${q(t + ' ' + url)}`;
-      $('#pf-fb').href = `https://www.facebook.com/sharer/sharer.php?u=${q(url)}`; $('#pf-li').href = `https://www.linkedin.com/sharing/share-offsite/?url=${q(url)}`;
-      $('#pf-n').textContent = ta.value.replace(/\s+/g, ' ').trim().length > 250 ? 'X and Bluesky posts use the first part (up to 250 characters). Copy text keeps all of it.' : 'The link to the entry is added automatically.'; };
-    ta.addEventListener('input', upd); upd();
-    $('#pf-copy').onclick = () => copy(ta.value.trim() + '\nSource: Net Zero Tracker, ' + url);
-    $('#pf-card').onclick = () => { const a = document.createElement('a'); a.download = `${e.s}-card.png`; a.href = shareCard(e, 'post').toDataURL('image/png'); a.click(); }; }
+  { const dd = $('#share-dd'), open = () => { if (!dd.dataset.r) { dd.dataset.r = '1'; renderShare(e); } };
+    dd.addEventListener('toggle', () => { if (dd.open) open(); });
+    $('#b-share').onclick = () => { dd.open = true; open(); $('#share-box').scrollIntoView({behavior:'smooth', block:'start'}); }; }
   $('#b-link').onclick = () => copy(location.href);
   $$('#peerseg button').forEach(b => b.onclick = () => { PM[e.t] = b.dataset.m; const y = scrollY; route(); scrollTo(0, y); });
   if ($('#s-peer')) wireSearch('s-peer', o => { if (o.s === e.s) return; compareSet.set([e.s, o.s]); location.hash = '#/compare'; }, x => x.t === 'city' && x.s !== slug);
@@ -1609,6 +1603,7 @@ function renderShare(e){
       <p class="muted" style="font-size:13.5px;margin:4px 0 12px"><span id="sh-n"></span> The link to the entry is added automatically.</p>
       <div class="actions" style="flex-wrap:wrap">
         <a class="btn btn-purple btn-sm" id="sh-x" target="_blank" rel="noopener">Post on X</a>
+        <a class="btn btn-ghost btn-sm" id="sh-bs" target="_blank" rel="noopener">Bluesky</a>
         <a class="btn btn-ghost btn-sm" id="sh-fb" target="_blank" rel="noopener">Facebook</a>
         <a class="btn btn-ghost btn-sm" id="sh-li" target="_blank" rel="noopener">LinkedIn</a>
         <button class="btn btn-ghost btn-sm" id="sh-copy">Copy text</button></div>
@@ -1628,6 +1623,7 @@ function renderShare(e){
   const ta = $('#sh-text'), url = official(e), upd = () => {
     const q = encodeURIComponent;
     $('#sh-x').href = `https://twitter.com/intent/tweet?text=${q(ta.value)}&url=${q(url)}`;
+    $('#sh-bs').href = `https://bsky.app/intent/compose?text=${q(ta.value + ' ' + url)}`;
     $('#sh-fb').href = `https://www.facebook.com/sharer/sharer.php?u=${q(url)}`;
     $('#sh-li').href = `https://www.linkedin.com/sharing/share-offsite/?url=${q(url)}`;
     const left = 280 - ta.value.length - 24; $('#sh-n').textContent = left >= 0 ? left + ' characters left for X.' : 'Over the X limit by ' + (-left) + ' characters.';
