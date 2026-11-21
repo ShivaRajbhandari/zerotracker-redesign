@@ -780,7 +780,9 @@ function pmarks(x, xa, xb, T, bottom, part){
     L.forEach(([yr, k, l, a0]) => { const t = narrow ? l.replace(' Protocol', '').replace(' Agreement', '') : l, w = t.length * 6.3;
       let a = a0; if (a === 'start' && x(yr) + 6 + w > right) a = 'end'; if (a === 'end' && x(yr) - 6 - w < x(xa)) a = 'start';
       const lx0 = a === 'start' ? x(yr) + 6 : x(yr) - 6 - w, dy = lab.some(o => !(lx0 + w < o.l || lx0 > o.l + o.w)) ? 14 : 0;
-      lab.push({yr, k, t, a, l: lx0, w, dy}); });
+      lab.push({yr, k, t, a, a0, l: lx0, w, dy}); });
+    const rot = lab.some(o => o.a !== o.a0 || o.dy);   // would collide or not fit: run the labels up the page beside their own lines instead
+    if (rot) return lab.map(({yr, k, t}) => { t = t.replace(' Protocol', '').replace(' Agreement', ''); const X = x(yr) - 5, Y = T + 4; return `<text class="trl" data-tr="${k}" tabindex="0" x="${X}" y="${Y}" transform="rotate(-90 ${X} ${Y})" text-anchor="end" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${t}</text>`; }).join('');
     return lab.map(({yr, k, t, a, dy}) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11 + dy}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${t}</text>`).join('');
   }
   if (part === 'labels-old') return L.map(([yr, k, l, a]) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${l}</text>`).join('');
