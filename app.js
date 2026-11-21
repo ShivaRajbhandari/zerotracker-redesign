@@ -861,6 +861,18 @@ const FX_SCN = [['Low emissions', 'SSP1-2.6', '#2f8a4c', 'roughly the “all ple
 const fxSign = (v, d = 1) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
 function fxPlace(e){ return e.c === 'EUU' ? 'the European Union' : e.t === 'country' ? nm(e) : e.n; }
 function fxNiceScale(lo, hi, n = 5){ const span = (hi - lo) || 1, raw = span / n, mag = 10 ** Math.floor(Math.log10(raw)), st = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= raw), a = Math.floor(lo / st) * st, b = Math.ceil(hi / st) * st, t = []; for (let v = a; v <= b + 1e-9; v += st) t.push(+v.toFixed(6)); return {a, b, t}; }
+// centered moving mean over w years (needs 60% of the window)
+function fxMean(pts, w){ const m = new Map(pts.filter(p => p[1] != null)), h = (w - 1) / 2; return pts.map(([x]) => { let t = 0, c = 0; for (let k = -h; k <= h; k++) { const v = m.get(x + k); if (v != null) { t += v; c++; } } return c >= Math.ceil(w * .6) ? [x, t / c] : null; }).filter(Boolean); }
+// light 3-point smoothing for the 5-year projection samples (end points kept)
+function fxSoft(pts){ return pts.map((p, i) => i === 0 || i === pts.length - 1 || pts[i - 1][1] == null || pts[i + 1][1] == null || p[1] == null ? p : [p[0], .25 * pts[i - 1][1] + .5 * p[1] + .25 * pts[i + 1][1]]); }
+// smooth monotone curve through pixel points
+function fxCurve(pts){
+  const n = pts.length, f = v => v.toFixed(1); if (n < 3) return pts.map((p, i) => (i ? 'L' : 'M') + f(p[0]) + ' ' + f(p[1])).join('');
+  const dx = [], m = []; for (let i = 0; i < n - 1; i++) { dx.push(pts[i + 1][0] - pts[i][0]); m.push((pts[i + 1][1] - pts[i][1]) / dx[i]); }
+  const t = [m[0]]; for (let i = 1; i < n - 1; i++) t.push(m[i - 1] * m[i] <= 0 ? 0 : (m[i - 1] + m[i]) / 2); t.push(m[n - 2]);
+  for (let i = 0; i < n - 1; i++) { if (m[i] === 0) { t[i] = 0; t[i + 1] = 0; continue; } const a = t[i] / m[i], b = t[i + 1] / m[i], q = a * a + b * b; if (q > 9) { const k = 3 / Math.sqrt(q); t[i] = k * a * m[i]; t[i + 1] = k * b * m[i]; } }
+  let d = `M${f(pts[0][0])} ${f(pts[0][1])}`; for (let i = 0; i < n - 1; i++) { const h = dx[i] / 3; d += `C${f(pts[i][0] + h)} ${f(pts[i][1] + t[i] * h)} ${f(pts[i + 1][0] - h)} ${f(pts[i + 1][1] - t[i + 1] * h)} ${f(pts[i + 1][0])} ${f(pts[i + 1][1])}`; } return d;
+}
 function fxBlock(id, title, lede, svg, src){ return `<div class="fxblock" id="fxb-${id}"><div class="shead"><h3>${title}</h3>${shareBarHtml('sh-' + id)}</div><p class="muted mt0" style="margin-bottom:8px">${lede}</p><div class="card emis">${svg}<p class="muted emis-src">${src}</p></div></div>`; }
 // a line chart with a hover read-out; series: [{name,color,pts:[[x,y]],w,op,dash}]
 function fxLine(id, o){
@@ -873,7 +885,7 @@ function fxLine(id, o){
     ${sc.t.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 0 && o.zero !== false ? '#9a94a3' : '#ece8ef'}"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${o.yfmt ? o.yfmt(t) : t}</text>`).join('')}
     ${xt.map(t => `<text x="${x(t)}" y="${H - 10}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text>`).join('')}
     ${(o.bands || []).map(b => `<rect x="${x(b[0])}" y="${T}" width="${x(b[1]) - x(b[0])}" height="${H - T - B}" fill="${b[2]}" opacity=".5"/>`).join('')}
-    ${o.series.map(s => `<path d="${path(s.pts)}" fill="none" stroke="${s.color}" stroke-width="${s.w || 2.6}" ${s.dash ? 'stroke-dasharray="6 5"' : ''} opacity="${s.op || 1}" stroke-linejoin="round"/>`).join('')}
+    ${o.series.map(s => `<path d="${s.smooth ? fxCurve(s.pts.filter(p => p[1] != null).map(p => [x(p[0]), y(p[1])])) : path(s.pts)}" fill="none" stroke="${s.color}" stroke-width="${s.w || 2.6}" ${s.dash ? 'stroke-dasharray="6 5"' : ''} opacity="${s.op || 1}" stroke-linejoin="round"/>`).join('')}
     ${o.note ? `<text x="${W - R}" y="${T + 12}" text-anchor="end" font-size="12" fill="#7a7385">${esc(o.note)}</text>` : ''}
     <line id="${id}-x" y1="${T}" y2="${H - B}" stroke="#271039" opacity="0"/><rect id="${id}-hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/></svg>`;
 }
@@ -901,12 +913,12 @@ async function fxRender(e){
   const T = F && F.t[e.s];
   if (T) {
     const obs = S && S.d[e.s], base0 = (() => { if (!obs) return null; const v = obs.slice(1995 - S.y0, 2015 - S.y0).filter(x => x != null); return v.length >= 15 ? v.reduce((a, b) => a + b, 0) / v.length : null; })();
-    const series = []; if (base0 != null) series.push({name: 'Measured', color: '#5f5869', w: 1.6, op: .8, pts: obs.map((v, i) => [S.y0 + i, v == null ? null : (v - base0) / 100]).filter(p => p[0] >= 1950)});
-    FX_SCN.forEach((sc, k) => series.push({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], pts: F.years.map((y, i) => [y, T[k + 1][i] == null ? null : T[k + 1][i] / 10])}));
+    const series = []; if (base0 != null) { const raw = obs.map((v, i) => [S.y0 + i, v == null ? null : (v - base0) / 100]).filter(p => p[0] >= 1950); series.push({name: 'Measured, each year', color: '#9a94a3', w: 1.1, op: .55, pts: raw}); series.push({name: 'Measured, 11-year average', color: '#3d3647', w: 2.8, smooth: true, pts: fxMean(raw, 11)}); }
+    FX_SCN.forEach((sc, k) => series.push({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], smooth: true, pts: fxSoft(F.years.map((y, i) => [y, T[k + 1][i] == null ? null : T[k + 1][i] / 10]))}));
     const end = FX_SCN.map((_, k) => T[k + 1][T[k + 1].length - 1] / 10), mid = F.years.indexOf(2050), at50 = FX_SCN.map((_, k) => T[k + 1][mid] / 10);
     const facts = FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k])}°C</b></div>`).join('') + `<div><span>${esc(P)} 1995–2014 average</span><b>${(T[0] / 10).toFixed(1)}°C</b></div>`;
-    const svg = fxLine('fx-t', {x0: 1950, x1: 2100, series, aria: `Projected temperature change for ${P} to 2100 under three emissions paths, compared with the 1995–2014 average`, yfmt: v => fxSign(v, 0) + '°', vfmt: v => fxSign(v) + '°C', snap: 6, note: '°C above the 1995–2014 average', bands: [[2025, 2100, 'rgba(235,232,239,.35)']]});
-    const key = FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('') + (base0 != null ? '<span><i style="background:#5f5869;height:3px"></i>Measured (Berkeley Earth)</span>' : '');
+    const svg = fxLine('fx-t', {x0: 1950, x1: 2100, series, aria: `Projected temperature change for ${P} to 2100 under three emissions paths, compared with the 1995–2014 average`, yfmt: v => fxSign(v, 0) + '°', vfmt: v => fxSign(v) + '°C', snap: 6, note: '°C above the 1995–2014 average', bands: [[2020, 2100, 'rgba(235,232,239,.35)']]});
+    const key = FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('') + (base0 != null ? '<span><i style="background:#3d3647;height:4px"></i>Measured, 11-year average (Berkeley Earth)</span><span><i style="background:#9a94a3;height:2px"></i>Measured, each year</span>' : '');
     blocks.push(fxBlock('fx-t', 'How much warmer could it get?', `Temperature in ${esc(P)} compared with its 1995–2014 average, from measurements up to now and from climate models to 2100.`, `<div class="emis-facts">${facts}</div>${svg}<div class="emis-key">${key}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Low emissions is roughly the Tracker’s “all pledges met” path, middle is roughly where today’s policies lead, and high is more warming than that.`));
     wires.push(() => { fxLineWire('fx-t'); fxShare('fx-t', e, 'projected-warming', 'Projected warming: ' + P, `${P} could be ${fxSign(end[1])}°C warmer by 2100 than in 1995–2014 on the middle emissions path (${fxSign(end[0])}°C if emissions fall fast, ${fxSign(end[2])}°C on a high path). #ClimateAction`); });
   }
@@ -928,7 +940,7 @@ async function fxRender(e){
   // 4. rain
   const RN = F && F.p && F.p[e.s];
   if (RN) {
-    const series = FX_SCN.map((sc, k) => ({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], pts: F.years.map((y, i) => [y, RN[k][i] == null ? null : RN[k][i] / 10])}));
+    const series = FX_SCN.map((sc, k) => ({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], smooth: true, pts: fxSoft(F.years.map((y, i) => [y, RN[k][i] == null ? null : RN[k][i] / 10]))}));
     const end = RN.map(a => a[a.length - 1] / 10), lo = Math.min(...end), hi = Math.max(...end), dir = lo > 2 ? 'wetter' : hi < -2 ? 'drier' : 'a mixed picture';
     const svg = fxLine('fx-r', {x0: 2020, x1: 2100, series, aria: `Projected change in yearly rainfall for ${P} to 2100 under three emissions paths`, yfmt: v => fxSign(v, 0) + '%', vfmt: v => fxSign(v) + '%', snap: 5, note: 'change in yearly rainfall vs 1995–2014'});
     blocks.push(fxBlock('fx-r', 'Will it get wetter or drier?', `Change in the total rain and snow that falls in a year in ${esc(P)}, compared with 1995–2014. The models point to ${dir} conditions overall, but rainfall is much harder to project than temperature.`, `<div class="emis-facts">${FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k], 0)}%</b></div>`).join('')}</div>${svg}<div class="emis-key">${FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('')}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Yearly totals hide big changes within the year: rain tends to arrive in heavier bursts with longer dry spells in between. Where the three lines disagree about whether rainfall goes up or down, treat the direction as uncertain.`));
@@ -938,7 +950,7 @@ async function fxRender(e){
   const G = SL && SL[e.s];
   if (G) {
     const [gname, dist, y0, y1, slope, vals] = G, pts = vals.map((v, i) => [y0 + i, v]), have = vals.filter(v => v != null), rise = have[have.length - 1] - have[0];
-    const svg = fxLine('fx-s', {x0: y0, x1: y1, zero: false, series: [{name: 'Sea level at ' + gname, color: '#2171b5', pts, w: 2.2}], aria: `Sea level at the ${gname} tide gauge, ${y0} to ${y1}`, yfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v), vfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v) + ' mm', snap: 2, note: 'mm, compared with the 1990s average'});
+    const svg = fxLine('fx-s', {x0: y0, x1: y1, zero: false, series: [{name: 'Each year', color: '#9ecae1', pts, w: 1.2, op: .9}, {name: '11-year average', color: '#08519c', smooth: true, pts: fxMean(pts, 11), w: 2.8}], aria: `Sea level at the ${gname} tide gauge, ${y0} to ${y1}`, yfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v), vfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v) + ' mm', snap: 2, note: 'mm, compared with the 1990s average'});
     blocks.push(fxBlock('fx-s', 'Rising seas', `Yearly average sea level at the ${esc(gname)} tide gauge${dist ? ` (${dist} km from the city centre)` : ''}, compared with its 1990–1999 average.`, `<div class="emis-facts"><div><span>Rise since ${y0}</span><b>${rise >= 0 ? '+' : '−'}${Math.abs(rise)} mm</b></div>${slope != null ? `<div><span>Last 50 years</span><b>${slope >= 0 ? '+' : '−'}${Math.abs(slope).toFixed(1)} mm a year</b></div>` : ''}</div>${svg}`, `<b>Source:</b> <a href="https://psmsl.org" target="_blank" rel="noopener">Permanent Service for Mean Sea Level</a> (PSMSL), revised local reference annual data; the nearest long tide-gauge record within 60 km. This is sea level relative to the land the gauge sits on, so it also includes land that is sinking or rising locally. For comparison, global sea level has risen about 3.5 mm a year recently.`));
     wires.push(() => { fxLineWire('fx-s'); fxShare('fx-s', e, 'sea-level', 'Sea level: ' + P, `Sea level at the ${gname} tide gauge near ${P} has risen ${Math.abs(rise)} mm since ${y0}${slope != null ? ` (about ${slope.toFixed(1)} mm a year over the last 50 years)` : ''}. #ClimateAction`); });
   }
@@ -976,7 +988,7 @@ async function globalFxShow(){
 }
 function effectsShow(e){
   if (e.t === 'company') return;
-  $('#fx-title').textContent = `See the effect of climate change on ${fxPlace(e)}`;
+  $('#fx-title').textContent = `See the effects of climate change on ${fxPlace(e)}`;
   $('#str-sec').hidden = false;
   const dd = $('#fx-dd'); if (!dd) return;
   dd.addEventListener('toggle', () => { if (dd.open && !dd.dataset.r) { dd.dataset.r = '1'; fxRender(e); } });
@@ -1161,27 +1173,37 @@ async function localeMapShow(e){
   const box = $('#lmap'); if (!box || e.t === 'company') return;
   try { await loadGeo(); } catch (x) { return; }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
-  const W = 340, H = 210, byIso = {}; D.forEach(x => { if (x.t === 'country' && x.iso) byIso[x.iso] = x; });
+  const W = 300, H = 180, byIso = {}; D.forEach(x => { if (x.t === 'country' && x.iso) byIso[x.iso] = x; });
   const cEntry = e.t === 'country' ? e : D.find(x => x.t === 'country' && x.c === e.c), all = topojson.feature(WORLD, WORLD.objects.countries).features.filter(f => f.id !== '010');
   const mineIds = e.c === 'EUU' ? EU27N : (cEntry && cEntry.iso ? [cEntry.iso] : []), mine = all.filter(f => mineIds.includes(f.id));
   if (!mine.length) return;
-  let proj, paths = '', dot = '';
   const mk = (d, cls, slug, label) => `<path d="${d}" class="${cls}"${slug ? ` data-s="${slug}" tabindex="0" role="link"` : ''} aria-label="${esc(label || '')}"/>`;
+  const dotAt = (proj, x, cls) => { if (!x.ll) return ''; const p = proj([x.ll[1], x.ll[0]]); return p ? `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.2" class="${cls}" data-s="${x.s}" tabindex="0" role="link" aria-label="${esc(x.n)}"/>` : ''; };
+  const countryProj = () => cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : d3.geoNaturalEarth1().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine.map(mainPart)});
+  const regs = e.c === 'EUU' ? [] : topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding);
+  const cities = e.c === 'EUU' ? [] : D.filter(x => x.t === 'city' && x.c === e.c && x.ll);
+  const figs = [];
+  const fig = (svg, cap) => figs.push(`<figure class="lmapfig"><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(cap)}">${svg}</svg><figcaption>${esc(cap)}</figcaption></figure>`);
   if (e.t === 'country') {
-    proj = d3.geoNaturalEarth1().fitExtent([[4, 4], [W - 4, H - 4]], {type:'Sphere'}); const P = d3.geoPath(proj);
-    paths = `<path d="${P({type:'Sphere'})}" class="lm-sea"/>` + all.map(f => { const x = byIso[f.id], me = mineIds.includes(f.id); return mk(P(f), me ? 'lm-me' : 'lm-c', x ? x.s : '', x ? x.n : ''); }).join('');
+    const proj = d3.geoNaturalEarth1().fitExtent([[4, 4], [W - 4, H - 4]], {type:'Sphere'}), P = d3.geoPath(proj);
+    fig(`<path d="${P({type:'Sphere'})}" class="lm-sea"/>` + all.map(f => { const x = byIso[f.id], me = mineIds.includes(f.id); return mk(P(f), me ? 'lm-me' : 'lm-c', x ? x.s : '', x ? x.n : ''); }).join(''), 'Where ' + (e.c === 'EUU' ? 'the European Union is' : nm(e) + ' is'));
+    if (e.c !== 'EUU' && (regs.length || cities.length)) {
+      const pj = countryProj(), P2 = d3.geoPath(pj);
+      fig(mine.map(f => mk(P2(f), 'lm-c lm-base', '', '')).join('') + (regs.length ? regs.map(f => { const r = BY[f.properties.s]; return mk(P2(f), 'lm-r', r.s, r.n); }).join('') : cities.map(c => dotAt(pj, c, 'lm-dot2')).join('')), regs.length ? capW(regTerm(regs.map(f => BY[f.properties.s])[0] || e)[1]) + ' of ' + nm(e) : 'Cities in ' + nm(e));
+    }
   } else {
-    const fc = {type:'FeatureCollection', features: mine.map(mainPart)};
-    proj = cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : d3.geoNaturalEarth1().fitExtent([[6, 6], [W - 6, H - 6]], fc);
-    const P = d3.geoPath(proj), regs = topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding);
-    paths = mine.map(f => mk(P(f), 'lm-c lm-base', cEntry.s, cEntry.n)).join('') + regs.map(f => { const r = BY[f.properties.s]; return mk(P(f), r.s === e.s ? 'lm-me' : 'lm-r', r.s, r.n); }).join('');
-    if (e.t === 'city' && e.ll) { const p = proj([e.ll[1], e.ll[0]]); if (p) dot = `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="9" class="lm-ring"/><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.5" class="lm-dot"/>`; }
+    const pj = countryProj(), P = d3.geoPath(pj);
+    fig(mine.map(f => mk(P(f), 'lm-c lm-base', cEntry.s, cEntry.n)).join('') + regs.map(f => { const r = BY[f.properties.s]; return mk(P(f), r.s === e.s ? 'lm-me' : 'lm-r', r.s, r.n); }).join('') + (e.t === 'city' ? dotAt(pj, e, 'lm-dot') .replace('r="4.2"', 'r="5"') + '' : ''), (e.t === 'region' ? placeName(e) + ' in ' : e.n + ' in ') + nm(cEntry));
+    if (e.t === 'region') {
+      const rf = regs.find(f => f.properties.s === e.s), inside = rf ? cities.filter(c => d3.geoContains(rf, [c.ll[1], c.ll[0]])) : [];
+      if (rf && inside.length) { const pj2 = d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], rf), P2 = d3.geoPath(pj2); fig(mk(P2(rf), 'lm-me lm-self', '', e.n) + inside.map(c => dotAt(pj2, c, 'lm-dot2')).join(''), (inside.length === 1 ? 'The city in ' : 'Cities in ') + e.n); }
+    }
   }
-  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="Map showing where ${esc(e.n)} is. Click an area to open its profile.">${paths}${dot}</svg><div class="lm-cap">${e.t === 'country' ? 'Click any country to open its profile' : 'Click an area to open its profile'}</div>`;
+  box.innerHTML = figs.join('') + `<div class="lm-cap">Click an area or a dot to open its profile</div>`;
   const go = el => { const sl = el && el.dataset && el.dataset.s; if (sl && sl !== e.s) location.hash = '#/e/' + sl; };
-  box.addEventListener('click', ev => go(ev.target.closest('path[data-s]')));
-  box.addEventListener('keydown', ev => { if (ev.key === 'Enter') go(ev.target.closest('path[data-s]')); });
-  const tip = ev => { const p = ev.target.closest('path[data-s]'); if (!p) { hideTip(); return; } const x = BY[p.dataset.s]; if (!x) return; showTip(`<div class="tipms"><b>${esc(x.n)}</b><div class="mrow"><span class="my"></span><span>${esc(targetPhrase(x))}</span></div>${x.s === e.s ? '' : '<div class="mrow"><span class="my"></span><span style="color:#7a7385">Click to open</span></div>'}</div>`, ev); };
+  box.addEventListener('click', ev => go(ev.target.closest('[data-s]')));
+  box.addEventListener('keydown', ev => { if (ev.key === 'Enter') go(ev.target.closest('[data-s]')); });
+  const tip = ev => { const p = ev.target.closest('[data-s]'); if (!p) { hideTip(); return; } const x = BY[p.dataset.s]; if (!x) return; showTip(`<div class="tipms"><b>${esc(x.n)}</b><div class="mrow"><span class="my"></span><span>${esc(targetPhrase(x))}</span></div>${x.s === e.s ? '' : '<div class="mrow"><span class="my"></span><span style="color:#7a7385">Click to open</span></div>'}</div>`, ev); };
   box.addEventListener('mousemove', tip); box.addEventListener('mouseleave', hideTip);
 }
 P.entity = (params, slug) => {
@@ -1207,9 +1229,10 @@ P.entity = (params, slug) => {
     <div class="ptop"><div>${typeBadge(e.t, e)}
       <h1>${e.t==='country' ? `<span class="flag">${flag(e.a2)}</span>` : ''}${esc(e.n)}</h1>
       <div class="facts">${facts.map(([k,v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('')}</div></div>
-      <div class="pside"><div class="lmap" id="lmap"></div>
+      <div class="pside">
       <div class="yr"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div></div>
     </div>
+    <div class="pmaps" id="lmap"></div>
   </div></div>
 
   <section class="tight"><div class="wrap">
@@ -1257,7 +1280,7 @@ P.entity = (params, slug) => {
       <ol class="asks">${asks(e).map(([q, s]) => `<li>${esc(q)}<small>${esc(s)}</small></li>`).join('')}</ol></div>
   </div></section>
   <section class="tight" id="share-box"><div class="wrap"><div class="accs">
-    <div id="str-sec" hidden><details class="sharedd" id="fx-dd"><summary><b class="acc-t" id="fx-title">See the effect of climate change here</b><span class="acc-s" id="fx-sub">How much warmer it has become since 1850, one stripe per year.</span></summary>
+    <div id="str-sec" hidden><details class="sharedd" id="fx-dd"><summary><b class="acc-t" id="fx-title">See the effects of climate change here</b><span class="acc-s" id="fx-sub">How much warmer it has become since 1850, one stripe per year.</span></summary>
       <div class="mt2" id="fx-body"><p class="muted">Loading…</p></div>
     </details></div>
     <details id="share-dd" class="sharedd"><summary><b class="acc-t">Share it, or write to someone who can act</b><span class="acc-s">Post about this profile, download a picture card, or draft an email to a policymaker, in 17 languages.</span></summary>

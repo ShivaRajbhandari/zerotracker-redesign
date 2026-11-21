@@ -819,12 +819,19 @@ footer.site{padding:26px 0}
 .lmap .lm-dot{fill:#E13B26;stroke:#fff;stroke-width:2}.lmap .lm-ring{fill:rgba(225,59,38,.18)}.lm-cap{font-size:12.5px;color:var(--muted);margin-top:4px;text-align:center}
 
 
-.pside{flex:none;width:260px;display:flex;flex-direction:column;align-items:flex-end;gap:10px}
-.pside .lmap{width:100%;align-self:stretch}
-@media(max-width:900px){.pside{width:100%;flex-direction:row;align-items:flex-end;justify-content:space-between;gap:16px}.pside .lmap{width:200px;flex:none;align-self:auto}.lm-cap{display:none}}
 .pside .yr{text-align:right}
 
 .fxblock{margin-top:28px}.fxblock:first-child{margin-top:0}.fxblock h3{margin:0;font-size:20px}.fxblock .card.emis{margin-top:0}
 
 .fxglobal{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.fxg .shead h3{font-size:18px;margin:0}.fxg .fxbig{font-size:38px;font-weight:800;line-height:1.1;color:var(--purple);margin-top:6px}
 @media(max-width:1000px){.fxglobal{grid-template-columns:1fr}}
+
+.pside{flex:none}
+.pmaps{display:flex;gap:18px;flex-wrap:wrap;margin-top:22px;align-items:flex-start}.pmaps:empty{display:none}
+.lmapfig{margin:0;width:300px;max-width:100%}.lmapfig svg{width:100%;height:auto;display:block}.lmapfig figcaption{font-size:13px;color:var(--muted);margin-top:4px}
+.pmaps .lm-sea{fill:#fff;stroke:#e6e2ea}.pmaps .lm-c{fill:#dcd7e3;stroke:#fff;stroke-width:.5}.pmaps .lm-base{fill:#e9e5ee}.pmaps .lm-r{fill:#cfc8da;stroke:#fff;stroke-width:.7}
+.pmaps .lm-me{fill:#E13B26;stroke:#fff;stroke-width:.7}.pmaps .lm-self{fill:#f3c9c2;stroke:#E13B26;stroke-width:1.2}
+.pmaps [data-s]{cursor:pointer}.pmaps path[data-s]:hover,.pmaps path[data-s]:focus{fill:var(--purple);outline:none}.pmaps .lm-me[data-s]:hover{fill:#E13B26;opacity:.85}
+.pmaps .lm-dot{fill:#E13B26;stroke:#fff;stroke-width:2}.pmaps .lm-dot2{fill:var(--purple);stroke:#fff;stroke-width:1.5}.pmaps .lm-dot2:hover,.pmaps .lm-dot2:focus{fill:#E13B26;outline:none}
+.pmaps .lm-cap{flex-basis:100%;font-size:12.5px;color:var(--muted);margin-top:-6px}
+.pmaps .lm-cap{text-align:left}
