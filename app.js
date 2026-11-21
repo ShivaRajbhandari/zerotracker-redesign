@@ -829,7 +829,7 @@ function loadComp(){ return window.NZCE ? Promise.resolve(window.NZCE) : new Pro
 function loadEmis(){ return Promise.all([loadEmis0(), loadComp()]).then(a => a[0]); }
 function loadEmis0(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bz'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 /* ---------- WARMING STRIPES (Berkeley Earth High Resolution Dataset, April 2026, land air temperature; CC BY-NC 4.0) ---------- */
-function loadStripes(){ return window.NZS ? Promise.resolve(window.NZS) : new Promise(res => { const t = document.createElement('script'); t.src = 'stripes.js?v=20261121s'; t.onload = () => res(window.NZS); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadStripes(){ return window.NZS ? Promise.resolve(window.NZS) : new Promise(res => { const t = document.createElement('script'); t.src = 'stripes.js?v=' + FX_V; t.onload = () => res(window.NZS); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const STR_BLUE = ['#deebf7', '#c6dbef', '#9ecae1', '#6baed6', '#4292c6', '#2171b5', '#08519c', '#08306b'], STR_RED = ['#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a', '#ef3b2c', '#cb181d', '#a50f15', '#67000d'];
 function stripesHtml(e){
   const S = window.NZS, a = S && S.d[e.s]; if (!a) return null;
@@ -856,7 +856,8 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=20261121y'; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
+const FX_V = '20261121zg';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const FX_SCN = [['Low emissions', 'SSP1-2.6', '#2f8a4c', 'roughly the “all pledges met” path'], ['Middle emissions', 'SSP2-4.5', '#c27a00', 'roughly where today’s policies lead'], ['High emissions', 'SSP3-7.0', '#c8331f', 'more warming than today’s policies']];
 const fxSign = (v, d = 1) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
 function fxPlace(e){ return e.c === 'EUU' ? 'the European Union' : e.t === 'country' ? nm(e) : e.n; }
@@ -902,14 +903,18 @@ const FX_SRC_CCKP = 'World Bank Climate Change Knowledge Portal, CMIP6 climate m
 
 async function fxRender(e){
   const body = $('#fx-body'); if (!body) return;
-  const [S, F, SL, DS] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD')]);
+  let S, F, SL, DS; try { [S, F, SL, DS] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD')]); } catch (err) { console.error(err); }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
   const P = fxPlace(e), blocks = [], wires = [];
+  let G = null, dv = null;   // set inside the sections, used for the sub-title
   // 1. stripes
+  try {
   const r = stripesHtml(e);
   if (r) { blocks.push(`<div class="fxblock" id="fxb-str"><div class="shead"><h3>Warming stripes</h3>${shareBarHtml('sh-str')}</div><p class="muted mt0" style="margin-bottom:8px">How the average temperature in ${esc(e.t === 'region' ? placeName(e) : P)} has changed since ${r.y0}. Each stripe is one year: blue years were cooler than the 1971–2000 average, red years warmer.</p><div class="card emis"><div class="emis-facts">${r.facts}</div>${r.svg}<p class="muted emis-src"><b>Source:</b> <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth</a> High Resolution Dataset (April 2026), land air temperature on a 0.25° grid (about 25 km), CC BY-NC 4.0. ${e.t === 'city' ? 'This is the temperature at the city’s location, not for a wider area.' : `This averages the land inside the ${regTerm(e)[0]}’s outline.`} Light grey stripes are years with no usable record; the early decades rest on few weather stations and are less certain. The colours follow the “warming stripes” by climate scientist <a href="https://showyourstripes.info" target="_blank" rel="noopener">Ed Hawkins</a>: the scale runs ±2.6 standard deviations around the 1971–2000 average.</p></div></div>`);
     wires.push(() => { stripesWire(e, r); const d1 = r.d1951; fxShare('str', e, 'warming-stripes', 'Warming stripes: ' + P, `${P} has warmed ${d1 != null ? fxSign(d1) + '°C in the last 10 years compared with 1951–1980' : 'since 1850'}. Each stripe is one year, from 1850 to 2025. #ClimateAction`); }); }
+  } catch (err) { console.error(err); }
   // 2. temperature ahead
+  try {
   const T = F && F.t[e.s];
   if (T) {
     const obs = S && S.d[e.s], base0 = (() => { if (!obs) return null; const v = obs.slice(1995 - S.y0, 2015 - S.y0).filter(x => x != null); return v.length >= 15 ? v.reduce((a, b) => a + b, 0) / v.length : null; })();
@@ -926,7 +931,9 @@ async function fxRender(e){
     blocks.push(fxBlock('fx-t', 'How much warmer could it get?', `Temperature in ${esc(P)} compared with its 1995–2014 average, from measurements up to now and from climate models to 2100.`, `<div class="emis-facts">${facts}</div>${svg}<div class="emis-key">${key}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Low emissions is roughly the Tracker’s “all pledges met” path, middle is roughly where today’s policies lead, and high is more warming than that. The model curves are lined up with the measured average in 2020 so the two join smoothly.`));
     wires.push(() => { fxLineWire('fx-t'); fxShare('fx-t', e, 'projected-warming', 'Projected warming: ' + P, `${P} could be ${fxSign(end[1])}°C warmer by 2100 than in 1995–2014 on the middle emissions path (${fxSign(end[0])}°C if emissions fall fast, ${fxSign(end[2])}°C on a high path). #ClimateAction`); });
   }
+  } catch (err) { console.error(err); }
   // 3. hot days
+  try {
   const H = F && F.hd[e.s];
   if (H && H[0] != null) {
     const per = F.periods, now = H[0] / 10, vals = H.slice(1).map(a => a.map(v => v == null ? null : v / 10)), mx = Math.max(now, ...vals.flat().filter(v => v != null));
@@ -941,7 +948,9 @@ async function fxRender(e){
       wires.push(() => fxShare('fx-h', e, 'hot-days', 'Very hot days: ' + P, `${P}: ${now < 10 ? now.toFixed(1) : Math.round(now)} days a year above 35°C in 1995–2014, and about ${m80[1] < 10 ? m80[1].toFixed(1) : Math.round(m80[1])} by 2080–2099 on the middle emissions path (${m80[0] < 10 ? m80[0].toFixed(1) : Math.round(m80[0])} if emissions fall fast, ${m80[2] < 10 ? m80[2].toFixed(1) : Math.round(m80[2])} on a high path). #ClimateAction`));
     }
   }
+  } catch (err) { console.error(err); }
   // 4. rain
+  try {
   const RN = F && F.p && F.p[e.s];
   if (RN) {
     const series = FX_SCN.map((sc, k) => ({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], smooth: true, pts: fxSoft(F.years.map((y, i) => [y, RN[k][i] == null ? null : RN[k][i] / 10]))}));
@@ -950,16 +959,20 @@ async function fxRender(e){
     blocks.push(fxBlock('fx-r', 'Will it get wetter or drier?', `Change in the total rain and snow that falls in a year in ${esc(P)}, compared with 1995–2014. The models point to ${dir} conditions overall, but rainfall is much harder to project than temperature.`, `<div class="emis-facts">${FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k], 0)}%</b></div>`).join('')}</div>${svg}<div class="emis-key">${FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('')}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Yearly totals hide big changes within the year: rain tends to arrive in heavier bursts with longer dry spells in between. Where the three lines disagree about whether rainfall goes up or down, treat the direction as uncertain.`));
     wires.push(() => { fxLineWire('fx-r'); fxShare('fx-r', e, 'rainfall-change', 'Rainfall change: ' + P, `Climate models suggest yearly rainfall in ${P} could change by ${fxSign(end[1], 0)}% by 2100 on the middle emissions path (${fxSign(end[0], 0)}% if emissions fall fast, ${fxSign(end[2], 0)}% on a high path), compared with 1995–2014. #ClimateAction`); });
   }
+  } catch (err) { console.error(err); }
   // 5. sea level (coastal cities)
-  const G = SL && SL[e.s];
+  try {
+  G = SL && SL[e.s];
   if (G) {
     const [gname, dist, y0, y1, slope, vals] = G, pts = vals.map((v, i) => [y0 + i, v]), have = vals.filter(v => v != null), rise = have[have.length - 1] - have[0];
     const svg = fxLine('fx-s', {x0: y0, x1: y1, zero: false, series: [{name: 'Each year', color: '#9ecae1', pts, w: 1.2, op: .9}, {name: '11-year average', color: '#08519c', smooth: true, pts: fxMean(pts, 11), w: 2.8}], aria: `Sea level at the ${gname} tide gauge, ${y0} to ${y1}`, yfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v), vfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v) + ' mm', snap: 2, note: 'mm, compared with the 1990s average'});
     blocks.push(fxBlock('fx-s', 'Rising seas', `Yearly average sea level at the ${esc(gname)} tide gauge${dist ? ` (${dist} km from the city centre)` : ''}, compared with its 1990–1999 average.`, `<div class="emis-facts"><div><span>Rise since ${y0}</span><b>${rise >= 0 ? '+' : '−'}${Math.abs(rise)} mm</b></div>${slope != null ? `<div><span>Last 50 years</span><b>${slope >= 0 ? '+' : '−'}${Math.abs(slope).toFixed(1)} mm a year</b></div>` : ''}</div>${svg}`, `<b>Source:</b> <a href="https://psmsl.org" target="_blank" rel="noopener">Permanent Service for Mean Sea Level</a> (PSMSL), revised local reference annual data; the nearest long tide-gauge record within 60 km. This is sea level relative to the land the gauge sits on, so it also includes land that is sinking or rising locally. For comparison, global sea level has risen about 3.5 mm a year recently.`));
     wires.push(() => { fxLineWire('fx-s'); fxShare('fx-s', e, 'sea-level', 'Sea level: ' + P, `Sea level at the ${gname} tide gauge near ${P} has risen ${Math.abs(rise)} mm since ${y0}${slope != null ? ` (about ${slope.toFixed(1)} mm a year over the last 50 years)` : ''}. #ClimateAction`); });
   }
+  } catch (err) { console.error(err); }
   // 6. disasters: damage as a share of GDP (countries only: it makes little sense at region or city scale)
-  const dv = e.t === 'country' && e.c !== 'EUU' && DS && DS.d.c[e.c];
+  try {
+  dv = e.t === 'country' && e.c !== 'EUU' && DS && DS.d.c[e.c];
   if (dv) {
     const D0 = DS.d.y0, usd = dv[0], pct = dv[1], valid = pct.filter(v => v != null), mxv = Math.max(...valid), wi = pct.indexOf(mxv), avg = valid.reduce((a, v) => a + v, 0) / valid.length;
     const money = m => m >= 1000 ? '$' + (m / 1000).toFixed(m >= 100000 ? 0 : 1) + ' billion' : '$' + (m >= 10 ? Math.round(m) : m.toFixed(1)) + ' million';
@@ -977,7 +990,8 @@ async function fxRender(e){
     blocks.push(fxBlock('fx-d', 'Cost of natural disasters', lede, facts + svg, src));
     wires.push(() => fxShare('fx-d', e, 'disaster-damage', 'Cost of natural disasters: ' + P, `Natural disasters have cost ${P} about ${pf(avg)} of its GDP a year on average since ${D0}, and ${pf(mxv)} in the worst year (${D0 + wi}) (EM-DAT). #ClimateAction`));
   }
-  if (!blocks.length) { body.innerHTML = '<p class="muted">We do not have climate data for this place yet.</p>'; return; }
+  } catch (err) { console.error(err); }
+  if (!blocks.length) { body.innerHTML = '<p class="muted">We could not show climate data for this place. If the page was open for a while, please refresh it.</p>'; return; }
   body.innerHTML = blocks.join(''); wires.forEach(w => { try { w(); } catch (x) {} });
   const sub = $('#fx-sub'); if (sub) sub.textContent = 'Warming so far, what the models project, very hot days, rainfall' + (G ? ', sea level' : '') + (dv ? ' and disasters' : '') + '.';
 }
