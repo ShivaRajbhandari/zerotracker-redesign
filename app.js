@@ -1454,7 +1454,7 @@ function lifeAnnual(s){
   const carF = s.car === 'ev' ? 0.18 * grid : KGKM[s.car] || 0, comF = s.commuteMode === 'car' ? carF : KGKM[s.commuteMode] || 0;
   br['Getting around'] = (s.commute * 2 * 230 * comF + (s.car && s.car !== 'none' ? 6000 * carF + (s.car2 ? 8000 * KGKM.petrol : 0) : 3000 * KGKM.transit)) / 1000;
   br.Flights = (s.fShort * 0.25 + s.fLong * 1.8) * (s.biz ? 3 : 1) + s.cruise * 1.5;
-  br.Food = s.diet; br.Shopping = s.stuff; br['Shared services'] = 1.0;
+  br.Food = s.diet; br.Shopping = s.stuff; br['AI use'] = s.ai || 0; br['Shared services'] = 1.0;
   return br;
 }
 const sumBr = br => Object.values(br).reduce((a, b) => a + b, 0);
@@ -1485,6 +1485,9 @@ function lifeSteps(){
       opts: s => [['No car', 'none'], ['Electric car', 'ev'], ['Hybrid', 'hybrid'], ['Petrol hatchback', 'petrol'], ['Big SUV', 'suv']].filter(o => !(s.commuteMode === 'car' && o[1] === 'none')).map(([t, c]) => ({t, f: s => { s.car = c; return `🚗 ${c === 'none' ? 'No car.' : 'You drive ' + t.toLowerCase().replace(/^big /, 'a big ').replace(/^(electric|hybrid|petrol)/, 'a $1') + '.'}`; }}))},
     {age: 25, title: 'Shopping', text: () => 'How do you shop for clothes, gadgets and stuff?',
       opts: () => [['Second-hand and repair', 0.8], ['Normal: buy what you need', 2.0], ['New phone every year, fast fashion, lots of deliveries', 4.5]].map(([t, v]) => ({t, f: s => { s.stuff = v; return `🛍️ ${t}.`; }}))},
+    {age: 25, title: 'Using AI', text: () => 'How much do you use AI chatbots and generators at work and at home? A text prompt uses about 0.3 watt-hours of electricity, an image about 2.3, and a 5-second video about 900.',
+      opts: () => [['Never', 0], ['A few questions a day (10 prompts)', 3650 * 0.3], ['All day at work (100 prompts a day)', 36500 * 0.3], ['Creator mode: 100 prompts, 20 images and 2 short videos a day', 36500 * 0.3 + 7300 * 2.3 + 730 * 900]].map(([t, wh]) => ({t, f: s => { s.ai = wh / 1000 * 0.47 / 1000; const kg = s.ai * 1000;
+        return `🤖 AI: ${t.toLowerCase()}. About ${kg < 1 ? kg.toFixed(1) : Math.round(kg)} kg CO₂e a year${wh > 100000 ? ', mostly from the videos' : wh ? `, about as much as driving ${Math.max(1, Math.round(kg / 0.17))} km in a petrol car` : ''}.${wh ? ' The bigger question is how the companies running data centres power them, which is why their targets matter.' : ''}`; }}))},
     {age: 25, title: 'Holidays in your twenties', text: () => 'How do you travel now?',
       opts: () => [['No flights', 0, 0], ['One long-haul trip a year', 0, 1], ['Six weekend city breaks by plane a year', 6, 0], ['City breaks and a long-haul trip', 6, 1]].map(([t, a, b]) => ({t, f: s => { s.fShort = a; s.fLong = b; return `✈️ ${t}.`; }})), end: true},
     {age: 35, title: 'Family', text: () => "You're 35. Who do you live with?",
@@ -1522,12 +1525,12 @@ function gameHtml(){
           <div class="score"><span>Your lifetime so far</span><b id="lg-total">0 t</b><small id="lg-avg"></small></div>
           <div class="gl" style="margin-top:12px">Your rival</div><div class="gopts rivals" id="g-rivals"></div>
           <div class="g-msg" id="g-msg" aria-live="polite"></div>
-          <div class="track"><div class="lane"><span>Your life</span><i id="g-bar-you"></i></div><div class="lane rival"><span id="g-rname">Rival</span><i style="width:100%"></i></div></div>
-          <p class="muted" style="font-size:12px;margin:8px 0 0">Bars on a log scale: each step is ten times more.</p>
+          <div class="track"><div class="lane"><span>Your life</span><span class="lbar"><i id="g-bar-you"></i><em id="g-pct"></em></span></div><div class="lane rival"><span id="g-rname">Rival</span><span class="lbar"><i style="width:100%"></i></span></div></div>
+          <p class="muted" style="font-size:12px;margin:8px 0 0">Drawn to scale. Your whole life is the sliver on the left.</p>
           <button class="lg-restart" id="lg-restart">↺ Start a new life</button>
         </div>
       </div>
-      <p class="muted game-src">Rough, rounded figures in tonnes of CO₂ equivalent for one person's consumption. Home energy uses each country's electricity carbon intensity (<a href="https://ourworldindata.org/grapher/carbon-intensity-electricity" target="_blank" rel="noopener" style="color:#fff">Our World in Data, from Ember</a>, 2024–25) and typical heating and cooling needs; a shared home is split between the people in it. Flights: about 0.25 t for a short return trip and 1.8 t for a long-haul one, tripled in business class; a week's cruise about 1.5 t. Food, shopping and shared public services use typical averages. Company figures are each company's latest reported Scope 1 and 2 emissions (via Wikirate), so they leave out supply chains and the products they sell. Amazon has no usable figure in this data.</p>
+      <p class="muted game-src">Rough, rounded figures in tonnes of CO₂ equivalent for one person's consumption. Home energy uses each country's electricity carbon intensity (<a href="https://ourworldindata.org/grapher/carbon-intensity-electricity" target="_blank" rel="noopener" style="color:#fff">Our World in Data, from Ember</a>, 2024–25) and typical heating and cooling needs; a shared home is split between the people in it. Flights: about 0.25 t for a short return trip and 1.8 t for a long-haul one, tripled in business class; a week's cruise about 1.5 t. AI: about 0.3 Wh per text prompt (Google reported 0.24 Wh for a median Gemini prompt in 2025; OpenAI cited 0.34 Wh for ChatGPT), about 2.3 Wh per image and 0.9 kWh per 5-second video (MIT Technology Review estimates, 2025), at the world-average 470 g CO₂ per kWh. Food, shopping and shared public services use typical averages. Company figures are each company's latest reported Scope 1 and 2 emissions (via Wikirate), so they leave out supply chains and the products they sell. Amazon has no usable figure in this data.</p>
     </div>`;
 }
 function wireGame(){
@@ -1552,7 +1555,8 @@ function wireGame(){
     $('#lg-total').textContent = nice(s.total) + ' t'; $('#lg-avg').textContent = s.age > 18 ? `${(s.total / ((s.age - 18) * WORLD_PC)).toFixed(1)}× the world average for those years` : '';
     if (R) {
       $('#g-rname').textContent = R.name;
-      $('#g-bar-you').style.width = (s.total > 1 ? Math.max(1, Math.log10(s.total) / Math.log10(R.t) * 100) : 1) + '%';
+      const share = s.total / R.t * 100; $('#g-bar-you').style.width = Math.min(100, share) + '%';
+      $('#g-pct').textContent = s.total ? share.toFixed(Math.min(12, Math.max(2, 1 - Math.floor(Math.log10(share))))) + `% of one year of ${R.name}` : '';
       $('#g-msg').innerHTML = s.total ? `${R.name} emits your lifetime so far in <b>${dur(s.total / R.t * 31557600)}</b>.` : `Pick choices on the left. ${R.name} emits ${nice(R.t)} t a year.`;
     }
     const card = $('#lg-card');
