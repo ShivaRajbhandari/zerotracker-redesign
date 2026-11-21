@@ -480,7 +480,7 @@ td.ms .more{display:inline-block;margin-left:4px;padding:0 6px;border-radius:9px
 .tipms b{display:block;margin-bottom:6px;color:var(--purple)}
 .tipms .mrow{display:flex;gap:10px;padding:3px 0;font-size:13.5px;line-height:1.3;border-top:1px solid #eee}
 .tipms .mrow:first-of-type{border-top:0}
-.tipms .my{flex:none;width:36px;font-weight:700;color:var(--purple)}
+.tipms .my{flex:none;min-width:36px;white-space:nowrap;font-weight:700;color:var(--purple)}
 .tipms em{font-style:normal;color:var(--muted)}
 .tipms .end{background:#f7f3fa;margin:3px -6px 0;padding:4px 6px;border-radius:5px}
 
