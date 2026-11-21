@@ -146,6 +146,29 @@ const tip = $('#tip');
 function showTip(html, ev){ tip.innerHTML = html; tip.style.display = 'block'; moveTip(ev); }
 function moveTip(ev){ const w = tip.offsetWidth, h = tip.offsetHeight; let x = ev.clientX + 14, y = ev.clientY + 14; if (x + w > innerWidth - 8) x = ev.clientX - w - 14; if (y + h > innerHeight - 8) y = ev.clientY - h - 14; tip.style.left = x + 'px'; tip.style.top = y + 'px'; }
 function hideTip(){ tip.style.display = 'none'; }
+// phones have no hover: a tap on a chart's hover area shows the same readout, and scrolling hides it
+document.addEventListener('pointerdown', ev => { if (ev.pointerType === 'mouse') return; const t = ev.target; if (t && t.id && /-hit$/.test(t.id)) t.dispatchEvent(new MouseEvent('mousemove', {clientX: ev.clientX, clientY: ev.clientY, bubbles: true})); }, true);
+addEventListener('scroll', () => { if (matchMedia('(hover: none)').matches) hideTip(); }, {passive: true});
+// per-person emissions: countries use each year's population (Our World in Data), regions and cities today's population
+const EPC = {on: false};
+function loadPop(){ return window.NZPOP ? Promise.resolve(window.NZPOP) : new Promise(res => { const t = document.createElement('script'); t.src = 'pop.js?v=20261121a'; t.onload = () => res(window.NZPOP); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function hasPop(e){ return e.t === 'country' || (e.t !== 'company' && +e.pop > 0); }
+function popAt(e, yr){ if (e.t === 'country') { const P = (window.NZPOP || {})[e.s]; if (!P) return null; const v = P[1][yr - P[0]]; return v ? v * 1e3 : null; } return +e.pop > 0 ? +e.pop : null; }
+function viewSeries(e, pc){
+  const se = emisSeries(e); if (!se || !pc || e.t === 'company') return se;
+  const v = se.v.map((m, i) => { if (m == null) return null; const q = popAt(e, se.y0 + i); return q ? m * 1e6 / q : null; });
+  let a = 0; while (a < v.length && v[a] == null) a++;
+  return a < v.length ? {...se, y0: se.y0 + a, v: v.slice(a), pc: true} : null;
+}
+// charts are drawn at the width they are shown at, so their text stays readable on a phone
+function chartW(){ const m = document.getElementById('main'), w = (m && m.clientWidth) || innerWidth; return Math.max(340, Math.min(900, Math.round(w - 56))); }
+// on a phone a tap on the map or a company box opens a small card instead of going straight to the profile
+function placeCard(box, e){
+  if (!box || !e) return; let c = box.querySelector('.mapcard');
+  if (!c) { c = document.createElement('div'); c.className = 'mapcard'; box.appendChild(c); }
+  c.innerHTML = `<button class="x" aria-label="Close">×</button><div>${tipHtml(e).replace(/<br><span class="k" style="font-size:12.5px">Click for the full profile<\/span>/, '')}</div><a class="btn btn-purple btn-sm" href="#/e/${e.s}">Open profile →</a>`;
+  c.hidden = false; c.querySelector('.x').onclick = ev => { ev.stopPropagation(); c.hidden = true; };
+}
 const compareSet = { get(){ try { return JSON.parse(localStorage.getItem('nzt-cmp') || '[]').filter(s => BY[s]); } catch(e) { return this._m || []; } },
   set(a){ this._m = a; try { localStorage.setItem('nzt-cmp', JSON.stringify(a)); } catch(e){} } };
 
@@ -410,6 +433,7 @@ function paint(st){
 }
 function applyHl(st){
   const root = $('#' + st.id + ' .mapbox'); if (!root) return;
+  if (st.kind === 'co' && st.narrow && !st.sec) renderSecGrid(st);
   root.classList.toggle('dim', !!st.hl);
   $$('[data-s]', root).forEach(el => el.classList.toggle('hl', !!st.hl && el.dataset.cat === st.hl));
 }
@@ -437,7 +461,7 @@ async function drawMap(id){
   try { [WORLD, REG] = await Promise.all([WORLD || fetch('world.json').then(r => r.json()), REG || fetch('regions.json').then(r => r.json())]); }
   catch (e) { box.innerHTML = '<div class="empty">The map data could not load.</div>'; return; }
   if (!document.body.contains(box)) return;
-  const W = 960, H = 500;
+  const W = 960, H = 500, narrow = innerWidth < 700, touch = matchMedia('(hover: none)').matches;
   const cf = topojson.feature(WORLD, WORLD.objects.countries).features.filter(f => f.id !== '010');
   const rf = topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && f.geometry).map(fixWinding);
   const proj = d3.geoNaturalEarth1().fitExtent([[4,4],[W-4,H-4]], {type:'FeatureCollection', features:cf}), path = d3.geoPath(proj);
@@ -448,21 +472,24 @@ async function drawMap(id){
   st.n = {country:st.ents.country.length, region:st.ents.region.length, city:st.ents.city.length};
   box.innerHTML = `<aside class="vpanel"></aside><div class="vmain">
     <div class="mapbox"><div class="zoomctl"><button data-z="in" aria-label="Zoom in">+</button><button data-z="out" aria-label="Zoom out">−</button><button data-z="reset" aria-label="Reset zoom" style="font-size:13px">⟲</button></div>
-    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="World map of net zero targets for countries, regions and cities. The same information is in the tables below.">
+    <svg viewBox="0 0 ${W} ${H}"${narrow ? ' class="tall" preserveAspectRatio="xMidYMid slice"' : ''} role="img" aria-label="World map of net zero targets for countries, regions and cities. The same information is in the tables below.">
       <g class="zoomer"><g class="L-base">${cp.map(d => `<path class="base" d="${d}"></path>`).join('')}</g><g class="L-country">${cf.map((f, i) => { const e = byIso[f.id]; return `<path class="land c" d="${cp[i]}"${e ? ` data-s="${e.s}"` : ' fill="#ececec"'}></path>`; }).join('')}</g>
       <g class="L-region">${rf.map(f => `<path class="land r" d="${path(f)}" data-s="${f.properties.s}"></path>`).join('')}</g>
-      <g class="L-city">${pins.map(p => `<circle class="pin" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="3.4" data-s="${p.e.s}"></circle>`).join('')}</g></g>
+      <g class="L-city">${pins.map(p => `<circle class="pin" cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${narrow ? 3.2 : 3.4}" data-s="${p.e.s}"></circle>`).join('')}</g></g>
     </svg></div>
-    <p class="foot-note">Drag to move the map. Zoom with the + and − buttons, or hold Ctrl or ⌘ and scroll. Cities show as dots, regions as outlined areas. ${fmt(722 - st.n.region)} regions and ${fmt(1185 - st.n.city)} city cannot be placed on the map yet, but they are in the tables.</p></div>`;
+    <p class="foot-note">${touch || narrow ? 'Drag to move the map, pinch or use + and − to zoom, and tap a place for its details.' : 'Drag to move the map. Zoom with the + and − buttons, or hold Ctrl or ⌘ and scroll.'} Cities show as dots, regions as outlined areas. ${fmt(722 - st.n.region)} regions and ${fmt(1185 - st.n.city)} city cannot be placed on the map yet, but they are in the tables.</p></div>`;
   const svgEl = $('svg', box), svg = d3.select(svgEl), gz = svg.select('g.zoomer'); let k = 1;
-  const zoom = d3.zoom().scaleExtent([1, 16]).translateExtent([[0,0],[W,H]]).extent([[0,0],[W,H]])
-    .filter(ev => ev.type === 'wheel' ? (ev.ctrlKey || ev.metaKey) : ev.type.startsWith('touch') ? (k > 1 || (ev.touches && ev.touches.length > 1)) : !ev.button)
-    .on('zoom', ev => { k = ev.transform.k; gz.attr('transform', ev.transform); gz.selectAll('circle.pin').attr('r', Math.max(1.5, 3.6 / Math.pow(k, 0.62))); });
-  svg.call(zoom); svgEl.style.touchAction = 'pan-y pinch-zoom';
+  // on a phone the map fills a tall box cropped at the sides, so zoom works on the visible part and one finger can pan sideways
+  const vis = (() => { if (!narrow) return [[0,0],[W,H]]; const cw = svgEl.clientWidth || 360, ch = svgEl.clientHeight || 480, sc = Math.max(cw / W, ch / H), vw = cw / sc, vh = ch / sc; return [[(W - vw) / 2, (H - vh) / 2], [(W + vw) / 2, (H + vh) / 2]]; })();
+  const zoom = d3.zoom().scaleExtent([1, 16]).translateExtent([[0,0],[W,H]]).extent(vis)
+    .filter(ev => ev.type === 'wheel' ? (ev.ctrlKey || ev.metaKey) : ev.type.startsWith('touch') ? (narrow || k > 1 || (ev.touches && ev.touches.length > 1)) : !ev.button)
+    .on('zoom', ev => { k = ev.transform.k; gz.attr('transform', ev.transform); gz.selectAll('circle.pin').attr('r', Math.max(1.5, (narrow ? 3.4 : 3.6) / Math.pow(k, 0.62))); });
+  svg.call(zoom); svgEl.style.touchAction = narrow ? 'pan-y' : 'pan-y pinch-zoom';
+  if (narrow) { const c0 = proj([12, 18]); zoom.translateTo(svg, c0[0], c0[1]); }
   $$('[data-z]', box).forEach(b => b.onclick = () => { const a = b.dataset.z; svg.transition().duration(220).call(a === 'reset' ? zoom.transform : zoom.scaleBy, a === 'reset' ? d3.zoomIdentity : (a === 'in' ? 1.7 : 1 / 1.7)); });
   svgEl.addEventListener('mousemove', ev => { const el = ev.target.closest('[data-s]'); if (!el) return hideTip(); showTip(tipHtml(BY[el.dataset.s]), ev); });
   svgEl.addEventListener('mouseleave', hideTip);
-  svgEl.addEventListener('click', ev => { const el = ev.target.closest('[data-s]'); if (el) { hideTip(); location.hash = '#/e/' + el.dataset.s; } });
+  svgEl.addEventListener('click', ev => { const el = ev.target.closest('[data-s]'); if (!el) return; hideTip(); if (matchMedia('(hover: none)').matches) placeCard(el.closest('.mapbox'), BY[el.dataset.s]); else location.hash = '#/e/' + el.dataset.s; });
   paint(st);
 }
 
@@ -471,28 +498,45 @@ async function drawCompanies(id){
   const box = $('#' + id); if (!box) return;
   if (!window.d3) { box.innerHTML = '<div class="empty">The chart library did not load. The table has the same data.</div>'; return; }
   const ents = universe('company');
-  const st = VZ[id] = {id, kind:'co', mode:'status', size:'rev', hl:null, counts:{}, ents};
+  const st = VZ[id] = {id, kind:'co', mode:'status', size:'rev', hl:null, counts:{}, ents, narrow: innerWidth < 700, sec: null};
   box.innerHTML = `<aside class="vpanel"></aside><div class="vmain"><div class="mapbox"><svg viewBox="0 0 960 560" role="img" aria-label="Treemap of the world's largest public companies, grouped by sector. Each box is a company. The table below has the same data."></svg></div><p class="foot-note" id="${id}-cap"></p></div>`;
-  const svgEl = $('svg', box);
+  const svgEl = $('.mapbox', box);  // listeners on the box, because a phone swaps the chart inside it
   svgEl.addEventListener('mousemove', ev => { const el = ev.target.closest('[data-s]'); if (!el) return hideTip(); showTip(tipHtml(BY[el.dataset.s]) , ev); });
   svgEl.addEventListener('mouseleave', hideTip);
-  svgEl.addEventListener('click', ev => { const el = ev.target.closest('[data-s]'); if (el) { hideTip(); location.hash = '#/e/' + el.dataset.s; } });
+  svgEl.addEventListener('click', ev => { const el = ev.target.closest('[data-s]'); if (!el) return; hideTip(); if (matchMedia('(hover: none)').matches) placeCard(el.closest('.mapbox'), BY[el.dataset.s]); else location.hash = '#/e/' + el.dataset.s; });
   const revAll = ents.reduce((s, e) => s + (e.rev || 0), 0), revNZ = ents.filter(isNZ).reduce((s, e) => s + (e.rev || 0), 0);
   $('#' + id + '-cap').innerHTML = `Each box is one company, grouped by sector. <b>${pct(ents.filter(isNZ).length, ents.length)}%</b> of these ${fmt(ents.length)} public companies have a net zero target, and together they earn <b>${pct(revNZ, revAll)}%</b> of the group's combined revenue. Companies with no revenue figure are drawn small.`;
   drawTreemap(st);
 }
 function drawTreemap(st){
-  const svgEl = $('#' + st.id + ' svg'); if (!svgEl) return;
-  const W = 960, H = 560, bySec = new Map();
+  const mb = $('#' + st.id + ' .mapbox'); if (!mb) return;
+  const bySec = new Map();
   st.ents.forEach(e => { const s = e.sec && e.sec !== 'NA' ? e.sec : 'Other / unclassified'; if (!bySec.has(s)) bySec.set(s, []); bySec.get(s).push(e); });
-  const root = d3.hierarchy({children:[...bySec].map(([name, c]) => ({name, children:c}))}).sum(d => d.s ? (st.size === 'rev' ? Math.max(d.rev || 0, 2e8) : 1) : 0).sort((a, b) => b.value - a.value);
-  d3.treemap().size([W, H]).paddingOuter(3).paddingTop(d => d.depth === 1 ? 19 : 0).paddingInner(1).round(true)(root);
+  st.secs = bySec;
+  if (st.narrow && !st.sec) { mb.innerHTML = '<div class="secgrid"></div>'; paint(st); return; }
+  const groups = st.narrow ? [[st.sec, bySec.get(st.sec) || []]] : [...bySec];
+  const W = st.narrow ? 400 : 960, H = st.narrow ? Math.min(1500, Math.max(440, groups[0][1].length * 7)) : 560;
+  if (st.narrow) mb.innerHTML = `<div class="secbar"><button class="btn btn-ghost btn-sm" data-back>← All sectors</button><span><b>${esc(st.sec)}</b> <span class="muted">· ${fmt(groups[0][1].length)} companies</span></span></div><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Companies in ${esc(st.sec)}, one box each. The table below has the same data."></svg>`;
+  else if (!$('svg', mb) || $('.secbar', mb)) mb.innerHTML = `<svg viewBox="0 0 960 560" role="img" aria-label="Treemap of the world's largest public companies, grouped by sector. Each box is a company. The table below has the same data."></svg>`;
+  const svgEl = $('svg', mb);
+  const root = d3.hierarchy({children: groups.map(([name, c]) => ({name, children:c}))}).sum(d => d.s ? (st.size === 'rev' ? Math.max(d.rev || 0, 2e8) : 1) : 0).sort((a, b) => b.value - a.value);
+  d3.treemap().size([W, H]).paddingOuter(st.narrow ? 0 : 3).paddingTop(d => d.depth === 1 && !st.narrow ? 19 : 0).paddingInner(1).round(true)(root);
   const short = (t, w, px) => { const n = Math.floor(w / px); return t.length > n ? t.slice(0, Math.max(n - 1, 0)).trim() + '…' : t; };
-  svgEl.innerHTML = root.children.map(g => `<g><text x="${g.x0 + 3}" y="${g.y0 + 14}" class="tg">${esc(short(g.data.name.toUpperCase(), g.x1 - g.x0 - 6, 7.6))}</text>${g.children.map(c => {
+  svgEl.innerHTML = root.children.map(g => `<g>${st.narrow ? '' : `<text x="${g.x0 + 3}" y="${g.y0 + 14}" class="tg">${esc(short(g.data.name.toUpperCase(), g.x1 - g.x0 - 6, 7.6))}</text>`}${g.children.map(c => {
     const w = c.x1 - c.x0, h = c.y1 - c.y0, e = c.data;
     return `<rect x="${c.x0}" y="${c.y0}" width="${w}" height="${h}" data-s="${e.s}"></rect>`; }).join('')}</g>`).join('') +
     root.leaves().map(c => { const w = c.x1 - c.x0, h = c.y1 - c.y0; return w > 62 && h > 20 ? `<text class="tl" data-for="${c.data.s}" x="${c.x0 + 4}" y="${c.y0 + 14}">${esc(short(c.data.n, w - 8, 6.6))}</text>` : ''; }).join('');
+  const bk = $('[data-back]', mb); if (bk) bk.onclick = () => { st.sec = null; drawTreemap(st); mb.scrollIntoView({block: 'nearest'}); };
   paint(st);
+}
+function renderSecGrid(st){
+  const g = $('#' + st.id + ' .secgrid'); if (!g || !st.secs) return;
+  const M = MODES[st.mode];
+  g.innerHTML = [...st.secs].sort((a, b) => b[1].length - a[1].length).map(([name, es]) => {
+    const cnt = {}; es.forEach(e => { const l = catOf(st.mode, e).label; cnt[l] = (cnt[l] || 0) + 1; });
+    const bar = M.cats.filter(c => cnt[c.label]).map(c => `<i style="width:${(cnt[c.label] / es.length * 100).toFixed(2)}%;background:${c.hex}${st.hl && st.hl !== c.label ? ';opacity:.2' : ''}" title="${esc(c.label)}: ${cnt[c.label]}"></i>`).join('');
+    return `<button class="seccard" data-sec="${esc(name)}"><b>${esc(name)}</b><span>${fmt(es.length)} companies · ${pct(es.filter(isNZ).length, es.length)}% net zero</span><span class="sbar">${bar}</span></button>`; }).join('');
+  $$('[data-sec]', g).forEach(b => b.onclick = () => { st.sec = b.dataset.sec; drawTreemap(st); });
 }
 
 /* ---------- EXPLORE ---------- */
@@ -711,14 +755,14 @@ const shortGap = {lock:'the target is not locked in', interim:'no near-term mile
 function timelineSVG(e){
   const y = year(e), iy = iyear(e), start = 2015;
   const end = Math.max(2070, (y||0) + 5);
-  const W = 900, x = v => 30 + (v - start) / (end - start) * (W - 60);
+  const W = innerWidth < 640 ? 460 : 900, x = v => 30 + (v - start) / (end - start) * (W - 60);
   const ticks = []; for (let t = 2020; t <= end; t += 10) ticks.push(t);
-  const close = y && hasAnyTarget(e) && Math.abs(x(y) - x(NOW)) < 130, tAn = !close ? 'middle' : y >= NOW ? 'start' : 'end', nAn = !close ? 'middle' : y >= NOW ? 'end' : 'start';
+  const close = y && hasAnyTarget(e) && Math.abs(x(y) - x(NOW)) < 130 * W / 900, tAn = !close ? 'middle' : y >= NOW ? 'start' : 'end', nAn = !close ? 'middle' : y >= NOW ? 'end' : 'start';
   const mk = (v, lab, sub, col, up, an = 'middle') => `<g><line x1="${x(v)}" x2="${x(v)}" y1="${up?40:60}" y2="${up?60:80}" stroke="${col}" stroke-width="2"/><circle cx="${x(v)}" cy="60" r="8" fill="${col}" stroke="#fff" stroke-width="3"/><text x="${x(v) + (an === 'end' ? -12 : an === 'start' ? 12 : 0)}" y="${up?22:104}" text-anchor="${an}" font-size="15" font-weight="700" fill="${col}">${lab}</text><text x="${x(v) + (an === 'end' ? -12 : an === 'start' ? 12 : 0)}" y="${up?36:120}" text-anchor="${an}" font-size="12.5" fill="#5f5869">${sub}</text></g>`;
   return `<svg viewBox="0 0 ${W} 130" role="img" aria-label="Timeline: today ${NOW}${iy ? ', milestone ' + iy : ''}${y ? ', target ' + y : ''}">
     <line x1="${x(start)}" x2="${x(end)}" y1="60" y2="60" stroke="#dcdcdc" stroke-width="6" stroke-linecap="round"/>
     ${y && isNZ(e) ? `<line x1="${x(NOW)}" x2="${x(y)}" y1="60" y2="60" stroke="#b2d49b" stroke-width="6" stroke-linecap="round"/>` : ''}
-    ${ticks.map(t => `<text x="${x(t)}" y="${y && Math.abs(t-y)<4 || iy && Math.abs(t-iy)<4 || Math.abs(t-NOW)<4 ? -100 : 66+28}" text-anchor="middle" font-size="12" fill="#9a94a3">${t}</text>`).join('')}
+    ${ticks.map(t => `<text x="${x(t)}" y="${y && Math.abs(t-y)<(W < 600 ? 7 : 4) || iy && Math.abs(t-iy)<(W < 600 ? 7 : 4) || Math.abs(t-NOW)<(W < 600 ? 7 : 4) ? -100 : 66+28}" text-anchor="middle" font-size="12" fill="#9a94a3">${t}</text>`).join('')}
     ${mk(NOW, 'Today', String(NOW), '#271039', true, nAn)}
     ${iy && iy >= start ? mk(iy, 'Milestone ' + iy, e.ip ? e.ip + '% cut' : 'interim target', '#c27a00', false) : ''}
     ${y && hasAnyTarget(e) ? mk(y, (isNZ(e) ? 'Net zero ' : 'Target ') + y, y > NOW ? (y - NOW) + ' years away' : 'target year', '#3B7CC3', true, tAn) : ''}
@@ -730,7 +774,16 @@ function timelineSVG(e){
 // Kyoto Protocol (adopted 1997) and Paris Agreement (adopted 2015) markers for the emissions charts
 function pmarks(x, xa, xb, T, bottom, part){
   const L = [[1997, 'kyoto', 'Kyoto Protocol, 1997', 'end'], [2015, 'paris', 'Paris Agreement, 2015', 'start']].filter(([yr]) => yr >= xa && yr <= xb);
-  if (part === 'labels') return L.map(([yr, k, l, a]) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${l}</text>`).join('');
+  if (part === 'labels') {
+    // narrow charts: shorter labels, kept inside the plot, stacked if they would collide
+    const narrow = x(xb) - x(xa) < 520, right = x(xb), lab = [];
+    L.forEach(([yr, k, l, a0]) => { const t = narrow ? l.replace(' Protocol', '').replace(' Agreement', '') : l, w = t.length * 6.3;
+      let a = a0; if (a === 'start' && x(yr) + 6 + w > right) a = 'end'; if (a === 'end' && x(yr) - 6 - w < x(xa)) a = 'start';
+      const lx0 = a === 'start' ? x(yr) + 6 : x(yr) - 6 - w, dy = lab.some(o => !(lx0 + w < o.l || lx0 > o.l + o.w)) ? 14 : 0;
+      lab.push({yr, k, t, a, l: lx0, w, dy}); });
+    return lab.map(({yr, k, t, a, dy}) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11 + dy}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${t}</text>`).join('');
+  }
+  if (part === 'labels-old') return L.map(([yr, k, l, a]) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${l}</text>`).join('');
   return L.map(([yr]) => `<line x1="${x(yr)}" x2="${x(yr)}" y1="${T}" y2="${bottom}" stroke="#2f8a4c" stroke-width="1.6" stroke-dasharray="4 4" opacity=".75"/>`).join('');
 }
 const TREATY = {
@@ -770,11 +823,11 @@ function compSrc(e, K, y0, y1){
 }
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
-  const se = emisSeries(e); if (!se) return '';
+  const pc = EPC.on && e.t !== 'company' && hasPop(e), se = viewSeries(e, pc); if (!se) return '';
   const {y0, v, kind} = se, y1 = y0 + v.length - 1, nz = isNZ(e) ? year(e) : null, iy = iyear(e), ib = parseInt(e.ib), ip = +e.ip;
   const val = yr => v[yr - y0];
-  const endX = Math.min(2100, Math.max(2050, nz || 0, y1 + 5)), W = 900, H = 330, L = 64, R = 24, T = 20, B = 36;
-  const nzOk = nz && nz > y1 && nz <= 2100, endY = Math.max(endX, nzOk ? nz : 0);
+  const endX = pc ? y1 + 2 : Math.min(2100, Math.max(2050, nz || 0, y1 + 5)), W = chartW(), H = W < 600 ? 300 : 330, L = 64, R = 24, T = 20, B = 36;
+  const nzOk = !pc && nz && nz > y1 && nz <= 2100, endY = pc ? endX : Math.max(endX, nzOk ? nz : 0);
   const ymax = Math.max(...v) * 1.1, x = yr => L + (yr - y0) / (endY - y0) * (W - L - R), yy = m => T + (1 - m / ymax) * (H - T - B);
   const step = (endY - y0) > 120 ? 25 : (endY - y0) > 60 ? 10 : 5, ticks = []; for (let t = Math.ceil(y0 / step) * step; t <= endY; t += step) ticks.push(t);
   const nice = ymax / 4, mag = 10 ** Math.floor(Math.log10(nice)), ny = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= nice), yt = []; for (let t = 0; t <= ymax; t += ny) yt.push(t);
@@ -785,7 +838,7 @@ function emisChart(e){
   const s1path = s1p.length > 1 ? `<path d="${s1p.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${yy(p[1]).toFixed(1)}`).join('')}L${x(s1p[s1p.length - 1][0])} ${yy(0)}L${x(s1p[0][0])} ${yy(0)}Z" fill="#A5865C" opacity=".8"/>` : '';
   const dots = K ? PT.map(p => `<circle cx="${x(p[0]).toFixed(1)}" cy="${yy(p[1]).toFixed(1)}" r="3.4" fill="#A5865C"/>`).join('') : '';
   const last = v[v.length - 1], lx = x(y1), ly = yy(last);
-  const base = ib >= y0 && ib <= y1 ? val(ib) : null, ims = base && iy && ip > 0 && iy > y1 && iy <= 2100 ? [iy, base * (1 - ip / 100)] : null;
+  const base = ib >= y0 && ib <= y1 ? val(ib) : null, ims = !pc && base && iy && ip > 0 && iy > y1 && iy <= 2100 ? [iy, base * (1 - ip / 100)] : null;
   const rec = e.ghg && e.iy_inv && +e.iy_inv >= y0 && +e.iy_inv <= y1 ? [+e.iy_inv, e.ghg / 1e6] : null;
   const path = [];
   if (nzOk) { const from = ims || [y1, last]; if (ims) path.push(`<line x1="${lx}" y1="${ly}" x2="${x(ims[0])}" y2="${yy(ims[1])}" stroke="#3B7CC3" stroke-width="2.5" stroke-dasharray="6 5"/>`); path.push(`<line x1="${x(from[0])}" y1="${yy(from[1])}" x2="${x(nz)}" y2="${yy(0)}" stroke="#3B7CC3" stroke-width="2.5" stroke-dasharray="6 5"/><path d="M${x(nz)} ${yy(0) - 9} l9 9 l-9 9 l-9 -9z" fill="#3B7CC3" stroke="#fff" stroke-width="2"><title>Net zero ${nz}</title></path><text x="${x(nz) - 14}" y="${yy(0) - 18}" text-anchor="end" font-size="12.5" font-weight="700" fill="#3B7CC3" paint-order="stroke" stroke="#fff" stroke-width="4">Net zero ${nz}</text>`); }
@@ -794,31 +847,32 @@ function emisChart(e){
   const svg = `<svg viewBox="0 0 ${W} ${H}" id="emis-svg" data-end="${endY}" data-t="${T}" data-h="${H}" data-b="${B}" data-ymax="${ymax}" role="img" aria-label="Greenhouse gas emissions of ${esc(e.n)} from ${y0} to ${y1}, latest ${fmtMt(last)} million tonnes CO2 equivalent" style="width:100%;height:auto;display:block">
     ${yt.map(t => `<line x1="${L}" x2="${W - R}" y1="${yy(t)}" y2="${yy(t)}" stroke="#ece8ef"/><text x="${L - 8}" y="${yy(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${fmt(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text><line x1="${x(t)}" x2="${x(t)}" y1="${H - B}" y2="${H - B + 4}" stroke="#bbb"/>`).join('')}
-    <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">Mt CO₂e per year</text>
-    <path d="${line}L${lx} ${yy(0)}L${x(y0)} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/>${s1path}<path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>${dots}
+    <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">${pc ? 't CO₂e per person a year' : 'Mt CO₂e per year'}</text>
+    <path d="${line}L${lx} ${yy(0)}L${x(PT[0][0])} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/>${s1path}<path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>${dots}
     <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
     ${pmarks(x, y0, endY, T, H - B, 'lines')}
     ${path.join('')}
     <circle cx="${lx}" cy="${ly}" r="5" fill="#A5865C" stroke="#fff" stroke-width="2"/>
-    <text x="${lx - 10}" y="${ly - 26 > T + 30 ? ly - 26 : ly + 34}" text-anchor="end" font-size="12.5" font-weight="700" fill="#5b4a2e" paint-order="stroke" stroke="#fff" stroke-width="4">${fmtMt(last)} Mt in ${y1}</text>
+    <text x="${lx - 10}" y="${ly - 26 > T + 30 ? ly - 26 : ly + 34}" text-anchor="end" font-size="12.5" font-weight="700" fill="#5b4a2e" paint-order="stroke" stroke="#fff" stroke-width="4">${fmtMt(last)} ${pc ? 't per person' : 'Mt'} in ${y1}</text>
     <line id="emis-x" y1="${T}" y2="${H - B}" stroke="#271039" stroke-width="1" opacity="0"/><circle id="emis-d" r="5" fill="#271039" stroke="#fff" stroke-width="2" opacity="0"/>
     <rect id="emis-hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>${pmarks(x, y0, endY, T, H - B, 'labels')}</svg>`;
   let pk = 0; v.forEach((m, i) => { if (m > v[pk]) pk = i; });
-  const facts = [[`Latest (${y1})`, `${fmtMt(last)} Mt CO₂e`], [`Peak (${y0 + pk})`, `${fmtMt(v[pk])} Mt CO₂e`]];
+  const U = pc ? 't CO₂e per person' : 'Mt CO₂e', facts = [[`Latest (${y1})`, `${fmtMt(last)} ${U}`], [`Peak (${y0 + pk})`, `${fmtMt(v[pk])} ${U}`]];
   if (y0 <= 1990 && y1 > 1990 && val(1990)) { const c = (last / val(1990) - 1) * 100; facts.push(['Change since 1990', `${c > 0 ? '+' : '−'}${Math.abs(c).toFixed(0)}%`]); }
   if (K) facts.push(['Years with figures', `${PT.length} of ${y1 - y0 + 1} (${y0}–${y1})`]);
-  if (kind === 'c') facts.push([`Since ${y0}`, `${fmt(Math.round(v.reduce((a, b) => a + b, 0) / 1000))} Gt CO₂e in total`]);
+  if (kind === 'c' && !pc) facts.push([`Since ${y0}`, `${fmt(Math.round(v.reduce((a, b) => a + b, 0) / 1000))} Gt CO₂e in total`]);
   const src = K ? compSrc(e, K, y0, y1) : kind === 'c'
     ? `Source: <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (total greenhouse gases including land use and forestry, from Jones et al., 2024; CC BY). Estimates before about 1950 are rough.`
     : (() => { const u = (window.NZE.u || {})[e.s], R = (window.NZE.r || {})[e.s] || 10;
       const where = e.t !== 'city' ? 'summed over the grid cells inside the region' : u ? (u[2] ? `summed over the part of the urban centre “${esc(u[0])}” (${fmt(u[1])} km²) within about ${Math.max(R, 10)} km of the city centre, because that urban centre contains several cities in the Tracker` : `summed over the urban centre outline for ${esc(u[0])} (${fmt(u[1])} km²) from the European Commission’s <a href="https://human-settlement.emergency.copernicus.eu/ghs_ucdb_2024.php" target="_blank" rel="noopener">Global Human Settlement Layer</a>`) : `summed over the grid cells within about ${R} km of the city centre, because no urban outline matched`;
       return `Source: <a href="https://edgar.jrc.ec.europa.eu/dataset_ghg80" target="_blank" rel="noopener">EDGAR v8.0</a>, European Commission Joint Research Centre (CC BY 4.0): all greenhouse gases from human activity except land use, as CO₂ equivalent, ${where}. The data is gridded at roughly 11 km, so it is approximate and will not match an official inventory. <a href="#/notes/emissions">How this was built</a>.`; })();
-  return `<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
+  const pcNote = pc ? (e.t === 'country' ? ' Per person: divided by each year\'s population (Our World in Data, CC BY).' : ` Per person: divided by today\'s population (${fmt(+e.pop)}), because yearly population figures are not available here, so earlier years are only indicative.`) + ' Target paths are shown only for totals, because targets are set for total emissions.' : '';
+  return `${e.t !== 'company' && hasPop(e) ? `<div class="emis-ctl"><div class="seg segs" role="group" aria-label="Measure"><button data-pc="0" class="${pc ? '' : 'on'}"><b>Total</b></button><button data-pc="1" class="${pc ? 'on' : ''}"><b>Per person</b></button></div></div>` : ''}<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
     <div class="emis-key">${K && K.src === 'wr' ? `<span><i style="background:#A5865C;opacity:.8"></i>Scope 1: direct</span><span><i style="background:#e6d6bd"></i>Scope 2: purchased energy (${m2Sum(K)})</span>` : `<span><i style="background:#A5865C"></i>Emissions</span>`}${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}</div>
-    <p class="muted emis-src">${src}</p></div>`;
+    <p class="muted emis-src">${src}${pcNote}</p></div>`;
 }
 function emisWire(e){
-  const se = emisSeries(e), svg = $('#emis-svg'); if (!se || !svg) return;
+  const se = viewSeries(e, EPC.on && e.t !== 'company' && hasPop(e)), svg = $('#emis-svg'); if (!se || !svg) return;
   treatyWire(svg, [e]);
   const hit = $('#emis-hit'), vx = $('#emis-x'), vd = $('#emis-d'), {y0, v} = se, y1 = y0 + v.length - 1;
   const bb = () => { const r = svg.viewBox.baseVal; return r; };
@@ -832,7 +886,7 @@ function emisWire(e){
     const Y = +svg.dataset.t + (1 - v[yr - y0] / +svg.dataset.ymax) * (+svg.dataset.h - +svg.dataset.t - +svg.dataset.b);
     vx.setAttribute('x1', X); vx.setAttribute('x2', X); vx.setAttribute('opacity', .35); vd.setAttribute('cx', X); vd.setAttribute('cy', Y); vd.setAttribute('opacity', 1);
     const split = K && K.s1 ? `<div class="mrow"><span class="my">${fmtMt(K.s1[i])}</span><span>Scope 1 (direct)</span></div>` + (K.s2[i] != null ? `<div class="mrow"><span class="my">${fmtMt(K.s2[i])}</span><span>Scope 2, ${M2[K.m2[i]] || 'method not stated'}</span></div>` : `<div class="mrow"><span>Scope 2 not reported</span></div>`) : '';
-    showTip(`<div class="tipms"><b>${yr}</b><div class="mrow"><span class="my">${fmtMt(v[yr - y0])}</span><span>Mt CO₂e${split ? ' in total' : ''}</span></div>${split}</div>`, ev);
+    showTip(`<div class="tipms"><b>${yr}</b><div class="mrow"><span class="my">${fmtMt(v[yr - y0])}</span><span>${se.pc ? 't CO₂e per person' : 'Mt CO₂e'}${split ? ' in total' : ''}</span></div>${split}</div>`, ev);
   });
   hit.addEventListener('mouseleave', () => { hideTip(); vx.setAttribute('opacity', 0); vd.setAttribute('opacity', 0); });
 }
@@ -1020,9 +1074,12 @@ P.entity = (params, slug) => {
 };
 P.entity.after = (params, slug) => {
   const e = BY[slug]; if (!e) return;
-  loadEmis().then(E => { if (!E || location.hash.indexOf('/e/' + slug) < 0) return; const html = emisChart(e); if (!html) return;
-    $('#emis').innerHTML = html; const se = emisSeries(e); $('#emis-lede').textContent = `How greenhouse gas emissions ${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : e.t === 'company' ? 'of ' + e.n : e.t === 'region' ? 'in ' + e.n + ' region' : 'in ' + nm(e)} have changed since ${se.y0}${isNZ(e) || iyear(e) ? ', and what the target would require from here' : ''}.`;
-    $('#emis-sec').hidden = false; emisWire(e); });
+  const renderE = () => { const html = emisChart(e); if (!html) return false;
+    $('#emis').innerHTML = html; const se = viewSeries(e, EPC.on && e.t !== 'company' && hasPop(e));
+    $$('#emis [data-pc]').forEach(b => b.onclick = () => { EPC.on = b.dataset.pc === '1'; (EPC.on ? loadPop() : Promise.resolve()).then(renderE); });
+    $('#emis-lede').textContent = `How greenhouse gas emissions ${se.pc ? 'per person ' : ''}${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : e.t === 'company' ? 'of ' + e.n : e.t === 'region' ? 'in ' + e.n + ' region' : 'in ' + nm(e)} have changed since ${se.y0}${!se.pc && (isNZ(e) || iyear(e)) ? ', and what the target would require from here' : ''}.`;
+    emisWire(e); return true; };
+  Promise.all([loadEmis(), EPC.on ? loadPop() : null]).then(([E]) => { if (!E || location.hash.indexOf('/e/' + slug) < 0) return; if (renderE()) $('#emis-sec').hidden = false; });
   $('#b-cmp').onclick = () => { let a = compareSet.get(); if (a.includes(e.s)) { location.hash = '#/compare'; return; } a = [...a, e.s].slice(-4); compareSet.set(a); $('#b-cmp').textContent = '✓ In comparison: view'; toast(`Added. ${a.length} in comparison.`); };
   { const dd = $('#share-dd'), open = () => { if (!dd.dataset.r) { dd.dataset.r = '1'; renderShare(e); } };
     dd.addEventListener('toggle', () => { if (dd.open) open(); });
@@ -1115,13 +1172,13 @@ function wireTl(){}  // no hover details on the timeline markers
 /* ---------- COMPARE: emissions of all selected entries on one chart ---------- */
 const CMP_COL = ['#3B7CC3', '#E13B26', '#5EA845', '#8a6a3d'];
 function cmpEmisHtml(es, st){
-  const L = es.map((e, i) => ({e, se: emisSeries(e), c: CMP_COL[i % 4]})).filter(r => r.se);
-  if (!L.length) return '';
+  const pc = st.mode === 'pc', L = es.map((e, i) => ({e, se: pc ? (e.t === 'company' ? null : viewSeries(e, hasPop(e))) : emisSeries(e), c: CMP_COL[i % 4]})).filter(r => r.se && (!pc || r.se.pc));
+  if (!L.length) { if (pc) { st.mode = 'abs'; return cmpEmisHtml(es, st); } return ''; }
   const idx = st.mode === 'idx', allC = L.every(r => r.se.kind === 'c');
   let x0 = Math.max(...L.map(r => r.se.y0)); if (st.from === '1970') x0 = Math.max(x0, 1970); if (idx) x0 = Math.max(x0, 1990);
   const dataEnd = Math.max(...L.map(r => r.se.y0 + r.se.v.length - 1));
   // each entry's own target path: straight lines from its latest figure to its milestone and to net zero (illustrative)
-  const TG = L.map(r => { const e = r.e, v = r.se.v, y0 = r.se.y0, yL = y0 + v.length - 1, vL = v[v.length - 1], ib = parseInt(e.ib), ip = +e.ip, iy = iyear(e), nz = isNZ(e) ? year(e) : null;
+  const TG = L.map(r => { if (pc) return null; const e = r.e, v = r.se.v, y0 = r.se.y0, yL = y0 + v.length - 1, vL = v[v.length - 1], ib = parseInt(e.ib), ip = +e.ip, iy = iyear(e), nz = isNZ(e) ? year(e) : null;
     const base = ib >= y0 && ib <= yL ? v[ib - y0] : null, pts = [[yL, vL]];
     if (base && iy && ip > 0 && iy > yL && iy <= 2100) pts.push([iy, base * (1 - ip / 100), 'ms']);
     if (nz && nz > yL && nz <= 2100 && (!pts[1] || nz > pts[1][0])) pts.push([nz, 0, 'nz']);
@@ -1133,7 +1190,7 @@ function cmpEmisHtml(es, st){
   S2.forEach((r, i) => { r.tg = st.paths === false || !TG[i] ? null : TG[i].map(p => [p[0], conv(r, p[1]), p[2]]); });
   for (let i = S2.length - 1; i >= 0; i--) if (!S2[i].pts.length || S2[i].pts.some(p => !isFinite(p[1]))) S2.splice(i, 1);
   if (!S2.length) return '';
-  const W = 900, H = 340, Lm = 64, Rm = 150, T = 20, B = 36, allv = S2.flatMap(r => r.pts.map(p => p[1]).concat((r.tg || []).map(p => p[1]))), ymax = Math.max(...allv, idx ? 10 : 0) * 1.08, ymin = idx ? Math.min(0, ...allv) * 1.08 : 0;
+  const W = chartW(), H = W < 600 ? 300 : 340, Lm = 64, Rm = W < 600 ? 96 : 150, T = 20, B = 36, allv = S2.flatMap(r => r.pts.map(p => p[1]).concat((r.tg || []).map(p => p[1]))), ymax = Math.max(...allv, idx ? 10 : 0) * 1.08, ymin = idx ? Math.min(0, ...allv) * 1.08 : 0;
   const x = yr => Lm + (yr - x0) / (x1 - x0) * (W - Lm - Rm), y = v => T + (1 - (v - ymin) / (ymax - ymin)) * (H - T - B);
   const step = (x1 - x0) > 120 ? 25 : (x1 - x0) > 50 ? 10 : 5, ticks = []; for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) ticks.push(t);
   const nice = (ymax - ymin) / 4, mag = 10 ** Math.floor(Math.log10(nice)), ny = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= nice), yt = []; for (let t = Math.ceil(ymin / ny) * ny; t <= ymax; t += ny) yt.push(t);
@@ -1144,37 +1201,37 @@ function cmpEmisHtml(es, st){
   const svg = `<svg viewBox="0 0 ${W} ${H}" id="cmpe-svg" data-x0="${x0}" data-x1="${x1}" data-t="${T}" data-b="${B}" data-h="${H}" data-lm="${Lm}" data-rm="${Rm}" data-w="${W}" role="img" aria-label="Emissions of ${S2.map(r => esc(r.e.n)).join(', ')}" style="width:100%;height:auto;display:block">
     ${yt.map(t => `<line x1="${Lm}" x2="${W - Rm}" y1="${y(t)}" y2="${y(t)}" stroke="#ece8ef"/><text x="${Lm - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${pf(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text>`).join('')}
-    <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">${idx ? 'Change since 1990' : 'Mt CO₂e per year'}</text>
+    <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">${idx ? 'Change since 1990' : pc ? 't CO₂e per person a year' : 'Mt CO₂e per year'}</text>
     ${pmarks(x, x0, x1, T, H - B, 'lines')}
     ${idx ? `<line x1="${Lm}" x2="${W - Rm}" y1="${y(0)}" y2="${y(0)}" stroke="#9a93a6" stroke-dasharray="4 4"/>` : ''}
     ${S2.map(r => `<path d="${r.pts.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${y(p[1]).toFixed(1)}`).join('')}" fill="none" stroke="${r.c}" stroke-width="2.8" stroke-linejoin="round"/>`).join('')}
     ${S2.map(r => r.tg ? `<path d="${r.tg.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${y(p[1]).toFixed(1)}`).join('')}" fill="none" stroke="${r.c}" stroke-width="2.4" stroke-dasharray="6 5"/>${r.tg.slice(1).map(p => p[2] === 'nz' ? `<path d="M${x(p[0])} ${y(p[1]) - 8} l8 8 l-8 8 l-8 -8z" fill="${r.c}" stroke="#fff" stroke-width="2"><title>${esc(r.e.n)}: net zero ${p[0]}</title></path>` : `<circle cx="${x(p[0])}" cy="${y(p[1])}" r="5.5" fill="${r.c}" stroke="#fff" stroke-width="2"><title>${esc(r.e.n)}: milestone ${p[0]}</title></circle>`).join('')}` : '').join('')}
-    ${ends.map(({r, yy}) => { const lp = r.tg ? r.tg[r.tg.length - 1] : r.pts[r.pts.length - 1], dp = r.pts[r.pts.length - 1]; return `<circle cx="${x(dp[0])}" cy="${y(dp[1])}" r="4.5" fill="${r.c}" stroke="#fff" stroke-width="2"/><text x="${x(x1) + 12}" y="${yy + 4}" font-size="12.5" font-weight="700" fill="${r.c}">${esc(nameOf(r.e).slice(0, 18))}</text>`; }).join('')}
+    ${ends.map(({r, yy}) => { const lp = r.tg ? r.tg[r.tg.length - 1] : r.pts[r.pts.length - 1], dp = r.pts[r.pts.length - 1]; return `<circle cx="${x(dp[0])}" cy="${y(dp[1])}" r="4.5" fill="${r.c}" stroke="#fff" stroke-width="2"/><text x="${x(x1) + 12}" y="${yy + 4}" font-size="12.5" font-weight="700" fill="${r.c}">${esc(nameOf(r.e).slice(0, W < 600 ? 11 : 18))}</text>`; }).join('')}
     <line id="cmpe-x" y1="${T}" y2="${H - B}" stroke="#271039" opacity="0"/>
     <rect id="cmpe-hit" x="${Lm}" y="${T}" width="${W - Lm - Rm}" height="${H - T - B}" fill="transparent"/>${pmarks(x, x0, x1, T, H - B, 'labels')}</svg>`;
   const missing = es.filter(e => !emisSeries(e)).map(e => e.n);
   const mixed = new Set(S2.map(r => r.se.kind)).size > 1;
-  window.__cmpe = {S2, x0, x1, idx};
-  return `<div class="emis-ctl"><div class="seg segs" id="cmpe-mode" role="group" aria-label="Scale"><button data-m="abs" class="${idx ? '' : 'on'}"><b>Total</b></button><button data-m="idx" class="${idx ? 'on' : ''}"><b>Change since 1990</b></button></div>
+  window.__cmpe = {S2, x0, x1, idx, pc};
+  return `<div class="emis-ctl"><div class="seg segs" id="cmpe-mode" role="group" aria-label="Scale"><button data-m="abs" class="${idx || pc ? '' : 'on'}"><b>Total</b></button>${es.some(e => e.t !== 'company') ? `<button data-m="pc" class="${pc ? 'on' : ''}"><b>Per person</b></button>` : ''}<button data-m="idx" class="${idx ? 'on' : ''}"><b>Change since 1990</b></button></div>
     ${TG.some(Boolean) ? `<div class="seg segs" id="cmpe-paths" role="group" aria-label="Target paths"><button data-p="1" class="${st.paths === false ? '' : 'on'}"><b>With target paths</b></button><button data-p="0" class="${st.paths === false ? 'on' : ''}"><b>History only</b></button></div>` : ''}
     ${allC && !idx ? `<div class="seg segs" id="cmpe-from" role="group" aria-label="Period"><button data-f="all" class="${st.from === 'all' ? 'on' : ''}"><b>Since ${Math.max(...L.map(r => r.se.y0))}</b></button><button data-f="1970" class="${st.from === '1970' ? 'on' : ''}"><b>Since 1970</b></button></div>` : ''}</div>
     <div class="card emis">${svg}<div class="emis-key">${S2.map(r => `<span><i style="background:${r.c}"></i>${esc(r.e.n)}</span>`).join('')}${S2.some(r => r.tg) ? '<span><i class="dash" style="border-top-color:#6d6677"></i>Straight-line path to each target (illustrative)</span>' : ''}</div>
-    <p class="muted emis-src">${mixed ? 'Countries come from Our World in Data (including land use and forestry) and cities and regions from EDGAR v8.0 (without land use), so their levels are not strictly comparable. The change view shows how each has moved. ' : ''}${missing.length ? `No emissions series for ${esc(missing.join(', '))}. ` : ''}${L.some(r => r.e.t === 'company') ? 'Company figures are worldwide Scope 1 and 2 emissions, reported by the company (via Wikirate) or estimated by Climate TRACE, so they are not comparable with the totals for places' + (idx ? '; the change view leaves companies out because there is no 1990 figure' : '') + '. ' : ''}${idx ? 'Change is measured from 1990, so places of very different sizes can be compared. ' : ''}<a href="#/notes/emissions">How this was built</a>.</p></div>`;
+    <p class="muted emis-src">${pc ? 'Per person: countries are divided by each year\'s population (Our World in Data); regions and cities by today\'s population, so their earlier years are only indicative. Companies are left out, and target paths are shown only for totals. ' : ''}${mixed ? 'Countries come from Our World in Data (including land use and forestry) and cities and regions from EDGAR v8.0 (without land use), so their levels are not strictly comparable. The change view shows how each has moved. ' : ''}${missing.length ? `No emissions series for ${esc(missing.join(', '))}. ` : ''}${L.some(r => r.e.t === 'company') ? 'Company figures are worldwide Scope 1 and 2 emissions, reported by the company (via Wikirate) or estimated by Climate TRACE, so they are not comparable with the totals for places' + (idx ? '; the change view leaves companies out because there is no 1990 figure' : '') + '. ' : ''}${idx ? 'Change is measured from 1990, so places of very different sizes can be compared. ' : ''}<a href="#/notes/emissions">How this was built</a>.</p></div>`;
 }
 function cmpEmisWire(es, st){
   const box = $('#cmpe'); if (!box) return;
   const draw = () => { box.innerHTML = cmpEmisHtml(es, st); wire(); };
   const wire = () => {
-    $$('#cmpe-mode button').forEach(b => b.onclick = () => { st.mode = b.dataset.m; draw(); });
+    $$('#cmpe-mode button').forEach(b => b.onclick = () => { st.mode = b.dataset.m; (st.mode === 'pc' ? loadPop() : Promise.resolve()).then(draw); });
     $$('#cmpe-from button').forEach(b => b.onclick = () => { st.from = b.dataset.f; draw(); });
     $$('#cmpe-paths button').forEach(b => b.onclick = () => { st.paths = b.dataset.p === '1'; draw(); });
     const svg = $('#cmpe-svg'), hit = $('#cmpe-hit'), vx = $('#cmpe-x'); if (!svg) return;
     treatyWire(svg, es);
     hit.addEventListener('mousemove', ev => {
       const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse());
-      const {S2, x0, x1, idx} = window.__cmpe, hx = +hit.getAttribute('x'), hw = +hit.getAttribute('width'), yr = Math.round(x0 + Math.max(0, Math.min(1, (p.x - hx) / hw)) * (x1 - x0));
+      const {S2, x0, x1, idx, pc} = window.__cmpe, hx = +hit.getAttribute('x'), hw = +hit.getAttribute('width'), yr = Math.round(x0 + Math.max(0, Math.min(1, (p.x - hx) / hw)) * (x1 - x0));
       const X = hx + (yr - x0) / (x1 - x0) * hw; vx.setAttribute('x1', X); vx.setAttribute('x2', X); vx.setAttribute('opacity', .3);
-      const val = v => idx ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(0) + '%' : (Math.abs(v) < 1e-9 ? '0' : fmtMt(v)) + ' Mt';
+      const val = v => idx ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(v).toFixed(0) + '%' : (Math.abs(v) < 1e-9 ? '0' : fmtMt(v)) + (pc ? ' t' : ' Mt');
       // past the history, read the value off the entry's dashed target path
       const onPath = r => { const t = r.tg; if (!t || yr <= t[0][0] || yr > t[t.length - 1][0]) return null;
         for (let i = 1; i < t.length; i++) if (yr <= t[i][0]) { const [ya, va] = t[i - 1], [yb, vb, k] = t[i]; return {v: va + (vb - va) * (yr - ya) / (yb - ya), k: yr === yb ? k : null}; } return null; };
@@ -1307,6 +1364,143 @@ function ghgSvg(l){
     </g>
   </svg>`;
 }
+/* ---------- LEARN: why the way we count emissions matters ---------- */
+const CNT_NAMES = ['China', 'United States of America', 'European Union', 'India', 'Russian Federation', 'Brazil', 'Indonesia', 'Japan', 'United Kingdom', 'Canada', 'Saudi Arabia', 'Australia', 'Nigeria'];
+const CNT_SHORT = {'United States of America': 'United States', 'Russian Federation': 'Russia', 'European Union': 'EU (27)'};
+function countingHtml(){
+  return `<section class="band" id="counting"><div class="wrap">
+    <h2 class="h-brand">Why the way we count emissions matters</h2>
+    <p class="lede">Ask “who is responsible for climate change?” and the answer depends on how you count. Countries argue hard about this in climate talks, because it decides who should cut first and who should pay. Try the four ways of counting below.</p>
+    <div class="cnt-ctl"><div class="seg segs" id="cnt-when" role="group" aria-label="Which years to count"><button data-w="year" class="on"><b>This year</b></button><button data-w="1990"><b>Since 1990</b></button><button data-w="1850"><b>Since 1850</b></button></div>
+    <div class="seg segs" id="cnt-how" role="group" aria-label="Total or per person"><button data-h="tot" class="on"><b>Whole country</b></button><button data-h="pp"><b>Per person</b></button></div></div>
+    <div class="grid2 mt1 cnt-grid" style="align-items:start">
+      <div class="card"><div id="cnt-bars" class="cnt-bars" aria-live="polite"><div class="empty">Loading…</div></div></div>
+      <div class="card cnt-why" id="cnt-why"></div>
+    </div>
+    <p class="muted" style="font-size:13px">Greenhouse gases including land use and deforestation, which is why Brazil and Indonesia rank high. “Per person” divides by each year's population for a single year, and by today's population for totals since 1990 or 1850. Sources: <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (emissions from Jones et al., 2024; population), CC BY.</p>
+  </div></section>`;
+}
+function wireCounting(){
+  const box = $('#cnt-bars'); if (!box) return;
+  const st = {w: 'year', h: 'tot'};
+  Promise.all([loadEmis0(), loadPop()]).then(([E, P]) => {
+    if (!E || !P || !$('#cnt-bars')) { box.innerHTML = '<div class="empty">The data did not load.</div>'; return; }
+    const rows = CNT_NAMES.map(n => D.find(e => e.n === n && e.t === 'country')).filter(e => e && E.c[e.s] && P[e.s]).map(e => {
+      const [y0, v] = E.c[e.s], Y = y0 + v.length - 1, [p0, pv] = P[e.s], popY = y => (pv[y - p0] || 0) * 1e3, sum = from => v.slice(Math.max(0, from - y0)).reduce((a, b) => a + (b || 0), 0);
+      return {e, name: CNT_SHORT[e.n] || e.n, Y, year: v[v.length - 1], s1990: sum(1990), s1850: sum(1850), pop: popY(Y)};
+    });
+    const val = r => { const t = st.w === 'year' ? r.year : st.w === '1990' ? r.s1990 : r.s1850; return st.h === 'tot' ? t : t * 1e6 / r.pop; };
+    const unit = () => st.h === 'pp' ? (st.w === 'year' ? 't per person' : 't per person, in total') : st.w === 'year' ? 'Mt a year' : 'Gt in total';
+    const show = (r) => { const v = val(r); return st.h === 'tot' && st.w !== 'year' ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) : v >= 100 ? fmt(Math.round(v)) : v.toFixed(1); };
+    box.innerHTML = rows.map(r => `<div class="cnt-row" data-k="${r.e.s}"><span class="cnt-n">${r.e.a2 ? flag(r.e.a2) + ' ' : ''}${esc(r.name)}</span><span class="cnt-b"><i></i></span><span class="cnt-v"></span></div>`).join('');
+    const draw = () => {
+      const srt = rows.slice().sort((a, b) => val(b) - val(a)), mx = val(srt[0]);
+      srt.forEach((r, i) => { const el = box.querySelector(`[data-k="${r.e.s}"]`); el.style.transform = `translateY(${i * 34}px)`; el.querySelector('i').style.width = (val(r) / mx * 100).toFixed(1) + '%'; el.querySelector('.cnt-v').textContent = show(r) + ' ' + (i ? '' : unit()); });
+      box.style.height = rows.length * 34 + 'px';
+      const t = srt.slice(0, 3).map(r => r.name), find = n => rows.find(r => r.e.n === n), us = find('United States of America'), ind = find('India'), cn = find('China');
+      const k = st.w + st.h, ratio = (a, b) => a && b ? (val(a) / val(b)) : null;
+      const W = {
+        yeartot: `<h3>Who emits most today?</h3><p>Counting each country's emissions this year puts <b>${t[0]}</b> first, then ${t[1]} and ${t[2]}. This is the view behind “the biggest emitters must cut fastest”: what happens in these few countries decides most of the world's emissions over the next decade.</p>`,
+        yearpp: `<h3>Who emits most per person?</h3><p>Divide by population and the order changes. The average person in the United States emits about <b>${ratio(us, ind) ? ratio(us, ind).toFixed(0) : 'several'} times</b> as much as the average person in India, and China's per-person figure is now above the EU's. Countries with low emissions per person, such as India and Nigeria, argue that fairness should be judged person by person: everyone should have a similar share of what the atmosphere can still absorb.</p>`,
+        '1990tot': `<h3>Counting from 1990</h3><p>1990 is when the UN climate science panel (the IPCC) published its first report, so the risks were widely known from then on. It is also the base year of the Kyoto Protocol, and many developed countries prefer counting from here. On this view <b>${t[0]}</b> has emitted the most, because its emissions grew fastest after 1990.</p>`,
+        '1850tot': `<h3>Counting since the Industrial Revolution</h3><p>Carbon dioxide stays in the air for centuries, so emissions from the 1800s are still warming the planet today. Counting from 1850 puts <b>${t[0]}</b> and ${t[1]} ahead. Many developing countries argue that those who emitted first and most should cut fastest and help pay for others to adapt. The UN climate convention (1992) calls this <i>common but differentiated responsibilities</i>.</p>`,
+        '1990pp': `<h3>Since 1990, per person</h3><p>Dividing the total since 1990 by today's population combines both arguments. Rich countries with smaller populations, such as ${t[0]} and ${t[1]}, move to the top, while ${cn ? 'China' : 'large developing countries'} and India fall down the list.</p>`,
+        '1850pp': `<h3>Since 1850, per person</h3><p>This is the view most favourable to poorer, more populous countries. Measured this way, the average person in ${t[0]} carries a historical share roughly <b>${ratio(srt[0], ind) ? ratio(srt[0], ind).toFixed(0) : 'many'} times</b> that of the average person in India.</p>`,
+      };
+      $('#cnt-why').innerHTML = W[k] + `<p class="muted" style="font-size:13.5px;margin-bottom:0">None of these is “the right one”: each answers a different question. Net zero targets are set against a country's own total emissions, but debates about fairness use all four.</p>`;
+    };
+    $$('#cnt-when button').forEach(b => b.onclick = () => { st.w = b.dataset.w; $$('#cnt-when button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
+    $$('#cnt-how button').forEach(b => b.onclick = () => { st.h = b.dataset.h; $$('#cnt-how button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
+    draw();
+  });
+}
+
+/* ---------- LEARN: why companies and governments, not individuals (with a game) ---------- */
+const GAME = [
+  ['flights', '✈️', 'Flights each year', [['None', 0], ['One short trip', 0.3], ['Two long-haul trips', 3], ['Frequent flyer: 10 long-haul', 15]], 1],
+  ['car', '🚗', 'Getting around', [['No car', 0], ['Electric car', 0.5], ['Petrol car', 2.5], ['Big SUV, long commute', 6]], 2],
+  ['food', '🍽️', 'Food', [['Vegan', 1], ['Vegetarian', 1.4], ['Some meat', 2], ['Meat with every meal', 3.3]], 2],
+  ['home', '🏠', 'Home', [['Small flat, clean power', 0.4], ['Average home, gas heating', 2.5], ['Big house, oil heating', 7]], 1],
+  ['stuff', '🛍️', 'Shopping', [['Thrifty', 0.8], ['Average shopper', 2], ['Big spender', 5]], 1],
+];
+const BOOSTS = [
+  ['flights', '✈️ ×1,000 flights', 1000], ['car', '🚙 Drive 100 SUVs at once', 100], ['food', '🥩 Eat for 500 people', 500],
+];
+const RIVALS = ['Coca-Cola Company', 'Microsoft', 'Walmart', 'Shell plc', 'Exxon Mobil', 'NTPC', '*all'];
+const WORLD_PC = 6.7;  // 54.4 Gt in 2024 over 8.16 billion people (Our World in Data)
+function peopleHtml(){
+  return `<section id="people"><div class="wrap">
+    <h2 class="h-brand">Why we track companies and governments, not individuals</h2>
+    <div class="grid3 mt1">
+      <div class="card"><h3>Most emissions are decided upstream</h3><p>Which power stations get built, how homes are heated, what cars are sold and how steel and cement are made are decided by governments and companies. Your choices happen inside the options they create.</p></div>
+      <div class="card"><h3>The scale is very different</h3><p>The ${'<span id="pp-n">390</span>'} companies in this prototype with emissions figures add up to <b id="pp-tot">about 5 billion tonnes</b> a year. The average person emits about ${WORLD_PC} tonnes.</p></div>
+      <div class="card"><h3>The “carbon footprint” was an advert</h3><p>The idea of a personal carbon footprint was popularised in the mid-2000s by an advertising campaign from the oil company BP. Personal choices still matter, and voting, organising and choosing where you work or bank shape what governments and companies do. That is what this Tracker watches.</p></div>
+    </div>
+    <div class="game mt2" id="game">
+      <div class="game-hd"><span class="game-tag">🎮 Mini game</span><h3>You vs. the giants</h3><p>Build your lifestyle, pick a company to race, and see how long it would take you to catch up.</p></div>
+      <div class="game-body">
+        <div class="game-pick">${GAME.map(([k, ic, lab, opts, d]) => `<div class="gq"><div class="gl">${ic} ${lab}</div><div class="gopts" data-g="${k}">${opts.map(([t], i) => `<button data-i="${i}" class="${i === d ? 'on' : ''}">${t}</button>`).join('')}</div></div>`).join('')}
+          <p class="muted" style="font-size:12.5px;margin:6px 0 0">Plus about 1 tonne for shared services such as roads, schools and hospitals. Rough, rounded figures in tonnes of CO₂ equivalent; real footprints vary by country.</p></div>
+        <div class="game-out">
+          <div class="score"><span>Your year</span><b id="g-you">–</b><small id="g-avg"></small></div>
+          <div class="gl" style="margin-top:12px">Pick a rival</div><div class="gopts rivals" id="g-rivals"></div>
+          <button class="btn btn-red race" id="g-race">▶ Race!</button>
+          <div class="track"><div class="lane"><span>You</span><i id="g-bar-you"></i></div><div class="lane rival"><span id="g-rname">Rival</span><i style="width:100%"></i></div></div>
+          <div class="g-msg" id="g-msg" aria-live="polite"></div>
+          <div class="gl" style="margin-top:12px">Cheat codes</div><div class="gopts" id="g-boost">${BOOSTS.map(([k, t, m], i) => `<button data-b="${i}">${t}</button>`).join('')}</div>
+          <div class="g-msg quip" id="g-quip" aria-live="polite"></div>
+        </div>
+      </div>
+      <p class="muted game-src">Company figures are each company's latest reported Scope 1 and 2 emissions (GRI and CDP disclosures, via Wikirate), so they leave out their supply chains and products. The “All” total adds every company with a figure on this site, including 27 Climate TRACE estimates. Amazon has no usable figure in this data, so it is not in the race.</p>
+    </div>
+  </div></section>`;
+}
+function wireGame(){
+  const g = $('#game'); if (!g) return;
+  const pick = Object.fromEntries(GAME.map(([k, , , , d]) => [k, d])), boost = {};
+  let rival = 4, rivals = [];
+  const vOf = k => { const row = GAME.find(r => r[0] === k); let v = row[3][pick[k]][1]; if (boost[k]) v = Math.max(v, k === 'flights' ? 3 : k === 'car' ? 6 : 2) * boost[k]; return v; };
+  const total = () => GAME.reduce((a, [k]) => a + vOf(k), 1);
+  const nice = n => n >= 1e9 ? (n / 1e9).toFixed(1) + ' billion' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' million' : n >= 1e4 ? fmt(Math.round(n)) : n >= 10 ? fmt(Math.round(n)) : n.toFixed(1);
+  const pctS = x => x >= 1 ? x.toFixed(0) + '%' : x >= 0.01 ? x.toFixed(2) + '%' : x >= 0.0001 ? x.toFixed(4) + '%' : 'less than 0.0001%';
+  const era = n => n < 120 ? `starting in ${Math.round(NOW - n)}` : n < 2000 ? `starting in the year ${Math.round(NOW - n)}` : n < 4600 ? 'starting before the Roman Empire' : n < 11700 ? 'starting before the pyramids were built' : n < 300000 ? 'starting before the last ice age ended' : n < 6e6 ? 'starting before modern humans existed' : n < 66e6 ? 'starting before the first human ancestors walked' : n < 230e6 ? 'starting while dinosaurs roamed the Earth' : 'starting before the first dinosaurs hatched';
+  const dur = s => s < 1 ? 'less than a second' : s < 90 ? Math.round(s) + ' seconds' : s < 5400 ? Math.round(s / 60) + ' minutes' : s < 172800 ? (s / 3600).toFixed(1) + ' hours' : (s / 86400).toFixed(1) + ' days';
+  const render = () => {
+    const t = total(); $('#g-you').textContent = nice(t) + ' t';
+    $('#g-avg').textContent = `${(t / WORLD_PC).toFixed(1)}× the world average of ${WORLD_PC} t`;
+    const R = rivals[rival]; if (!R) return; $('#g-rname').textContent = R.name;
+    const yrs = R.t / t, life = 80 * t / R.t * 100;
+    $('#g-bar-you').style.width = Math.max(0.6, Math.min(100, t / R.t * 100)) + '%';
+    $('#g-msg').innerHTML = `<b>${R.name}</b> emits your whole year in <b>${dur(t / R.t * 31557600)}</b>. To match its one year you would need to live like this for <b>${nice(yrs)} years</b>, ${era(yrs)}. A whole 80-year lifetime adds up to <b>${pctS(life)}</b> of its single year.`;
+  };
+  const quip = i => {
+    const [k, , m] = BOOSTS[i], R = rivals[rival], t = total(), share = pctS(t / R.t * 100);
+    const trips = (pick.flights === 3 ? 10 : 2) * m, gap = 8766 / trips, what = k === 'flights' ? `taking ${fmt(trips)} long-haul trips a year (one every ${gap >= 1 ? gap.toFixed(1) + ' hours' : Math.round(gap * 60) + ' minutes'})` : k === 'car' ? 'driving 100 SUVs at the same time, all year' : 'eating like 500 meat-loving people';
+    return `Even ${what}, your year would be <b>${share}</b> of ${R.name}'s. ${t / R.t < 0.01 ? 'Rounding error.' : 'Getting warmer. Literally.'}`;
+  };
+  loadComp().then(K => {
+    const d = (K && K.d) || {}, latest = o => { for (let i = o.v.length - 1; i >= 0; i--) if (o.v[i] != null) return [o.v[i], o.y0 + i]; return [0, 0]; };
+    let all = 0, n = 0; Object.values(d).forEach(o => { all += latest(o)[0]; n++; });
+    rivals = RIVALS.map(nm => { if (nm === '*all') return {name: `All ${n} companies`, t: all * 1e6}; const e = D.find(x => x.n === nm && x.t === 'company'); const o = e && d[e.s]; return o ? {name: e.n.replace(' plc', ''), t: latest(o)[0] * 1e6} : null; }).filter(Boolean);
+    rival = Math.min(rival, rivals.length - 1);
+    if ($('#pp-n')) { $('#pp-n').textContent = n; $('#pp-tot').textContent = `about ${(all / 1000).toFixed(1)} billion tonnes`; }
+    $('#g-rivals').innerHTML = rivals.map((r, i) => `<button data-r="${i}" class="${i === rival ? 'on' : ''}">${esc(r.name)}</button>`).join('');
+    $$('#g-rivals button').forEach(b => b.onclick = () => { rival = +b.dataset.r; $$('#g-rivals button').forEach(x => x.classList.toggle('on', x === b)); $('#g-quip').innerHTML = ''; render(); });
+    render();
+  });
+  $$('.gopts[data-g]', g).forEach(row => $$('button', row).forEach(b => b.onclick = () => { pick[row.dataset.g] = +b.dataset.i; $$('button', row).forEach(x => x.classList.toggle('on', x === b)); render(); }));
+  $$('#g-boost button').forEach(b => b.onclick = () => { const i = +b.dataset.b, k = BOOSTS[i][0]; boost[k] = boost[k] ? 0 : BOOSTS[i][2]; b.classList.toggle('on', !!boost[k]); render(); $('#g-quip').innerHTML = boost[k] ? quip(i) : ''; });
+  $('#g-race').onclick = () => {
+    const R = rivals[rival]; if (!R) return; const t = total(), yrs = R.t / t, bar = $('#g-bar-you'), msg = $('#g-msg'), t0 = performance.now(), D2 = 2600;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const step = now => { const f = reduce ? 1 : Math.min(1, (now - t0) / D2), y = Math.pow(yrs, f);
+      bar.style.width = Math.max(0.6, Math.min(100, y * t / R.t * 100)) + '%';
+      msg.innerHTML = `⏱️ Year <b>${nice(y)}</b> of ${nice(yrs)}… ${era(y)}`;
+      if (f < 1) requestAnimationFrame(step); else { msg.innerHTML = `🏁 You caught up with one year of <b>${R.name}</b> after <b>${nice(yrs)} years</b>, ${era(yrs)}. ${R.name} then did it again the following year.`; } };
+    requestAnimationFrame(step);
+  };
+}
+
 P.learn = (params, sub) => `
   <section class="hero" style="padding:48px 0"><div class="wrap"><p class="eyebrow" style="color:#ffb3a8">Net zero explained</p><h1 style="font-size:clamp(30px,4.5vw,46px)">What net zero means, and how to tell a real target from a slogan</h1><p>A 2-minute primer, a glossary, and how we assess every target.</p></div></section>
   <section id="why"><div class="wrap">
@@ -1376,17 +1570,20 @@ P.learn = (params, sub) => `
     </div>
     <div class="note mt2"><b>Questions to ask any target.</b> How much of it depends on offsets? Are the credits independently verified and permanent? Are cuts and removals reported separately? Does it say when its leftover emissions will be removed, and how?</div>
   </div></section>
+  ${countingHtml()}
+  ${peopleHtml()}
   <section class="band"><div class="wrap">
     <h2 class="h-brand">Glossary</h2><p class="lede mt0">Every technical term on this site, in one line, plus why it matters.</p>
     <div class="gloss mt2">${GLOSS.map(([t,d,w]) => `<details><summary>${t}</summary><p class="plain">${d}</p><p>${w}</p></details>`).join('')}</div>
   </div></section>`;
 P.learn.after = (params, sub) => {
+  wireCounting(); wireGame();
   (() => { const fig = $('#ghg'), lis = $$('#ghgsteps li'); if (!fig) return;
     const set = n => { if (n) fig.dataset.hl = n; else delete fig.dataset.hl; lis.forEach(l => l.classList.toggle('on', l.dataset.step === String(n))); };
     lis.forEach(l => { l.addEventListener('mouseenter', () => set(l.dataset.step)); l.addEventListener('focus', () => set(l.dataset.step)); l.addEventListener('mouseleave', () => set(null)); l.addEventListener('blur', () => set(null)); });
     fig.addEventListener('mouseover', ev => { const b = ev.target.closest('[data-step]'); if (b) set(b.dataset.step); });
     fig.addEventListener('mouseout', ev => { if (ev.target.closest('[data-step]')) set(null); }); })();
-  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $('#ghg-lede').textContent = GHG_LEDE[l]; $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
+  $$('#ghgseg button').forEach(b => b.onclick = () => { const l = +b.dataset.l; $('#ghg').innerHTML = ghgSvg(l); $('#ghg-cap').innerHTML = GHG_CAP[l]; $('#ghg-lede').textContent = GHG_LEDE[l]; $$('#ghgseg button').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b); }); }); nzdWire(); if (sub === 'method' || sub === 'offsets' || sub === 'counting' || sub === 'people') setTimeout(() => $('#' + sub)?.scrollIntoView(), 30); };
 const NZD = {
   today:['1. Today: the pollution','Think of emissions as smoke going up into the air. Each cloud is 10% of a year’s emissions. They come from power plants and factories, petrol and diesel cars, heating homes, and even cows, which release methane. They all trap heat.','10 of 10 units released','Each cloud represents 10% of annual emissions, and all ten are still entering the atmosphere.'],
   cut:['2. Cut it at the source','Stop making the smoke in the first place: sun and wind instead of coal, electric cars, efficient homes, less methane from farming. Net zero standards ask for roughly 90% of emissions to be cut. One cloud is left.','1 of 10 units remaining','Nine units are eliminated at the source. One residual unit remains.'],
