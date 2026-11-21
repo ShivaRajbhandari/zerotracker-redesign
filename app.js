@@ -1092,16 +1092,13 @@ P.entity = (params, slug) => {
     <div><h2 class="h-brand" style="font-size:24px">Questions to ask</h2><p class="muted mt0">Generated from the gaps above. Use them in consultations, AGMs, council meetings or interviews.</p>
       <ol class="asks">${asks(e).map(([q, s]) => `<li>${esc(q)}<small>${esc(s)}</small></li>`).join('')}</ol></div>
   </div></section>
-  <section class="tight band" id="share-box"><div class="wrap">
-    <details id="share-dd" class="sharedd"><summary><h2 class="h-brand" style="font-size:24px;display:inline">Share it, or write to someone who can act</h2><span class="muted" style="display:block;font-size:15px;margin-top:4px">Post about this profile, download a picture card, or draft an email to a policymaker, in 17 languages.</span></summary>
-      <div id="sh-out" class="mt2"></div></details>
-  </div></section>
-
-  <section class="tight" id="str-sec" hidden><div class="wrap">
-    <details class="sharedd" id="fx-dd"><summary><h2 class="h-brand" style="font-size:24px;display:inline" id="fx-title">See the effects of climate change here</h2><span class="muted" style="display:block;font-size:15px;margin-top:4px" id="fx-sub">How much warmer it has become since 1850, one stripe per year.</span></summary>
+  <section class="tight" id="share-box"><div class="wrap"><div class="accs">
+    <div id="str-sec" hidden><details class="sharedd" id="fx-dd"><summary><b class="acc-t" id="fx-title">See the effects of climate change here</b><span class="acc-s" id="fx-sub">How much warmer it has become since 1850, one stripe per year.</span></summary>
       <div class="mt2"><h3 style="margin:0 0 4px">Warming stripes</h3><p class="muted mt0" id="str-lede"></p><div id="str"></div></div>
-    </details>
-  </div></section>
+    </details></div>
+    <details id="share-dd" class="sharedd"><summary><b class="acc-t">Share it, or write to someone who can act</b><span class="acc-s">Post about this profile, download a picture card, or draft an email to a policymaker, in 17 languages.</span></summary>
+      <div id="sh-out" class="mt2"></div></details>
+  </div></div></section>
 
   <section class="tight band"><div class="wrap">
     <h2 class="h-brand" style="font-size:24px">Sources and other views</h2>

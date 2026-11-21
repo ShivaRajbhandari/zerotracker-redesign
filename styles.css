@@ -805,3 +805,10 @@ footer.site .follow img{flex:none}
 footer.site .fnote{flex:1 1 280px}
 footer.site .fnote .fol{margin:10px 0 0}
 footer.site{padding:26px 0}
+
+.accs{display:grid;gap:10px}
+.accs .sharedd>summary{padding:12px 44px 12px 16px}
+.accs .sharedd>summary::after{top:12px}
+.acc-t{display:block;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.01em;color:var(--ink)}
+.acc-s{display:block;font-size:14px;color:var(--muted);margin-top:2px}
+#share-box{padding:20px 0 6px}
