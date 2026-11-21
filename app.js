@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzj';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzk';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -936,15 +936,16 @@ function fxClusters(feat, hasData){
 function fxComposite(feat, usa, W, boxTop, boxH, hasData){
   const cl = fxClusters(feat, hasData);
   const mk = c => c === cl.main ? (usa ? d3.geoAlbers() : d3.geoNaturalEarth1().rotate([-c.cen[0], 0])) : d3.geoNaturalEarth1().rotate([-c.cen[0], -c.cen[1]]);
-  let h = boxH, main, parts;
-  for (let it = 0; it < 3; it++) {
-    main = mk(cl.main).fitExtent([[10, boxTop], [W - 10, boxTop + h]], cl.main.geom);
+  let colW = 0, main, parts;
+  for (let it = 0; it < 4; it++) {   // the insets sit in a column to the right of the mainland, at the same scale
+    main = mk(cl.main).fitExtent([[10, boxTop], [W - 10 - colW, boxTop + boxH]], cl.main.geom);
     const k = main.scale(), ins = cl.ins.map(c => { const pr = mk(c).scale(k).translate([0, 0]), b = d3.geoPath(pr).bounds(c.geom); return {c, pr, b}; });
-    h = boxH - (ins.length ? Math.max(...ins.map(i => i.b[1][1] - i.b[0][1])) + 18 : 0);
+    colW = ins.length ? Math.max(...ins.map(i => i.b[1][0] - i.b[0][0])) + 22 : 0;
     parts = [{c: cl.main, pr: main}].concat(ins);
   }
-  const mb = d3.geoPath(main).bounds(cl.main.geom); let cx = mb[0][0];
-  parts.slice(1).forEach(q => { const w = q.b[1][0] - q.b[0][0]; q.pr.translate([cx - q.b[0][0], mb[1][1] + 16 - q.b[0][1]]); cx += w + 16; });
+  const mb = d3.geoPath(main).bounds(cl.main.geom), insH = parts.slice(1).reduce((t, q) => t + (q.b[1][1] - q.b[0][1]) + 14, -14);
+  let cy = Math.max(boxTop, mb[1][1] - insH); const cx = mb[1][0] + 22;
+  parts.slice(1).forEach(q => { q.pr.translate([cx - q.b[0][0], cy - q.b[0][1]]); cy += (q.b[1][1] - q.b[0][1]) + 14; });
   parts.forEach(q => { q.path = d3.geoPath(q.pr); q.bb = q.path.bounds(q.c.geom); });
   const near = poly => { const c = d3.geoCentroid(poly); let best = null, bd = Infinity; cl.all.forEach(g => g.m.forEach(x => { const d = d3.geoDistance(c, x.cen); if (d < bd) { bd = d; best = g; } })); return best; };
   const pathOf = f => { const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates, by = new Map(); polys.forEach(c => { const g = near({type: 'Polygon', coordinates: c}); if (!by.has(g)) by.set(g, []); by.get(g).push(c); }); return parts.map(q => by.has(q.c) ? q.path({type: 'MultiPolygon', coordinates: by.get(q.c)}) : '').join(''); };
