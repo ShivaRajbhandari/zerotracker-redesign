@@ -13,7 +13,10 @@ const BY = Object.fromEntries(D.map(e => [e.s, e]));
 D.forEach(e => { if (e.rev >= 1e12) { e.revBad = e.rev; delete e.rev; } }); // data issue in the source: see the notes page
 const THE = /^(United |Netherlands|Philippines|Bahamas|Gambia|Maldives|Marshall Islands|Solomon Islands|Comoros|Seychelles|Czech Republic|Dominican Republic|Central African Republic|Dem\. Rep\.|Republic of|European Union)/;
 const SHORT_NAME = {'Venezuela, Bolivarian Republic of':'Venezuela', 'Iran, Islamic Republic of':'Iran', 'Moldova, Republic of':'Moldova', 'Macedonia, the former Yugoslav Republic of':'North Macedonia', 'Palestinian Territory, Occupied':'Palestine', 'Russian Federation':'Russia', 'Syrian Arab Republic':'Syria', 'Brunei Darussalam':'Brunei'};
-const plainName = e => (e.t === 'country' && SHORT_NAME[e.n]) || e.n;
+const CN_SHORT = {'Viet Nam':'Vietnam', 'Korea, Republic of':'South Korea', 'Russian Federation':'Russia', 'Taiwan, Province of China':'Taiwan', 'Congo, Democratic Republic of the':'DR Congo', 'Micronesia (Federated States of)':'Micronesia', "Lao People's Democratic Republic":'Laos', 'Bolivia (Plurinational State of)':'Bolivia', 'Brunei Darussalam':'Brunei', 'Iran (Islamic Republic of)':'Iran', 'Moldova, Republic of':'Moldova', "Korea (Democratic People's Republic of)":'North Korea', 'Palestine, State of':'Palestine', 'Syrian Arab Republic':'Syria', 'Tanzania, United Republic of':'Tanzania', 'Venezuela (Bolivarian Republic of)':'Venezuela'};
+// governments' formal names are kept only in the page title (e.on); everywhere else the everyday name is used
+D.forEach(e => { if (e.t === 'country' && SHORT_NAME[e.n]) { e.on = e.n; e.n = SHORT_NAME[e.n]; } if (e.cn && CN_SHORT[e.cn]) e.cn = CN_SHORT[e.cn]; });
+const plainName = e => e.n;
 const nm = e => (e.t === 'country' && THE.test(e.n) ? 'the ' : '') + plainName(e);
 const Nm = e => { const s = nm(e); return s[0].toUpperCase() + s.slice(1); };
 
@@ -246,7 +249,7 @@ const ALIAS_SRC = [
  [/^H&M/, 'hennes, cos, weekday']
 ];
 const ALIAS = {}; ALIAS_SRC.forEach(([re, ks]) => { const e = D.find(x => x.t === 'company' && re.test(x.n)); if (e) ALIAS[e.s] = ks.split(',').map(t => t.trim().toLowerCase()).filter(Boolean); });
-const skey = e => (e.n + ' ' + (e.cn || '')).toLowerCase();
+const skey = e => (e.n + ' ' + (e.on ? e.on + ' ' : '') + (e.cn || '')).toLowerCase();
 const ALIAS_CASE = {'aws':'AWS','youtube':'YouTube','deepmind':'DeepMind','whatsapp':'WhatsApp','linkedin':'LinkedIn','github':'GitHub','iphone':'iPhone','ipad':'iPad','macbook':'MacBook','itunes':'iTunes','playstation':'PlayStation','jlr':'JLR','gmc':'GMC','ram':'Ram','kitkat':'KitKat','nescafe':'Nescafé','nescafé':'Nescafé','ben & jerry':'Ben & Jerry’s','hellmann':'Hellmann’s','oral-b':'Oral-B','p&g':'P&G','pull&bear':'Pull&Bear','sam\'s club':'Sam’s Club','abc':'ABC','nbc':'NBC','nbcuniversal':'NBCUniversal','espn':'ESPN','kfc':'KFC','mufg':'MUFG','cos':'COS','ab inbev':'AB InBev','wechat':'WeChat','aliexpress':'AliExpress','lays':'Lay’s','frito-lay':'Frito-Lay','geico':'GEICO','bnsf':'BNSF','unitedhealthcare':'UnitedHealthcare','mini':'MINI','moet':'Moët','moët':'Moët','citroen':'Citroën','citroën':'Citroën','7-eleven':'7-Eleven','seven-eleven':'Seven-Eleven','band-aid':'Band-Aid','xbox':'Xbox','head & shoulders':'Head & Shoulders','jio':'Jio'};
 const aliasName = a => ALIAS_CASE[a] || a.replace(/(^|\s)([a-zà-ÿ])/g, (m, p, c) => p + c.toUpperCase());
 const aliasHit = (e, q) => e.n.toLowerCase().includes(q) ? '' : ((ALIAS[e.s] || []).find(a => a === q || (q.length >= 4 && (a.startsWith(q) || a.includes(' ' + q)))) || '');
@@ -1266,7 +1269,7 @@ P.entity = (params, slug) => {
   <div class="phead"><div class="wrap">
     <div class="crumbs"><a href="#/">Home</a> › <a href="#/explore?type=${e.t}">${typePlural(e)}</a>${e.t!=='country' && e.cn ? ` › ${(() => { const c = D.find(x => x.t==='country' && x.c===e.c); return c ? `<a href="#/e/${c.s}">${esc(e.cn)}</a>` : esc(e.cn); })()}` : ''}</div>
     <div class="pgrid"><div class="pleft">${typeBadge(e.t, e)}
-      <h1>${e.t==='country' ? `<span class="flag">${flag(e.a2)}</span>` : ''}${esc(e.n)}</h1>
+      <h1>${e.t==='country' ? `<span class="flag">${flag(e.a2)}</span>` : ''}${esc(e.on || e.n)}</h1>
       <div class="facts">${facts.map(([k,v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('')}</div>
       <div class="yr yr-inline"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div></div>
       <div class="pmaps" id="lmap"></div>
@@ -1634,7 +1637,7 @@ function ghgSvg(l){
   </svg>`;
 }
 /* ---------- LEARN: why the way we count emissions matters ---------- */
-const CNT_NAMES = ['China', 'United States of America', 'European Union', 'India', 'Russian Federation', 'Brazil', 'Indonesia', 'Japan', 'United Kingdom', 'Canada', 'Saudi Arabia', 'Australia', 'Nigeria'];
+const CNT_NAMES = ['China', 'United States of America', 'European Union', 'India', 'Russia', 'Brazil', 'Indonesia', 'Japan', 'United Kingdom', 'Canada', 'Saudi Arabia', 'Australia', 'Nigeria'];
 const CNT_SHORT = {'United States of America': 'United States', 'Russian Federation': 'Russia', 'European Union': 'EU (27)'};
 function countingHtml(){
   return `<section class="band" id="counting"><div class="wrap">
