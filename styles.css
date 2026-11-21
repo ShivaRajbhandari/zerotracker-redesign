@@ -780,3 +780,21 @@ nav.main .more-menu a.cnz:hover .cnz-go{transform:translate(2px,-2px);opacity:1}
   .nlbox p{display:none}
   .nlbox .btn{margin:0;flex:none}
 }
+/* ---------- the life game ---------- */
+.life{background:#fff;color:var(--ink);border-radius:14px;overflow:hidden;display:flex;flex-direction:column;min-height:520px}
+.life-top{display:flex;gap:8px;flex-wrap:wrap;justify-content:space-between;background:#f4f0f8;padding:10px 14px;font-size:13px;font-weight:700;color:var(--purple);border-bottom:1px solid var(--line)}
+.life-card{padding:16px 16px 12px;border-bottom:1px solid var(--line)}
+.lc-age{display:inline-block;background:var(--purple);color:#fff;font-weight:800;font-size:12px;border-radius:99px;padding:3px 10px;letter-spacing:.04em}
+.life-card h4{font-size:20px;margin:8px 0 4px;color:var(--purple)}
+.life-card p{margin:0 0 10px;font-size:15px}
+.lc-opts{display:grid;gap:7px}
+.lc-opts.grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr));max-height:300px;overflow:auto;padding-right:2px}
+.lc-opts button{text-align:left;border:1.5px solid var(--line-2);background:#fff;border-radius:10px;padding:10px 12px;font:inherit;font-size:14.5px;color:var(--ink);cursor:pointer}
+.lc-opts button:hover,.lc-opts button:focus-visible{border-color:var(--purple);background:#f7f3fa}
+.life-feed{flex:1;max-height:260px;overflow:auto;padding:8px 14px;font-size:13.5px}
+.lf{padding:6px 0;border-bottom:1px dashed var(--line);animation:lfin .3s ease}
+.lf.big{font-size:14px}.lf small{color:var(--muted)}
+@keyframes lfin{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
+@media (prefers-reduced-motion:reduce){.lf{animation:none}}
+.life .muted{color:var(--muted)}
+.lg-restart{margin-top:14px;background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.55);border-radius:99px;padding:8px 14px;font:inherit;font-weight:700;font-size:14px;cursor:pointer}.lg-restart:hover{border-color:#fff;background:rgba(255,255,255,.08)}

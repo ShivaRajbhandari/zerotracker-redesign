@@ -1416,17 +1416,8 @@ function wireCounting(){
 }
 
 /* ---------- LEARN: why companies and governments, not individuals (with a game) ---------- */
-const GAME = [
-  ['flights', '✈️', 'Flights each year', [['None', 0], ['One short trip', 0.3], ['Two long-haul trips', 3], ['Frequent flyer: 10 long-haul', 15]], 1],
-  ['car', '🚗', 'Getting around', [['No car', 0], ['Electric car', 0.5], ['Petrol car', 2.5], ['Big SUV, long commute', 6]], 2],
-  ['food', '🍽️', 'Food', [['Vegan', 1], ['Vegetarian', 1.4], ['Some meat', 2], ['Meat with every meal', 3.3]], 2],
-  ['home', '🏠', 'Home', [['Small flat, clean power', 0.4], ['Average home, gas heating', 2.5], ['Big house, oil heating', 7]], 1],
-  ['stuff', '🛍️', 'Shopping', [['Thrifty', 0.8], ['Average shopper', 2], ['Big spender', 5]], 1],
-];
-const BOOSTS = [
-  ['flights', '✈️ ×1,000 flights', 1000], ['car', '🚙 Drive 100 SUVs at once', 100], ['food', '🥩 Eat for 500 people', 500],
-];
-const RIVALS = ['Coca-Cola Company', 'Microsoft', 'Walmart', 'Shell plc', 'Exxon Mobil', 'NTPC', '*all'];
+// well-known companies with a reported figure, smallest to largest; [name in the data, name shown]
+const RIVALS = [['Starbucks', 'Starbucks'], ['Nike', 'Nike'], ['Coca-Cola Company', 'Coca-Cola'], ['Microsoft', 'Microsoft'], ['Toyota Motor', 'Toyota'], ['Walmart', 'Walmart'], ['American Airlines', 'American Airlines'], ['BP', 'BP'], ['Shell plc', 'Shell'], ['Chevron', 'Chevron'], ['Exxon Mobil', 'ExxonMobil']];
 const WORLD_PC = 6.7;  // 54.4 Gt in 2024 over 8.16 billion people (Our World in Data)
 function peopleHtml(){
   return `<section id="people"><div class="wrap">
@@ -1434,72 +1425,161 @@ function peopleHtml(){
     <p class="lede">One person's choices change a few tonnes of emissions a year, while one government's rules or one company's plans can change millions of tonnes. That is why the biggest lever on climate change is what institutions decide, and why the Tracker holds governments and companies to their promises.</p></div>
     <div class="grid3 mt1">
       <div class="card"><h3>Most emissions are decided upstream</h3><p>Which power stations get built, how homes are heated, what cars are sold and how steel and cement are made are decided by governments and companies. Your choices happen inside the options they create.</p></div>
-      <div class="card"><h3>The scale is very different</h3><p>The ${'<span id="pp-n">390</span>'} companies in this prototype with emissions figures add up to <b id="pp-tot">about 5 billion tonnes</b> a year. The average person emits about ${WORLD_PC} tonnes.</p></div>
+      <div class="card"><h3>The scale is very different</h3><p>ExxonMobil alone reported about <b>103 million tonnes</b> from its own operations in 2022, before counting the fuel it sells. The average person emits about ${WORLD_PC} tonnes a year.</p></div>
       <div class="card"><h3>The “carbon footprint” was an advert</h3><p>The idea of a personal carbon footprint was popularised in the mid-2000s by an advertising campaign from the oil company BP. Personal choices still count most when they push institutions: voting, organising, and where you work or bank.</p></div>
     </div>
-    <div class="game mt2" id="game">
-      <div class="game-hd"><span class="game-tag">🎮 Mini game</span><h3>You vs. the giants</h3><p>Build your lifestyle, pick a company to race, and see how long it would take you to catch up.</p></div>
+    ${gameHtml()}
+  </div></section>`;
+}
+/* "You vs. the giants": a life lived decade by decade, with real choices. Rough, rounded factors; documented in the footnote. */
+// country: [flag, name, city, grid gCO2/kWh (Our World in Data / Ember, 2024-25), heating kWh per m2 a year, cooling kWh per m2 a year with air conditioning]
+const LC = {
+  US:['us','United States','Chicago',384,90,25], CA:['ca','Canada','Toronto',191,160,5], GB:['gb','United Kingdom','Manchester',217,120,2],
+  DE:['de','Germany','Berlin',330,120,3], FR:['fr','France','Lyon',41,100,5], PL:['pl','Poland','Kraków',589,140,3],
+  SE:['se','Sweden','Stockholm',35,130,1], NO:['no','Norway','Oslo',28,140,1], ES:['es','Spain','Madrid',154,45,20], IT:['it','Italy','Milan',285,70,15],
+  CN:['cn','China','Shanghai',525,60,20], IN:['in','India','Delhi',670,0,45], JP:['jp','Japan','Osaka',477,60,20], KR:['kr','South Korea','Seoul',417,90,20],
+  AU:['au','Australia','Melbourne',525,25,20], BR:['br','Brazil','São Paulo',110,0,35], NG:['ng','Nigeria','Lagos',456,0,45], ZA:['za','South Africa','Johannesburg',699,20,10],
+  SA:['sa','Saudi Arabia','Riyadh',692,0,80], MX:['mx','Mexico','Monterrey',474,5,30], ID:['id','Indonesia','Jakarta',680,0,50], KE:['ke','Kenya','Nairobi',95,5,10],
+};
+const KGKM = {walk:0, transit:0.05, moto:0.10, petrol:0.17, hybrid:0.11, suv:0.25};
+const HEATF = {gas:0.20, oil:0.29, district:0.15};
+const STAGES = [[18, 25], [25, 35], [35, 50], [50, 65], [65, 81]];
+function lifeAnnual(s){
+  const C = LC[s.cty], grid = C[3] / 1000, br = {};
+  const heatKwh = C[4] * s.area * (s.ins ? 0.65 : 1), hf = s.heat === 'hp' ? grid / 3 : s.heat === 'elec' ? grid : HEATF[s.heat] || 0.2;
+  let elec = 1200 + 25 * s.area + (s.ac ? C[5] * s.area : 0) + (s.pool ? 3500 : 0); if (s.solar) elec *= 0.5;
+  br.Home = (heatKwh * hf + elec * grid) / s.hh / 1000;
+  const carF = s.car === 'ev' ? 0.18 * grid : KGKM[s.car] || 0, comF = s.commuteMode === 'car' ? carF : KGKM[s.commuteMode] || 0;
+  br['Getting around'] = (s.commute * 2 * 230 * comF + (s.car && s.car !== 'none' ? 6000 * carF + (s.car2 ? 8000 * KGKM.petrol : 0) : 3000 * KGKM.transit)) / 1000;
+  br.Flights = (s.fShort * 0.25 + s.fLong * 1.8) * (s.biz ? 3 : 1) + s.cruise * 1.5;
+  br.Food = s.diet; br.Shopping = s.stuff; br['Shared services'] = 1.0;
+  return br;
+}
+const sumBr = br => Object.values(br).reduce((a, b) => a + b, 0);
+function lifeSteps(){
+  const mv = (k, txt) => ({t: `${LC[k][2]}, ${LC[k][1]}`, k});
+  return [
+    {age: 0, title: 'You are born!', text: s => 'Where are you born? Your country decides how clean the electricity is and how much heating or cooling a home needs.', grid: true,
+      opts: s => Object.keys(LC).map(k => ({t: `${flag(LC[k][0])} ${LC[k][1]}`, f: s => { s.cty = s.born = k; return `👶 You were born in ${LC[k][2]}, ${LC[k][1]}.`; }}))},
+    {age: 18, title: 'Leaving home', text: s => `You're 18. Where in ${LC[s.cty][1]} do you live?`,
+      opts: () => [['City centre', 'city'], ['Suburbs', 'sub'], ['Small town or countryside', 'rural']].map(([t, w]) => ({t, f: s => { s.where = w; return `🏙️ You moved to ${w === 'city' ? 'the centre of ' + LC[s.cty][2] : w === 'sub' ? 'the suburbs of ' + LC[s.cty][2] : 'a small town'}.`; }}))},
+    {age: 18, title: 'Your first place', text: () => 'Where do you live while you study or start work?',
+      opts: () => [['A room in a shared flat (60 m², 4 people)', 60, 4], ['A studio flat on your own (30 m²)', 30, 1], ['Stay with your parents (140 m² house, 4 people)', 140, 4]].map(([t, a, h]) => ({t, f: s => { Object.assign(s, {area: a, hh: h}); return `🏠 ${t}.`; }}))},
+    {age: 18, title: 'Getting around', text: s => s.where === 'rural' ? 'The bus comes twice a day. How do you get around?' : 'How do you get around?',
+      opts: s => [['Walk and cycle', 'walk', 4], ['Bus, metro or train', 'transit', 12], ['A second-hand petrol car', 'car', 15], ['A motorbike', 'moto', 12]].filter(o => !(s.where === 'rural' && o[1] === 'walk')).map(([t, m, d]) => ({t, f: s => { s.commuteMode = m; s.commute = d; s.car = m === 'car' ? 'petrol' : 'none'; return `🚲 ${t}.`; }}))},
+    {age: 18, title: 'What do you eat?', text: () => 'Pick the diet you mostly stick to.',
+      opts: () => [['Vegan', 1.0], ['Vegetarian', 1.4], ['Some meat', 2.0], ['Meat with every meal', 3.0]].map(([t, v]) => ({t, f: s => { s.diet = v; return `🍽️ Diet: ${t.toLowerCase()}.`; }}))},
+    {age: 18, title: 'Holidays', text: () => 'How do you spend your holidays?',
+      opts: () => [['Trains and road trips, no flights', 0, 0], ['One short flight a year', 1, 0], ['One long-haul trip a year', 0, 1], ['Party years: 4 short flights and 1 long-haul a year', 4, 1]].map(([t, a, b]) => ({t, f: s => { s.fShort = a; s.fLong = b; return `✈️ ${t}.`; }})), end: true},
+    {age: 25, title: 'Job offer abroad!', text: s => { const ks = Object.keys(LC).filter(k => k !== s.cty); s.offer = ks[Math.floor(Math.random() * ks.length)]; return `A company in ${LC[s.offer][2]}, ${LC[s.offer][1]} wants to hire you.`; },
+      opts: s => [{t: `Take it and move to ${LC[s.offer][2]}`, f: s => { s.cty = s.offer; return `🧳 You moved to ${LC[s.cty][2]}, ${LC[s.cty][1]}.`; }}, {t: 'Stay where you are', f: () => '🙅 You turned down the job abroad.'}]},
+    {age: 25, title: 'A place of your own', text: s => `You're 25 and living in ${LC[s.cty][2]}. Where do you live?`,
+      opts: () => [['Rent a one-bedroom flat (50 m²)', 50, 1], ['Share a house with three friends (120 m²)', 120, 4], ['Buy a small house on your own (100 m²)', 100, 1]].map(([t, a, h]) => ({t, f: s => { Object.assign(s, {area: a, hh: h}); return `🔑 ${t}.`; }}))},
+    {age: 25, title: 'How is it heated?', when: s => LC[s.cty][4] >= 20, text: s => `Winters in ${LC[s.cty][2]} need heating. What does your home use?`,
+      opts: () => [['Gas boiler', 'gas'], ['Electric heaters', 'elec'], ['Heat pump', 'hp'], ['Oil boiler', 'oil'], ['District heating', 'district']].map(([t, h]) => ({t, f: s => { s.heat = h; return `🔥 Heating: ${t.toLowerCase()}.`; }}))},
+    {age: 25, title: 'Your commute', text: () => 'How far is work, and how do you get there?',
+      opts: () => [['Work from home', 0, 'walk'], ['5 km by bike', 5, 'walk'], ['10 km by bus or train', 10, 'transit'], ['25 km by car each way', 25, 'car'], ['60 km by car each way', 60, 'car']].map(([t, d, m]) => ({t, f: s => { s.commute = d; s.commuteMode = m; return `🧭 Commute: ${t.toLowerCase()}.`; }}))},
+    {age: 25, title: 'Your car', text: s => s.commuteMode === 'car' ? 'You drive to work. What do you drive?' : 'Do you own a car for weekends and errands?',
+      opts: s => [['No car', 'none'], ['Electric car', 'ev'], ['Hybrid', 'hybrid'], ['Petrol hatchback', 'petrol'], ['Big SUV', 'suv']].filter(o => !(s.commuteMode === 'car' && o[1] === 'none')).map(([t, c]) => ({t, f: s => { s.car = c; return `🚗 ${c === 'none' ? 'No car.' : 'You drive ' + t.toLowerCase().replace(/^big /, 'a big ').replace(/^(electric|hybrid|petrol)/, 'a $1') + '.'}`; }}))},
+    {age: 25, title: 'Shopping', text: () => 'How do you shop for clothes, gadgets and stuff?',
+      opts: () => [['Second-hand and repair', 0.8], ['Normal: buy what you need', 2.0], ['New phone every year, fast fashion, lots of deliveries', 4.5]].map(([t, v]) => ({t, f: s => { s.stuff = v; return `🛍️ ${t}.`; }}))},
+    {age: 25, title: 'Holidays in your twenties', text: () => 'How do you travel now?',
+      opts: () => [['No flights', 0, 0], ['One long-haul trip a year', 0, 1], ['Six weekend city breaks by plane a year', 6, 0], ['City breaks and a long-haul trip', 6, 1]].map(([t, a, b]) => ({t, f: s => { s.fShort = a; s.fLong = b; return `✈️ ${t}.`; }})), end: true},
+    {age: 35, title: 'Family', text: () => "You're 35. Who do you live with?",
+      opts: () => [['On your own', 1], ['With a partner', 2], ['A partner and two kids', 4]].map(([t, h]) => ({t, f: s => { s.hh = h; return `👪 ${h === 4 ? 'You live with a partner and two kids' : h === 2 ? 'You live with a partner' : 'You live on your own'}.`; }}))},
+    {age: 35, title: 'Buying a home', text: s => `You're buying a home in ${LC[s.cty][2]}.`,
+      opts: () => [['2-bed flat (70 m²)', 70, 0], ['3-bed house (150 m²)', 150, 0], ['5-bed house (300 m²) with a heated pool', 300, 1]].map(([t, a, p]) => ({t, f: s => { s.area = a; s.pool = !!p; return `🏡 You bought a ${t.toLowerCase()}.`; }}))},
+    {age: 35, title: 'Your boiler breaks!', when: s => LC[s.cty][4] >= 20 && (s.heat === 'gas' || s.heat === 'oil'), text: s => `The ${s.heat} boiler gives up in the middle of winter.`,
+      opts: s => [{t: `Replace it with another ${s.heat} boiler`, f: () => '🔧 New boiler, same fuel.'}, {t: 'Switch to a heat pump', f: s => { s.heat = 'hp'; return '♨️ You switched to a heat pump.'; }}]},
+    {age: 35, title: 'Heatwave!', text: s => `${LC[s.cty][2]} is having its hottest summer on record.`,
+      opts: () => [{t: 'Install air conditioning', f: s => { s.ac = true; return '❄️ You installed air conditioning.'; }}, {t: 'Fans, blinds and cold showers', f: () => '🪭 You sweated it out.'}]},
+    {age: 35, title: 'More cars?', text: () => 'With a bigger household, do you need another car?',
+      opts: () => [{t: 'No, one is plenty (or none)', f: () => '🚗 Same car as before.'}, {t: 'Add a second petrol car', f: s => { s.car2 = true; if (s.car === 'none') s.car = 'petrol'; return '🚙 You added a second car.'; }}, {t: 'Swap to an electric car', f: s => { s.car = 'ev'; return '🔌 You switched to an electric car.'; }}]},
+    {age: 35, title: 'Family holidays', text: () => 'Where do holidays go now?',
+      opts: () => [['Camping by train or car', 0, 0], ['One short flight a year', 1, 0], ['One long-haul trip a year', 0, 1], ['Two long-haul trips a year', 0, 2]].map(([t, a, b]) => ({t, f: s => { s.fShort = a; s.fLong = b; return `🏖️ ${t}.`; }})), end: true},
+    {age: 50, title: 'Time to renovate?', text: () => "You're 50 and the house needs work.",
+      opts: () => [['Insulate walls and roof', 1, 0], ['Put solar panels on the roof', 0, 1], ['Both', 1, 1], ['Neither', 0, 0]].map(([t, i, p]) => ({t, f: s => { if (i) s.ins = true; if (p) s.solar = true; return `🛠️ Renovation: ${t.toLowerCase()}.`; }}))},
+    {age: 50, title: 'Promotion!', text: () => 'You now lead a global team. They want you at meetings on three continents.',
+      opts: () => [{t: 'Fly business class, 6 long-haul trips a year', f: s => { s.fLong += 6; s.biz = true; return '💼 You fly business class six times a year.'; }}, {t: 'Fly economy, 6 trips a year', f: s => { s.fLong += 6; return '🧳 You fly economy six times a year.'; }}, {t: 'Insist on video calls', f: () => '💻 You run the team by video call.'}], end: true},
+    {age: 65, title: 'Retirement', text: () => "You're 65 and retired. Where do you live now?",
+      opts: () => [{t: 'Downsize to a 60 m² flat', f: s => { s.area = 60; s.pool = false; s.hh = Math.min(s.hh, 2); s.car2 = false; return '📦 You downsized to a small flat.'; }}, {t: 'Stay in the family home', f: s => { s.hh = Math.min(s.hh, 2); return '🏡 You stayed in the family home.'; }}, {t: 'Retire somewhere sunny in Spain', f: s => { s.cty = 'ES'; s.hh = Math.min(s.hh, 2); return '🌞 You retired to Madrid.'; }}]},
+    {age: 65, title: 'Retirement travel', text: () => 'Time to see the world?',
+      opts: () => [['Stay close to home', 0, 0, 0], ['One cruise a year', 0, 0, 1], ['A long-haul trip every winter', 0, 1, 0], ['A cruise and a long-haul trip every year', 0, 1, 1]].map(([t, a, b, c]) => ({t, f: s => { s.fShort = a; s.fLong = b; s.biz = false; s.cruise = c; return `🛳️ ${t}.`; }})), end: true},
+  ];
+}
+function gameHtml(){
+  return `<div class="game mt2" id="game">
+      <div class="game-hd"><span class="game-tag">🎮 Mini game</span><h3>You vs. the giants</h3><p>Live a whole life, one decision at a time, then see how it compares with one year of a big company.</p></div>
       <div class="game-body">
-        <div class="game-pick">${GAME.map(([k, ic, lab, opts, d]) => `<div class="gq"><div class="gl">${ic} ${lab}</div><div class="gopts" data-g="${k}">${opts.map(([t], i) => `<button data-i="${i}" class="${i === d ? 'on' : ''}">${t}</button>`).join('')}</div></div>`).join('')}
-          <p class="muted" style="font-size:12.5px;margin:6px 0 0">Plus about 1 tonne for shared services such as roads, schools and hospitals. Rough, rounded figures in tonnes of CO₂ equivalent; real footprints vary by country.</p></div>
+        <div class="life">
+          <div class="life-top"><span id="lg-age">Age 0</span><span id="lg-where">–</span><span id="lg-rate">–</span></div>
+          <div class="life-card" id="lg-card"></div>
+          <div class="life-feed" id="lg-feed" aria-live="polite"></div>
+        </div>
         <div class="game-out">
-          <div class="score"><span>Your year</span><b id="g-you">–</b><small id="g-avg"></small></div>
-          <div class="gl" style="margin-top:12px">Pick a rival</div><div class="gopts rivals" id="g-rivals"></div>
-          <button class="btn btn-red race" id="g-race">▶ Race!</button>
-          <div class="track"><div class="lane"><span>You</span><i id="g-bar-you"></i></div><div class="lane rival"><span id="g-rname">Rival</span><i style="width:100%"></i></div></div>
+          <div class="score"><span>Your lifetime so far</span><b id="lg-total">0 t</b><small id="lg-avg"></small></div>
+          <div class="gl" style="margin-top:12px">Your rival</div><div class="gopts rivals" id="g-rivals"></div>
           <div class="g-msg" id="g-msg" aria-live="polite"></div>
-          <div class="gl" style="margin-top:12px">Cheat codes</div><div class="gopts" id="g-boost">${BOOSTS.map(([k, t, m], i) => `<button data-b="${i}">${t}</button>`).join('')}</div>
-          <div class="g-msg quip" id="g-quip" aria-live="polite"></div>
+          <div class="track"><div class="lane"><span>Your life</span><i id="g-bar-you"></i></div><div class="lane rival"><span id="g-rname">Rival</span><i style="width:100%"></i></div></div>
+          <p class="muted" style="font-size:12px;margin:8px 0 0">Bars on a log scale: each step is ten times more.</p>
+          <button class="lg-restart" id="lg-restart">↺ Start a new life</button>
         </div>
       </div>
-      <p class="muted game-src">Company figures are each company's latest reported Scope 1 and 2 emissions (GRI and CDP disclosures, via Wikirate), so they leave out their supply chains and products. The “All” total adds every company with a figure on this site, including 27 Climate TRACE estimates. Amazon has no usable figure in this data, so it is not in the race.</p>
-    </div>
-  </div></section>`;
+      <p class="muted game-src">Rough, rounded figures in tonnes of CO₂ equivalent for one person's consumption. Home energy uses each country's electricity carbon intensity (<a href="https://ourworldindata.org/grapher/carbon-intensity-electricity" target="_blank" rel="noopener" style="color:#fff">Our World in Data, from Ember</a>, 2024–25) and typical heating and cooling needs; a shared home is split between the people in it. Flights: about 0.25 t for a short return trip and 1.8 t for a long-haul one, tripled in business class; a week's cruise about 1.5 t. Food, shopping and shared public services use typical averages. Company figures are each company's latest reported Scope 1 and 2 emissions (via Wikirate), so they leave out supply chains and the products they sell. Amazon has no usable figure in this data.</p>
+    </div>`;
 }
 function wireGame(){
   const g = $('#game'); if (!g) return;
-  const pick = Object.fromEntries(GAME.map(([k, , , , d]) => [k, d])), boost = {};
-  let rival = 4, rivals = [];
-  const vOf = k => { const row = GAME.find(r => r[0] === k); let v = row[3][pick[k]][1]; if (boost[k]) v = Math.max(v, k === 'flights' ? 3 : k === 'car' ? 6 : 2) * boost[k]; return v; };
-  const total = () => GAME.reduce((a, [k]) => a + vOf(k), 1);
-  const nice = n => n >= 1e9 ? (n / 1e9).toFixed(1) + ' billion' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' million' : n >= 1e4 ? fmt(Math.round(n)) : n >= 10 ? fmt(Math.round(n)) : n.toFixed(1);
-  const pctS = x => x >= 1 ? x.toFixed(0) + '%' : x >= 0.01 ? x.toFixed(2) + '%' : x >= 0.0001 ? x.toFixed(4) + '%' : 'less than 0.0001%';
-  const era = n => n < 120 ? `starting in ${Math.round(NOW - n)}` : n < 2000 ? `starting in the year ${Math.round(NOW - n)}` : n < 4600 ? 'starting before the Roman Empire' : n < 11700 ? 'starting before the pyramids were built' : n < 300000 ? 'starting before the last ice age ended' : n < 6e6 ? 'starting before modern humans existed' : n < 66e6 ? 'starting before the first human ancestors walked' : n < 230e6 ? 'starting while dinosaurs roamed the Earth' : 'starting before the first dinosaurs hatched';
-  const dur = s => s < 1 ? 'less than a second' : s < 90 ? Math.round(s) + ' seconds' : s < 5400 ? Math.round(s / 60) + ' minutes' : s < 172800 ? (s / 3600).toFixed(1) + ' hours' : (s / 86400).toFixed(1) + ' days';
-  const render = () => {
-    const t = total(); $('#g-you').textContent = nice(t) + ' t';
-    $('#g-avg').textContent = `${(t / WORLD_PC).toFixed(1)}× the world average of ${WORLD_PC} t`;
-    const R = rivals[rival]; if (!R) return; $('#g-rname').textContent = R.name;
-    const yrs = R.t / t, life = 80 * t / R.t * 100;
-    $('#g-bar-you').style.width = Math.max(0.6, Math.min(100, t / R.t * 100)) + '%';
-    $('#g-msg').innerHTML = `<b>${R.name}</b> emits your whole year in <b>${dur(t / R.t * 31557600)}</b>. To match its one year you would need to live like this for <b>${nice(yrs)} years</b>, ${era(yrs)}. A whole 80-year lifetime adds up to <b>${pctS(life)}</b> of its single year.`;
+  const STEPS = lifeSteps();
+  let s, i, rival = 0, rivals = [];
+  const nice = n => n >= 1e9 ? (n / 1e9).toFixed(1) + ' billion' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' million' : n >= 100 ? fmt(Math.round(n)) : n >= 10 ? n.toFixed(0) : n.toFixed(1);
+  const dur = x => x < 1 ? 'under a second' : x < 90 ? Math.round(x) + ' seconds' : x < 5400 ? Math.round(x / 60) + ' minutes' : x < 172800 ? (x / 3600).toFixed(1) + ' hours' : (x / 86400).toFixed(1) + ' days';
+  const feed = (html, cls = '') => { const f = $('#lg-feed'); f.insertAdjacentHTML('afterbegin', `<div class="lf ${cls}">${html}</div>`); };
+  const reset = () => { s = {cty: 'US', where: 'city', area: 60, hh: 4, heat: 'gas', commute: 10, commuteMode: 'transit', car: 'none', car2: false, diet: 2, stuff: 2, fShort: 0, fLong: 0, biz: false, cruise: 0, ins: false, solar: false, ac: false, pool: false, total: 0, age: 0}; i = 0; $('#lg-feed').innerHTML = ''; show(); };
+  const ageUp = to => {
+    const st = STAGES.find(([a]) => a === s.age) || [s.age, to], yrs = to - s.age, br = lifeAnnual(s), yr = sumBr(br);
+    s.total += yr * yrs;
+    feed(`🎂 <b>Age ${s.age}–${to - 1}:</b> ${yr.toFixed(1)} t a year × ${yrs} years = <b>${nice(yr * yrs)} t</b><br><small>${Object.entries(br).map(([k, v]) => `${k} ${v.toFixed(1)}`).join(' · ')}</small>`, 'big');
+    s.age = to;
   };
-  const quip = i => {
-    const [k, , m] = BOOSTS[i], R = rivals[rival], t = total(), share = pctS(t / R.t * 100);
-    const trips = (pick.flights === 3 ? 10 : 2) * m, gap = 8766 / trips, what = k === 'flights' ? `taking ${fmt(trips)} long-haul trips a year (one every ${gap >= 1 ? gap.toFixed(1) + ' hours' : Math.round(gap * 60) + ' minutes'})` : k === 'car' ? 'driving 100 SUVs at the same time, all year' : 'eating like 500 meat-loving people';
-    return `Even ${what}, your year would be <b>${share}</b> of ${R.name}'s. ${t / R.t < 0.01 ? 'Rounding error.' : 'Getting warmer. Literally.'}`;
+  const show = () => {
+    while (i < STEPS.length && STEPS[i].when && !STEPS[i].when(s)) { if (STEPS[i].end) ageUp(STAGES.find(([a]) => a === s.age)[1]); i++; }
+    const R = rivals[rival];
+    $('#lg-age').textContent = `Age ${Math.min(s.age, 80)}`; $('#lg-where').textContent = s.cty && i > 0 ? `${LC[s.cty][2]}, ${LC[s.cty][1]}` : 'Not born yet';
+    $('#lg-rate').textContent = i > 1 ? `${sumBr(lifeAnnual(s)).toFixed(1)} t a year` : '';
+    $('#lg-total').textContent = nice(s.total) + ' t'; $('#lg-avg').textContent = s.age > 18 ? `${(s.total / ((s.age - 18) * WORLD_PC)).toFixed(1)}× the world average for those years` : '';
+    if (R) {
+      $('#g-rname').textContent = R.name;
+      $('#g-bar-you').style.width = (s.total > 1 ? Math.max(1, Math.log10(s.total) / Math.log10(R.t) * 100) : 1) + '%';
+      $('#g-msg').innerHTML = s.total ? `${R.name} emits your lifetime so far in <b>${dur(s.total / R.t * 31557600)}</b>.` : `Pick choices on the left. ${R.name} emits ${nice(R.t)} t a year.`;
+    }
+    const card = $('#lg-card');
+    if (i >= STEPS.length) {
+      const yrs = R ? R.t / s.total : 0;
+      card.innerHTML = `<div class="lc-age">Age 80</div><h4>🪦 Rest in peace</h4><p>You lived to 80${s.cty !== s.born ? `, from ${LC[s.born][2]} to ${LC[s.cty][2]}` : ` in ${LC[s.cty][2]}`}, and emitted <b>${nice(s.total)} t</b> of CO₂ equivalent in your adult life.</p>${R ? `<p><b>${R.name}</b> emits that in <b>${dur(s.total / R.t * 31557600)}</b>. To match just one of its years, <b>${nice(yrs)} people</b> would have to live your exact life.</p>` : ''}<p class="muted" style="font-size:13px">Your choices still matter, mostly by changing what governments and companies do: how you vote, where you work and bank, what you push for.</p>`;
+      feed(`🪦 You died peacefully at 80. Lifetime: <b>${nice(s.total)} t</b>.`, 'big');
+      return;
+    }
+    const st = STEPS[i];
+    card.innerHTML = `<div class="lc-age">Age ${st.age}</div><h4>${st.title}</h4><p>${st.text(s)}</p><div class="lc-opts ${st.grid ? 'grid' : ''}">${st.opts(s).map((o, j) => `<button data-j="${j}">${o.t}</button>`).join('')}</div>`;
+    const opts = st.opts(s);
+    $$('#lg-card [data-j]').forEach(b => b.onclick = () => {
+      const line = opts[+b.dataset.j].f(s); if (line) feed(line);
+      if (st.age > s.age) s.age = st.age;
+      if (st.end) ageUp(STAGES.find(([a]) => a === s.age)[1]);
+      i++; show();
+    });
   };
   loadComp().then(K => {
-    const d = (K && K.d) || {}, latest = o => { for (let i = o.v.length - 1; i >= 0; i--) if (o.v[i] != null) return [o.v[i], o.y0 + i]; return [0, 0]; };
-    let all = 0, n = 0; Object.values(d).forEach(o => { all += latest(o)[0]; n++; });
-    rivals = RIVALS.map(nm => { if (nm === '*all') return {name: `All ${n} companies`, t: all * 1e6}; const e = D.find(x => x.n === nm && x.t === 'company'); const o = e && d[e.s]; return o ? {name: e.n.replace(' plc', ''), t: latest(o)[0] * 1e6} : null; }).filter(Boolean);
-    rival = Math.min(rival, rivals.length - 1);
-    if ($('#pp-n')) { $('#pp-n').textContent = n; $('#pp-tot').textContent = `about ${(all / 1000).toFixed(1)} billion tonnes`; }
-    $('#g-rivals').innerHTML = rivals.map((r, i) => `<button data-r="${i}" class="${i === rival ? 'on' : ''}">${esc(r.name)}</button>`).join('');
-    $$('#g-rivals button').forEach(b => b.onclick = () => { rival = +b.dataset.r; $$('#g-rivals button').forEach(x => x.classList.toggle('on', x === b)); $('#g-quip').innerHTML = ''; render(); });
-    render();
+    const d = (K && K.d) || {}, latest = o => { for (let k = o.v.length - 1; k >= 0; k--) if (o.v[k] != null) return o.v[k]; return 0; };
+    rivals = RIVALS.map(([nm, show]) => { const e = D.find(x => x.n === nm && x.t === 'company'); const o = e && d[e.s]; return o ? {name: show, t: latest(o) * 1e6} : null; }).filter(Boolean);
+    rival = rivals.length - 1;  // start against the biggest
+    $('#g-rivals').innerHTML = rivals.map((r, k) => `<button data-r="${k}" class="${k === rival ? 'on' : ''}">${esc(r.name)}</button>`).join('');
+    $$('#g-rivals button').forEach(b => b.onclick = () => { rival = +b.dataset.r; $$('#g-rivals button').forEach(x => x.classList.toggle('on', x === b)); show(); });
+    show();
   });
-  $$('.gopts[data-g]', g).forEach(row => $$('button', row).forEach(b => b.onclick = () => { pick[row.dataset.g] = +b.dataset.i; $$('button', row).forEach(x => x.classList.toggle('on', x === b)); render(); }));
-  $$('#g-boost button').forEach(b => b.onclick = () => { const i = +b.dataset.b, k = BOOSTS[i][0]; boost[k] = boost[k] ? 0 : BOOSTS[i][2]; b.classList.toggle('on', !!boost[k]); render(); $('#g-quip').innerHTML = boost[k] ? quip(i) : ''; });
-  $('#g-race').onclick = () => {
-    const R = rivals[rival]; if (!R) return; const t = total(), yrs = R.t / t, bar = $('#g-bar-you'), msg = $('#g-msg'), t0 = performance.now(), D2 = 2600;
-    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const step = now => { const f = reduce ? 1 : Math.min(1, (now - t0) / D2), y = Math.pow(yrs, f);
-      bar.style.width = Math.max(0.6, Math.min(100, y * t / R.t * 100)) + '%';
-      msg.innerHTML = `⏱️ Year <b>${nice(y)}</b> of ${nice(yrs)}… ${era(y)}`;
-      if (f < 1) requestAnimationFrame(step); else { msg.innerHTML = `🏁 You caught up with one year of <b>${R.name}</b> after <b>${nice(yrs)} years</b>, ${era(yrs)}. ${R.name} then did it again the following year.`; } };
-    requestAnimationFrame(step);
-  };
+  $('#lg-restart').onclick = reset;
+  reset();
 }
 
 P.learn = (params, sub) => `
