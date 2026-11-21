@@ -1687,7 +1687,10 @@ function shareCard(e, fmt, lang){
 }
 function renderShare(e){
   const em = emailDraftLang(e, emlLangOf(e)), tx = shareText(e, emlLangOf(e)); let LG = emlLangOf(e);
-  $('#sh-out').innerHTML = `<div class="grid2" style="align-items:start">
+  $('#sh-out').innerHTML = `<div class="card" style="margin-bottom:18px">
+      <label class="muted" style="font-size:14px" for="em-lang"><b>Language</b> (for the post, the picture card and the email)</label><br><select id="em-lang" style="width:100%;max-width:420px;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:4px">${Object.entries(EML_LANGS).map(([k, v]) => `<option value="${k}"${k === emlLangOf(e) ? ' selected' : ''}>${v}${k === emlLangOf(e) && k !== 'en' ? ' (language of this country)' : ''}</option>`).join('')}</select>
+      <p class="muted" id="em-langnote" style="font-size:13px;margin:0 0 10px" ${emlLangOf(e) === 'en' ? 'hidden' : ''}>Translations are drafts. Please have a fluent speaker check them before sending. Changing the language also rewrites the post and picture card, and replaces any edits to the post, subject and message.</p>
+    </div><div class="grid2" style="align-items:start">
     <div class="card"><h3>Post</h3>
       <textarea id="sh-text" rows="5" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(tx)}</textarea>
       <p class="muted" style="font-size:13.5px;margin:4px 0 12px"><span id="sh-n"></span> The link to the entry is added automatically.</p>
@@ -1702,8 +1705,6 @@ function renderShare(e){
       <div class="actions" style="flex-wrap:wrap"><button class="btn btn-purple btn-sm" data-card="story">Download story (1080×1920)</button><button class="btn btn-ghost btn-sm" data-card="post">Download square post</button></div>
       <canvas id="sh-prev" style="max-width:220px;margin-top:14px;border-radius:8px;box-shadow:var(--shadow)"></canvas></div>
     <div class="card"><h3>Email a policymaker</h3>
-      <label class="muted" style="font-size:14px" for="em-lang">Language</label><select id="em-lang" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:4px">${Object.entries(EML_LANGS).map(([k, v]) => `<option value="${k}"${k === emlLangOf(e) ? ' selected' : ''}>${v}${k === emlLangOf(e) && k !== 'en' ? ' (language of this country)' : ''}</option>`).join('')}</select>
-      <p class="muted" id="em-langnote" style="font-size:13px;margin:0 0 10px" ${emlLangOf(e) === 'en' ? 'hidden' : ''}>Translations are drafts. Please have a fluent speaker check them before sending. Changing the language also rewrites the post and picture card, and replaces any edits to the post, subject and message.</p>
       <label class="muted" style="font-size:14px">To (their email address)</label><input id="em-to" type="email" placeholder="name@council.gov" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
       <label class="muted" style="font-size:14px">Subject</label><input id="em-sub" value="${esc(em.subject)}" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px;margin-bottom:10px">
       <label class="muted" style="font-size:14px">Message</label><textarea id="em-body" rows="13" style="width:100%;font:inherit;padding:10px;border:1px solid var(--line-2);border-radius:8px">${esc(em.body)}</textarea>
