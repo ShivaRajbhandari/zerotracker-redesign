@@ -1676,11 +1676,11 @@ function shareCard(e, fmt, lang){
   g.fillStyle = '#fff'; g.font = `700 78px ${F}`; y = wrap(nmx, PX, y, W - 160, 92) + 10;
   g.fillStyle = '#e0d6ea'; g.font = `400 46px ${F}`; y = wrap(X ? (isNZ(e) ? X.tgt(year(e)) : X.no) : targetPhrase(e), PX, y, W - 160, 60) + 30;
   if (isNZ(e)) {
-    g.fillStyle = '#fff'; g.font = `700 150px ${F}`; g.fillText(X ? X.of(t.yes, cs.length) : t.yes + ' of ' + cs.length, PX, y + 120); y += 160;
-    g.fillStyle = '#e0d6ea'; g.font = `400 42px ${F}`; g.fillText(X ? X.ck : 'credibility checks met', PX, y + 40); y += 100;
+    g.fillStyle = '#fff'; const sc = X ? X.of(t.yes, cs.length) : t.yes + ' of ' + cs.length; let fs = 150; g.font = `700 ${fs}px ${F}`; while (g.measureText(sc).width > W - 160 && fs > 56) { fs -= 6; g.font = `700 ${fs}px ${F}`; } g.fillText(sc, PX, y + 120); y += 160;
+    g.fillStyle = '#e0d6ea'; g.font = `400 42px ${F}`; y = wrap(X ? X.ck : 'credibility checks met', PX, y + 40, W - 160, 52) + 40;
     const gaps = cs.filter(k => k.v === 'no').map(k => shortGap[k.id]).filter(Boolean).slice(0, 3);
     if (gaps.length && !X) { g.fillStyle = '#ffb3a8'; g.font = `600 36px ${F}`; g.fillText('GAPS', PX, y + 20); y += 60; g.fillStyle = '#fff'; g.font = `400 42px ${F}`; gaps.forEach(q => { y = wrap('✗  ' + q, PX, y + 20, W - 160, 56); }); }
-  } else { g.fillStyle = '#fff'; g.font = `700 96px ${F}`; g.fillText(X ? X.no : 'No net zero target', PX, y + 100); }
+  } else { g.fillStyle = '#fff'; g.font = `700 96px ${F}`; wrap(X ? X.no : 'No net zero target', PX, y + 100, W - 160, 112); }
   g.fillStyle = '#ffffff'; g.font = `700 40px ${F}`; g.fillText('NET ZERO TRACKER', PX, H - 150);
   g.fillStyle = '#e0d6ea'; g.font = `400 34px ${F}`; g.fillText(official(e).replace('https://', ''), PX, H - 96);
   return c;
