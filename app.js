@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zy';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zza';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -912,9 +912,37 @@ function fxTipWire(svgId){ const svg = $('#' + svgId); if (!svg) return; svg.add
 function fxShare(id, e, name, title, text){ shareWire('sh-' + id, {url: () => location.href.split('#')[0] + '#/e/' + e.s, name: name + '-' + e.s, title: () => title, svg: () => $('#' + id + '-svg'), text: () => text}); }
 const FX_SRC_CCKP = 'World Bank Climate Change Knowledge Portal, CMIP6 climate models (median of the models, 0.25° grid), averaged over the place’s outline or taken at the city’s location. Each line is a different emissions pathway: low (SSP1-2.6), middle (SSP2-4.5) and high (SSP3-7.0). Projections are not forecasts: they show what the models say each path leads to.';
 
+// a map of how much each part of a place has changed. The grid squares are painted onto a canvas by inverting the map projection,
+// then clipped to the place's outline, so any outline shape works and the picture stays small.
+async function fxCellMap(id, e, rec, cfg){
+  await loadGeo();
+  const W = 640, MH = 350, H = MH + 68;
+  let feat = e.t === 'country' ? topojson.feature(WORLD, WORLD.objects.countries).features.find(f => f.id === e.iso) : topojson.feature(REG, REG.objects.regions).features.find(f => f.properties.s === e.s);
+  if (!feat) return null;
+  if (e.t === 'region') feat = fixWinding(feat);
+  const usa = e.t === 'country' && e.iso === 'USA', target = e.t === 'country' && !usa ? mainPart(feat) : feat;
+  const proj = (usa ? d3.geoAlbersUsa() : d3.geoNaturalEarth1()).fitExtent([[10, 8], [W - 10, MH]], target), P = d3.geoPath(proj);
+  const [west, north, step, nc, nr, vals] = rec;
+  const val = (lo, la) => { const c = Math.floor((lo - west) / step), r = Math.floor((north - la) / step); if (c < 0 || r < 0 || c >= nc || r >= nr) return null; const v = vals[r * nc + c]; return v === 999 ? null : v; };
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = MH + 10;
+  const ctx = cv.getContext('2d'), img = ctx.createImageData(cv.width, cv.height), rgb = cfg.cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
+  const bb = P.bounds(target), xa = Math.max(0, Math.floor(bb[0][0]) - 1), xb = Math.min(W - 1, Math.ceil(bb[1][0]) + 1), ya = Math.max(0, Math.floor(bb[0][1]) - 1), yb = Math.min(MH + 9, Math.ceil(bb[1][1]) + 1);
+  for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) {
+    const ll = proj.invert([x + .5, y + .5]); if (!ll) continue;
+    const v = val(ll[0], ll[1]); if (v == null) continue;
+    const c = rgb[cfg.bin(v)], o = (y * cv.width + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const outline = P(feat), n = cfg.cols.length, lw = 62, lx = (W - n * lw) / 2, ly = MH + 24;
+  const legend = cfg.cols.map((c, i) => `<rect x="${lx + i * lw}" y="${ly}" width="${lw}" height="13" fill="${c}"/>`).join('') + cfg.edges.map((t, i) => `<text x="${lx + i * lw}" y="${ly + 30}" text-anchor="middle" font-size="12" fill="#5f5869">${t}</text>`).join('') + `<text x="${W / 2}" y="${ly - 6}" text-anchor="middle" font-size="12" fill="#7a7385">${cfg.legend}</text>`;
+  const svg = `<svg viewBox="0 0 ${W} ${H}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect width="${W}" height="${H}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" clip-path="url(#${id}-cp)" style="image-rendering:pixelated"/><path d="${outline}" fill="none" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${legend}</svg>`;
+  const wire = () => { const sv = $('#' + id + '-svg'); if (!sv) return; sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = proj.invert([(ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * H]), v = ll && val(ll[0], ll[1]); if (v == null) { hideTip(); return; } showTip(cfg.tip(v), ev); }); sv.addEventListener('mouseleave', hideTip); };
+  return {svg, wire, step};
+}
+
 async function fxRender(e){
   const body = $('#fx-body'); if (!body) return;
-  let S, F, SL, DS, SN, PR; try { [S, F, SL, DS, SN, PR] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR')]); } catch (err) { console.error(err); }
+  let S, F, SL, DS, SN, PR, WM, PM; try { [S, F, SL, DS, SN, PR, WM, PM] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('wmap.js', 'NZWM'), loadScr('pmap.js', 'NZPM')]); } catch (err) { console.error(err); }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
   const P = fxPlace(e), blocks = [], wires = [], fxg = {snow: [], precip: [], humid: []};   // the three weather groups sit in their own dropdowns at the bottom
   let G = null, dv = null;   // set inside the sections, used for the sub-title
@@ -923,6 +951,23 @@ async function fxRender(e){
   const r = stripesHtml(e);
   if (r) { blocks.push(`<div class="fxblock" id="fxb-str"><div class="shead"><h3>Warming stripes</h3>${shareBarHtml('sh-str')}</div><p class="muted mt0" style="margin-bottom:8px">How the average temperature in ${esc(e.t === 'region' ? placeName(e) : P)} has changed since ${r.y0}. Each stripe is one year: blue years were cooler than the 1971–2000 average, red years warmer.</p><div class="card emis"><div class="emis-facts">${r.facts}</div>${r.svg}<p class="muted emis-src"><b>Source:</b> <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth</a> High Resolution Dataset (April 2026), land air temperature on a 0.25° grid (about 25 km), CC BY-NC 4.0. ${e.t === 'city' ? 'This is the temperature at the city’s location, not for a wider area.' : `This averages the land inside the ${regTerm(e)[0]}’s outline.`} Light grey stripes are years with no usable record; the early decades rest on few weather stations and are less certain. The colours follow the “warming stripes” by climate scientist <a href="https://showyourstripes.info" target="_blank" rel="noopener">Ed Hawkins</a>: the scale runs ±2.6 standard deviations around the 1971–2000 average.</p></div></div>`);
     wires.push(() => { stripesWire(e, r); const d1 = r.d1951; fxShare('str', e, 'warming-stripes', 'Warming stripes: ' + P, `${P} has warmed ${d1 != null ? fxSign(d1 * r.k) + r.u + ' in the last 10 years compared with 1951–1980' : 'since 1850'}${r.hot != null ? `, and ${r.hot} of its 10 hottest years on record have come since 2015` : ''}. Each stripe is one year, from 1850 to 2025. #ClimateAction`); }); }
+  } catch (err) { console.error(err); }
+  // 1b. where within the place it is warming fastest
+  try {
+  const WR = WM && WM.d[e.s];
+  if (WR && e.t !== 'city') {
+    const U = fxU(e), vs = WR[5].filter(v => v !== 999), lo0 = Math.min(...vs), hi0 = Math.max(...vs), lo = Math.floor(lo0 / 1) , hi = Math.max(hi0, lo + 4), n = 7;
+    const cols = ['#fff3d6', '#fdd9a0', '#fbb06a', '#f27f4d', '#d9482f', '#b01f24', '#7a0c1c'], f1 = t => { const x = t / 10 * U.k; return (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + U.u; };
+    const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n)), mean = vs.reduce((a, b) => a + b, 0) / vs.length;
+    const m = await fxCellMap('fx-wm', e, WR, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Warming, 2015–2024 compared with 1951–1980', aria: `Map of how much each part of ${P} has warmed since 1951–1980. Areas range from ${f1(lo0)} to ${f1(hi0)}.`, tip: v => `<div class="tipms"><b>${f1(v)}</b><div class="mrow"><span class="my"></span><span>warmer than 1951–1980</span></div></div>`});
+    if (m) {
+      const fast = f1(hi0), slow = f1(lo0);
+      blocks.push(fxBlock('fx-wm', 'Which parts are warming fastest?', `How much warmer each part of ${esc(P)} is in 2015–2024 than it was in 1951–1980. Darker areas have warmed more. The colours are scaled to ${esc(P)} itself, so the map shows which parts are warming faster or slower than the rest, not how ${esc(P)} compares with other places.`,
+        `<div class="emis-facts"><div><span>Fastest-warming areas</span><b>${fast}</b></div><div><span>Slowest-warming areas</span><b>${slow}</b></div><div><span>Typical</span><b>${f1(mean)}</b></div></div>` + m.svg,
+        `<b>Source:</b> Berkeley Earth, <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">High Resolution Dataset</a> (CC BY-NC 4.0), land air temperature on a 0.25° grid, shown in squares of ${m.step}°. Hover over the map to read a square. Places with few weather stations are estimated from nearby ones, so small differences between neighbouring squares are not reliable.`));
+      wires.push(() => { m.wire(); fxShare('fx-wm', e, 'warming-map', 'Where ' + P + ' is warming fastest', `Parts of ${P} have warmed by as much as ${fast} since 1951–1980, while others have warmed by ${slow} (Berkeley Earth). #ClimateAction`); });
+    }
+  }
   } catch (err) { console.error(err); }
   // 2. temperature ahead
   try {
@@ -974,6 +1019,23 @@ async function fxRender(e){
     const facts = `<div class="emis-facts"><div><span>1951–1980 average</span><b>${fm(a1)} a year</b></div><div><span>1994–2023 average</span><b>${fm(a2)} a year</b></div><div><span>Change</span><b>${ch >= 0 ? '+' : '−'}${Math.abs(Math.round(ch))}%</b></div></div>`;
     fxg.precip.push(fxBlock('fx-pr', 'How much rain has fallen?', `The total rain and snow that fell in a year in ${esc(P)}, measured by weather stations and mapped on a grid.`, facts + svg + `<div class="emis-key"><span><i style="background:#0b7a6b;height:4px"></i>11-year average</span><span><i style="background:#8fd3c4;height:2px"></i>Each year</span></div>`, `<b>Source:</b> Climatic Research Unit, University of East Anglia, <a href="https://crudata.uea.ac.uk/cru/data/hrg/" target="_blank" rel="noopener">CRU TS 4.08</a> (Harris et al., 2020), via the World Bank Climate Change Knowledge Portal; Open Database License. Gridded at 0.5° (about 50 km) from rain-gauge records, averaged over ${e.t === 'city' ? 'the grid cell around the city' : 'the place’s outline'}. Where there are few weather stations the maps are smoother and less certain, and individual years are noisier than the average.`));
     wires.push(() => { fxLineWire('fx-pr'); fxShare('fx-pr', e, 'rainfall-history', 'Rainfall: ' + P, `${P} received about ${fm(a2)} of rain and snow a year in 1994–2023, ${Math.abs(Math.round(ch)) < 1 ? 'about the same as' : Math.abs(Math.round(ch)) + '% ' + (ch < 0 ? 'less than' : 'more than')} in 1951–1980 (CRU TS). #ClimateAction`); });
+  }
+  } catch (err) { console.error(err); }
+  // 4a-2. where within the place the rain has changed
+  try {
+  const PQ = PM && PM.d[e.s];
+  if (PQ && e.t !== 'city') {
+    const vs = PQ[5].filter(v => v !== 999), mx = Math.max(10, Math.ceil(Math.max(...vs.map(Math.abs)) / 10) * 10), n = 7, lo = -mx, hi = mx;
+    const cols = ['#8c510a', '#bf812d', '#dfc27d', '#f1ece2', '#80cdc1', '#35978f', '#01665e'], f1 = t => (t > 0 ? '+' : t < 0 ? '−' : '') + Math.abs(Math.round(t)) + '%';
+    const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n));
+    const m = await fxCellMap('fx-pm', e, PQ, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Change in yearly rain and snow, 1994–2023 compared with 1951–1980', aria: `Map of where rain and snow have increased or decreased in ${P} between 1951–1980 and 1994–2023.`, tip: v => `<div class="tipms"><b>${f1(v)}</b><div class="mrow"><span class="my"></span><span>rain and snow a year, vs 1951–1980</span></div></div>`});
+    if (m) {
+      const wet = vs.filter(v => v > 5).length / vs.length, dry = vs.filter(v => v < -5).length / vs.length;
+      fxg.precip.push(fxBlock('fx-pm', 'Which parts are getting wetter or drier?', `The change in yearly rain and snow across ${esc(P)}, comparing 1994–2023 with 1951–1980. Brown areas have become drier and green-blue areas wetter. Rainfall changes are patchy and vary a lot from decade to decade, so read this as a broad pattern.`,
+        `<div class="emis-facts"><div><span>Area with more rain (over 5%)</span><b>${Math.round(wet * 100)}%</b></div><div><span>Area with less rain (over 5%)</span><b>${Math.round(dry * 100)}%</b></div></div>` + m.svg,
+        `<b>Source:</b> Climatic Research Unit, University of East Anglia, <a href="https://crudata.uea.ac.uk/cru/data/hrg/" target="_blank" rel="noopener">CRU TS 4.08</a> (Harris et al., 2020), via the World Bank Climate Change Knowledge Portal; Open Database License. 0.5° grid, shown in squares of ${m.step}°. Very dry areas (under 25 mm a year in 1951–1980) are left blank because a percentage change there means little.`));
+      wires.push(() => { m.wire(); fxShare('fx-pm', e, 'rainfall-map', 'Where rainfall is changing in ' + P, `${Math.round(wet * 100)}% of ${P} gets noticeably more rain and snow than in 1951–1980, and ${Math.round(dry * 100)}% gets noticeably less (CRU TS). #ClimateAction`); });
+    }
   }
   } catch (err) { console.error(err); }
   // 4. rain
@@ -1408,7 +1470,7 @@ function svgToPng(svg, title, name){
   const xml = new XMLSerializer().serializeToString(c), img = new Image(), url = URL.createObjectURL(new Blob([xml], {type: 'image/svg+xml;charset=utf-8'}));
   img.onload = () => { const k = 2, cv = document.createElement('canvas'); cv.width = W * k; cv.height = (H + TOP + BOT) * k; const g = cv.getContext('2d'); g.scale(k, k);
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H + TOP + BOT); g.fillStyle = '#271039'; g.font = '700 20px Outfit, Helvetica, Arial, sans-serif'; g.fillText(title.slice(0, 90), 16, 30);
-    g.drawImage(img, 0, TOP, W, H); g.fillStyle = '#5f5869'; g.font = '13px Outfit, Helvetica, Arial, sans-serif'; g.fillText('Net Zero Tracker (design prototype). Sources: ' + (name.includes('timeline') ? 'Net Zero Tracker' : /^warming-stripes/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^(projected-warming|hot-days|rainfall-change)/.test(name) ? 'World Bank Climate Change Knowledge Portal, CMIP6' : /^global-warming/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^global-co2/.test(name) ? 'NOAA Global Monitoring Laboratory' : /^global-disasters/.test(name) ? 'EM-DAT via Our World in Data' : /^snow/.test(name) ? 'Copernicus ERA5 (CC BY)' : /^rainfall-history/.test(name) ? 'CRU TS 4.08 (University of East Anglia)' : /^sea-level/.test(name) ? 'PSMSL tide gauges' : /^disaster-damage/.test(name) ? 'EM-DAT via Our World in Data' : 'Our World in Data, EDGAR v8.0'), 16, H + TOP + 20);
+    g.drawImage(img, 0, TOP, W, H); g.fillStyle = '#5f5869'; g.font = '13px Outfit, Helvetica, Arial, sans-serif'; g.fillText('Net Zero Tracker (design prototype). Sources: ' + (name.includes('timeline') ? 'Net Zero Tracker' : /^warming-(stripes|map)/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^(projected-warming|hot-days|rainfall-change)/.test(name) ? 'World Bank Climate Change Knowledge Portal, CMIP6' : /^global-warming/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^global-co2/.test(name) ? 'NOAA Global Monitoring Laboratory' : /^global-disasters/.test(name) ? 'EM-DAT via Our World in Data' : /^snow/.test(name) ? 'Copernicus ERA5 (CC BY)' : /^rainfall-(history|map)/.test(name) ? 'CRU TS 4.08 (University of East Anglia)' : /^sea-level/.test(name) ? 'PSMSL tide gauges' : /^disaster-damage/.test(name) ? 'EM-DAT via Our World in Data' : 'Our World in Data, EDGAR v8.0'), 16, H + TOP + 20);
     URL.revokeObjectURL(url); const a = document.createElement('a'); a.download = name + '.png'; a.href = cv.toDataURL('image/png'); a.click(); };
   img.src = url;
 }
