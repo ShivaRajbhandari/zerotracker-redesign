@@ -22,6 +22,17 @@ const hasAnyTarget = e => e.e && e.e !== 'No target';
 const year = e => { const y = +e.y; return y >= 2000 ? y : null; };
 const iyear = e => { const y = +e.iy; return y >= 2000 ? y : null; };
 const TYPE = {country:['Country','Countries'], region:['Region','Regions'], city:['City','Cities'], company:['Company','Companies']};
+// what each country calls its first-level divisions: [singular, plural, word added after the name]
+const REG_TERM = {USA:['state','states'], AUS:['state','states'], IND:['state','states'], MEX:['state','states'], BRA:['state','states'], DEU:['state','states'], MYS:['state','states'],
+  CAN:['province','provinces'], ZAF:['province','provinces'], CHN:['province','provinces'], KOR:['province','provinces'], IDN:['province','provinces'], TUR:['province','provinces'], THA:['province','provinces'], IRN:['province','provinces'],
+  JPN:['prefecture','prefectures'], TWN:['county','counties'], ESP:['autonomous community','autonomous communities','region'], POL:['voivodeship','voivodeships']};
+const REG_NAME = {'Yukon':['territory','territories'], 'Northwest Territories':['territory','territories'], 'Nunavut':['territory','territories'], 'Northern Territory':['territory','territories'], 'Australian Capital Territory':['territory','territories'],
+  'Guangxi':['autonomous region','autonomous regions','region'], 'Inner Mongolia':['autonomous region','autonomous regions','region'], 'Ningxia':['autonomous region','autonomous regions','region'], 'Xinjiang Uygur':['autonomous region','autonomous regions','region'], 'Xizang':['autonomous region','autonomous regions','region']};
+const regTerm = e => REG_NAME[e.n] || REG_TERM[e.c] || ['region', 'regions'];
+const capW = w => w.charAt(0).toUpperCase() + w.slice(1);
+const typeWord = e => e.t === 'region' ? capW(regTerm(e)[0]) : TYPE[e.t][0];
+const typePlural = e => e.t === 'region' ? capW(regTerm(e)[1]) : TYPE[e.t][1];
+const placeName = e => { if (e.t !== 'region') return e.n; const t = regTerm(e), w = t[2] || t[0]; return new RegExp(w + '|' + t[0] + '|district|metropolis|capital|city|community', 'i').test(e.n) ? e.n : e.n + ' ' + w; };
 const TYPE_PATH = {country:'countries', region:'regions', city:'cities', company:'companies'};
 
 // commitment strength ladder
@@ -127,7 +138,7 @@ const vtag = v => `${ICON[v]}<span class="sr">${VLAB[v]}</span>`;
 const MAG = '<svg class="mag" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5L21 21" stroke-linecap="round"/></svg>';
 const flag = a2 => a2 && a2.length===2 ? String.fromCodePoint(...[...a2.toUpperCase()].map(c => 127397 + c.charCodeAt(0))) : '';
 const pill = e => { const L = level(e); return `<span class="pill"><i style="background:${L.hex}"></i>${esc(L.label)}</span>`; };
-const typeBadge = t => `<span class="badge ${t}">${TYPE[t][0]}</span>`;
+const typeBadge = (t, e) => `<span class="badge ${t}">${e && t === 'region' ? capW(regTerm(e)[0]) : TYPE[t][0]}</span>`;
 const where = e => e.t === 'country' ? (e.g || '') : [e.cn, e.t==='company' && e.sec ? e.sec : null].filter(Boolean).join(' · ');
 const official = e => `https://zerotracker.net/${TYPE_PATH[e.t]}/${e.s}`;
 const money = n => n >= 1e12 ? '$' + (n/1e12).toFixed(1) + 'tn' : n >= 1e9 ? '$' + Math.round(n/1e9) + 'bn' : n >= 1e6 ? '$' + Math.round(n/1e6) + 'm' : '$' + fmt(n);
@@ -249,7 +260,7 @@ function wireSearch(id, onPick, filter){
     const q = inp.value.trim().toLowerCase(); act = -1;
     if (q.length < 2) { sg.hidden = true; return; }
     res = SEARCH.filter(x => (x.k.includes(q) || aliasHit(x.e, q)) && (!filter || filter(x.e))).sort((a,b) => (b.e.n.toLowerCase().startsWith(q)) - (a.e.n.toLowerCase().startsWith(q)) || ['country','region','city','company'].indexOf(a.e.t) - ['country','region','city','company'].indexOf(b.e.t)).slice(0, 9).map(x => x.e);
-    sg.innerHTML = res.length ? res.map((e,i) => `<a href="#/e/${e.s}" data-i="${i}">${typeBadge(e.t)}<span>${esc(e.n)}${aliasHit(e, q) ? ` <em style="font-weight:400;color:var(--muted)">(owns ${esc(aliasName(aliasHit(e, q)))})</em>` : ''}</span><small>${esc(targetPhrase(e))}</small></a>`).join('') : '<div class="empty" style="padding:14px">No match. Try a country, city, region or company name.</div>';
+    sg.innerHTML = res.length ? res.map((e,i) => `<a href="#/e/${e.s}" data-i="${i}">${typeBadge(e.t, e)}<span>${esc(e.n)}${aliasHit(e, q) ? ` <em style="font-weight:400;color:var(--muted)">(owns ${esc(aliasName(aliasHit(e, q)))})</em>` : ''}</span><small>${esc(targetPhrase(e))}</small></a>`).join('') : '<div class="empty" style="padding:14px">No match. Try a country, city, region or company name.</div>';
     sg.hidden = false;
   });
   sg.addEventListener('click', ev => { const a = ev.target.closest('a'); if (!a) return; ev.preventDefault(); sg.hidden = true; inp.value = ''; pick(res[+a.dataset.i]); });
@@ -396,7 +407,7 @@ function catOf(mode, e){ const M = MODES[mode], lab = M.of(e); return M.cats.fin
 const textOn = hex => { const n = parseInt(hex.slice(1), 16), r = n >> 16, g = (n >> 8) & 255, b = n & 255; return (0.299*r + 0.587*g + 0.114*b) < 140 ? '#fff' : '#1c1622'; };
 function tipHtml(e){
   const cs = checks(e), t = tally(cs), loc = e.t === 'country' ? '' : (e.cn ? ' · ' + esc(e.cn) : '');
-  return `<b>${e.t === 'country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</b> <span class="k">${TYPE[e.t][0]}${loc}</span><br>${esc(targetPhrase(e))}<br><span class="k">Commitment:</span> ${esc(level(e).label)}${isNZ(e) ? `<br><span class="k">Credibility checks met:</span> ${t.yes} of ${cs.length}` : ''}<br><span class="k" style="font-size:12.5px">Click for the full profile</span>`;
+  return `<b>${e.t === 'country' ? flag(e.a2) + ' ' : ''}${esc(e.n)}</b> <span class="k">${typeWord(e)}${loc}</span><br>${esc(targetPhrase(e))}<br><span class="k">Commitment:</span> ${esc(level(e).label)}${isNZ(e) ? `<br><span class="k">Credibility checks met:</span> ${t.yes} of ${cs.length}` : ''}<br><span class="k" style="font-size:12.5px">Click for the full profile</span>`;
 }
 
 /* The side panel: layer switches, then the colour menu with the legend nested under the active option */
@@ -841,10 +852,10 @@ function stripesWire(e, st){
 function stripesShow(e){
   if (e.t === 'company') return;
   loadStripes().then(S => { if (!S || location.hash.indexOf('/e/' + e.s) < 0) return; const r = stripesHtml(e); if (!r) return;
-    const where = e.c === 'EUU' ? 'the European Union' : e.t === 'region' ? e.n + ' region' : e.t === 'country' ? nm(e) : e.n;
+    const where = e.c === 'EUU' ? 'the European Union' : e.t === 'region' ? placeName(e) : e.t === 'country' ? nm(e) : e.n;
     $('#fx-title').textContent = `See the effect of climate change on ${e.c === 'EUU' ? 'the European Union' : e.t === 'country' ? nm(e) : e.n}`;
     $('#str-lede').textContent = `How the average temperature in ${where} has changed since ${r.y0}. Each stripe is one year: blue years were cooler than the 1971–2000 average, red years warmer.`;
-    $('#str').innerHTML = `<div class="card emis"><div class="emis-facts">${r.facts}</div>${r.svg}<p class="muted emis-src"><b>Source:</b> <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth</a> High Resolution Dataset (April 2026), land air temperature on a 0.25° grid (about 25 km), CC BY-NC 4.0. ${e.t === 'city' ? 'This is the temperature at the city’s location, not for a wider area.' : e.t === 'region' ? 'This averages the land inside the region’s outline.' : 'This averages the land inside the country’s borders.'} Light grey stripes are years with no usable record; the early decades rest on few weather stations and are less certain. The colours follow the “warming stripes” by climate scientist <a href="https://showyourstripes.info" target="_blank" rel="noopener">Ed Hawkins</a>: the scale runs ±2.6 standard deviations around the 1971–2000 average.</p></div>`;
+    $('#str').innerHTML = `<div class="card emis"><div class="emis-facts">${r.facts}</div>${r.svg}<p class="muted emis-src"><b>Source:</b> <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth</a> High Resolution Dataset (April 2026), land air temperature on a 0.25° grid (about 25 km), CC BY-NC 4.0. ${e.t === 'city' ? 'This is the temperature at the city’s location, not for a wider area.' : e.t === 'region' ? `This averages the land inside the ${regTerm(e)[0]}’s outline.` : 'This averages the land inside the country’s borders.'} Light grey stripes are years with no usable record; the early decades rest on few weather stations and are less certain. The colours follow the “warming stripes” by climate scientist <a href="https://showyourstripes.info" target="_blank" rel="noopener">Ed Hawkins</a>: the scale runs ±2.6 standard deviations around the 1971–2000 average.</p></div>`;
     $('#str-sec').hidden = false; stripesWire(e, r); });
 }
 function emisSeries(e){ const K = window.NZCE; if (e.t === 'company') { const k = K && K.d[e.s]; return k ? {y0:k.y0, v:k.v, kind:'k', k} : null; } const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
@@ -899,7 +910,7 @@ function emisChart(e){
   const src = K ? compSrc(e, K, y0, y1) : kind === 'c'
     ? `Source: <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (total greenhouse gases including land use and forestry, from Jones et al., 2024; CC BY). Estimates before about 1950 are rough.`
     : (() => { const u = (window.NZE.u || {})[e.s], R = (window.NZE.r || {})[e.s] || 10;
-      const where = e.t !== 'city' ? 'summed over the grid cells inside the region' : u ? (u[2] ? `summed over the part of the urban centre “${esc(u[0])}” (${fmt(u[1])} km²) within about ${Math.max(R, 10)} km of the city centre, because that urban centre contains several cities in the Tracker` : `summed over the urban centre outline for ${esc(u[0])} (${fmt(u[1])} km²) from the European Commission’s <a href="https://human-settlement.emergency.copernicus.eu/ghs_ucdb_2024.php" target="_blank" rel="noopener">Global Human Settlement Layer</a>`) : `summed over the grid cells within about ${R} km of the city centre, because no urban outline matched`;
+      const where = e.t !== 'city' ? 'summed over the grid cells inside the ' + (e.t === 'region' ? regTerm(e)[0] : 'region') : u ? (u[2] ? `summed over the part of the urban centre “${esc(u[0])}” (${fmt(u[1])} km²) within about ${Math.max(R, 10)} km of the city centre, because that urban centre contains several cities in the Tracker` : `summed over the urban centre outline for ${esc(u[0])} (${fmt(u[1])} km²) from the European Commission’s <a href="https://human-settlement.emergency.copernicus.eu/ghs_ucdb_2024.php" target="_blank" rel="noopener">Global Human Settlement Layer</a>`) : `summed over the grid cells within about ${R} km of the city centre, because no urban outline matched`;
       return `Source: <a href="https://edgar.jrc.ec.europa.eu/dataset_ghg80" target="_blank" rel="noopener">EDGAR v8.0</a>, European Commission Joint Research Centre (CC BY 4.0): all greenhouse gases from human activity except land use, as CO₂ equivalent, ${where}. The data is gridded at roughly 11 km, so it is approximate and will not match an official inventory. <a href="#/notes/emissions">How this was built</a>.`; })();
   const pcNote = pc ? (e.t === 'country' ? ' Per person: divided by each year\'s population (Our World in Data, CC BY).' : ` Per person: divided by today\'s population (${fmt(+e.pop)}), because yearly population figures are not available here, so earlier years are only indicative.`) + ' Target paths are shown only for totals, because targets are set for total emissions.' : '';
   return `${e.t !== 'company' && hasPop(e) ? `<div class="emis-ctl"><div class="seg segs" role="group" aria-label="Measure"><button data-pc="0" class="${pc ? '' : 'on'}"><b>Total</b></button><button data-pc="1" class="${pc ? 'on' : ''}"><b>Per person</b></button></div></div>` : ''}<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
@@ -1038,8 +1049,8 @@ P.entity = (params, slug) => {
   const inCmp = compareSet.get().includes(e.s);
   return `
   <div class="phead"><div class="wrap">
-    <div class="crumbs"><a href="#/">Home</a> › <a href="#/explore?type=${e.t}">${TYPE[e.t][1]}</a>${e.t!=='country' && e.cn ? ` › ${(() => { const c = D.find(x => x.t==='country' && x.c===e.c); return c ? `<a href="#/e/${c.s}">${esc(e.cn)}</a>` : esc(e.cn); })()}` : ''}</div>
-    <div class="ptop"><div>${typeBadge(e.t)}
+    <div class="crumbs"><a href="#/">Home</a> › <a href="#/explore?type=${e.t}">${typePlural(e)}</a>${e.t!=='country' && e.cn ? ` › ${(() => { const c = D.find(x => x.t==='country' && x.c===e.c); return c ? `<a href="#/e/${c.s}">${esc(e.cn)}</a>` : esc(e.cn); })()}` : ''}</div>
+    <div class="ptop"><div>${typeBadge(e.t, e)}
       <h1>${e.t==='country' ? `<span class="flag">${flag(e.a2)}</span>` : ''}${esc(e.n)}</h1>
       <div class="facts">${facts.map(([k,v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('')}</div></div>
       <div class="yr"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div>
@@ -1116,7 +1127,7 @@ P.entity.after = (params, slug) => {
   const renderE = () => { const html = emisChart(e); if (!html) return false;
     $('#emis').innerHTML = html; const se = viewSeries(e, EPC.on && e.t !== 'company' && hasPop(e));
     $$('#emis [data-pc]').forEach(b => b.onclick = () => { EPC.on = b.dataset.pc === '1'; (EPC.on ? loadPop() : Promise.resolve()).then(renderE); });
-    $('#emis-lede').textContent = `How greenhouse gas emissions ${se.pc ? 'per person ' : ''}${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : e.t === 'company' ? 'of ' + e.n : e.t === 'region' ? 'in ' + e.n + ' region' : 'in ' + nm(e)} have changed since ${se.y0}${!se.pc && (isNZ(e) || iyear(e)) ? ', and what the target would require from here' : ''}.`;
+    $('#emis-lede').textContent = `How greenhouse gas emissions ${se.pc ? 'per person ' : ''}${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : e.t === 'company' ? 'of ' + e.n : e.t === 'region' ? 'in ' + placeName(e) : 'in ' + nm(e)} have changed since ${se.y0}${!se.pc && (isNZ(e) || iyear(e)) ? ', and what the target would require from here' : ''}.`;
     emisWire(e); return true; };
   Promise.all([loadEmis(), EPC.on ? loadPop() : null]).then(([E]) => { if (!E || location.hash.indexOf('/e/' + slug) < 0) return; if (renderE()) $('#emis-sec').hidden = false; });
   $('#b-cmp').onclick = () => { let a = compareSet.get(); if (a.includes(e.s)) { location.hash = '#/compare'; return; } a = [...a, e.s].slice(-4); compareSet.set(a); $('#b-cmp').textContent = '✓ In comparison: view'; toast(`Added. ${a.length} in comparison.`); };
@@ -1295,12 +1306,12 @@ P.compare = (params) => {
   return `<section class="tight band"><div class="wrap">
     <h1 class="h-brand" style="font-size:clamp(28px,4vw,40px)">Compare side by side</h1>
     <p class="lede mt0">Add up to 4 countries, regions, cities or companies. Mixing types works, for example a city and its country.</p>
-    <div class="mt1">${es.map(e => `<span class="chip">${typeBadge(e.t)} ${esc(e.n)} <button aria-label="Remove ${esc(e.n)}" data-rm="${e.s}">×</button></span>`).join('')}</div>
+    <div class="mt1">${es.map(e => `<span class="chip">${typeBadge(e.t, e)} ${esc(e.n)} <button aria-label="Remove ${esc(e.n)}" data-rm="${e.s}">×</button></span>`).join('')}</div>
     <div class="light mt1" style="max-width:520px">${searchBox('s-cmp', es.length >= 4 ? 'Remove one to add another (max 4)' : 'Add an entry…')}</div>
     ${compareSet.get().length ? '' : '<p class="muted" style="font-size:14px">Showing an example. Add your own to replace it.</p>'}
   </div></section>
   <section class="tight"><div class="wrap"><div class="tablewrap" style="border:0"><table class="cmp">
-    <thead><tr><th></th>${es.map(e => `<th><a href="#/e/${e.s}" style="color:inherit">${e.t==='country'?flag(e.a2)+' ':''}${esc(e.n)}</a><div style="font-weight:400;font-size:13px">${TYPE[e.t][0]}${e.cn && e.t!=='country' ? ' · ' + esc(e.cn) : ''}</div></th>`).join('')}</tr></thead>
+    <thead><tr><th></th>${es.map(e => `<th><a href="#/e/${e.s}" style="color:inherit">${e.t==='country'?flag(e.a2)+' ':''}${esc(e.n)}</a><div style="font-weight:400;font-size:13px">${typeWord(e)}${e.cn && e.t!=='country' ? ' · ' + esc(e.cn) : ''}</div></th>`).join('')}</tr></thead>
     <tbody>
       <tr class="grp"><td colspan="${es.length+1}">Headline</td></tr>
       ${row('Target', e => `<b>${esc(targetPhrase(e))}</b>`)}
@@ -1948,7 +1959,7 @@ function whoToWrite(e){
   if (e.t === 'company') L.push([q(e.n + ' sustainability head OR investor relations contact'), 'Search for the company’s sustainability or investor relations contact']);
   else {
     if (e.t === 'city') L.push([q(e.n + ' mayor office contact'), 'Search for the mayor’s office']);
-    else if (e.t === 'region') L.push([q(e.n + ' environment minister contact'), 'Search for the regional environment minister']);
+    else if (e.t === 'region') L.push([q(e.n + ' environment minister contact'), 'Search for the ' + regTerm(e)[0] + ' environment minister']);
     else L.push([q(e.n + ' ministry of environment climate change contact'), 'Search for the climate or environment ministry']);
     if (a2) L.push(['https://data.ipu.org/parliament/' + a2, 'Parliament of ' + cn + ' (Inter-Parliamentary Union directory, with contact details and the official website)']);
   }
@@ -1992,7 +2003,7 @@ function shareCard(e, fmt, lang){
   const PX = RT ? W - 80 : 80; g.direction = RT ? 'rtl' : 'ltr'; g.textAlign = RT ? 'right' : 'left';
   g.fillStyle = '#E13B26'; g.fillRect(0, 0, W, 16);
   const top = fmt === 'story' ? 260 : 120; let y = top;
-  g.fillStyle = '#ffb3a8'; g.font = `600 34px ${F}`; g.fillText(((X ? X.ty[e.t] : TYPE[e.t][0]) + (e.cn && e.t !== 'country' ? ' · ' + e.cn : '')).toUpperCase(), PX, y); y += 90;
+  g.fillStyle = '#ffb3a8'; g.font = `600 34px ${F}`; g.fillText(((X ? X.ty[e.t] : typeWord(e)) + (e.cn && e.t !== 'country' ? ' · ' + e.cn : '')).toUpperCase(), PX, y); y += 90;
   g.fillStyle = '#fff'; g.font = `700 78px ${F}`; y = wrap(nmx, PX, y, W - 160, 92) + 10;
   g.fillStyle = '#e0d6ea'; g.font = `400 46px ${F}`; y = wrap(X ? (isNZ(e) ? dn(X.tgt(year(e))) : X.no) : targetPhrase(e), PX, y, W - 160, 60) + 30;
   if (isNZ(e)) {
