@@ -15,6 +15,9 @@ const THE = /^(United |Netherlands|Philippines|Bahamas|Gambia|Maldives|Marshall 
 const SHORT_NAME = {'Venezuela, Bolivarian Republic of':'Venezuela', 'Iran, Islamic Republic of':'Iran', 'Moldova, Republic of':'Moldova', 'Macedonia, the former Yugoslav Republic of':'North Macedonia', 'Palestinian Territory, Occupied':'Palestine', 'Russian Federation':'Russia', 'Syrian Arab Republic':'Syria', 'Brunei Darussalam':'Brunei', 'United States of America':'United States'};
 const CN_SHORT = {'Viet Nam':'Vietnam', 'Korea, Republic of':'South Korea', 'Russian Federation':'Russia', 'Taiwan, Province of China':'Taiwan', 'Congo, Democratic Republic of the':'DR Congo', 'Micronesia (Federated States of)':'Micronesia', "Lao People's Democratic Republic":'Laos', 'Bolivia (Plurinational State of)':'Bolivia', 'Brunei Darussalam':'Brunei', 'Iran (Islamic Republic of)':'Iran', 'Moldova, Republic of':'Moldova', "Korea (Democratic People's Republic of)":'North Korea', 'Palestine, State of':'Palestine', 'Syrian Arab Republic':'Syria', 'Tanzania, United Republic of':'Tanzania', 'Venezuela (Bolivarian Republic of)':'Venezuela'};
 // governments' formal names are kept only in the page title (e.on); everywhere else the everyday name is used
+// the tracker writes "Santiago, Chile" to tell it from Santiago, Cuba. Inside a country's own page that is redundant, so drop the suffix when the short name is unique within the country.
+const CITY_BASE = {}; D.forEach(x => { if (x.t === 'city') { const b = x.n.split(',')[0].trim(); (CITY_BASE[x.c + '|' + b] = CITY_BASE[x.c + '|' + b] || []).push(x.s); } });
+const inCountryName = x => { if (x.t !== 'city' || x.n.indexOf(',') < 0) return x.n; const b = x.n.split(',')[0].trim(); return CITY_BASE[x.c + '|' + b].length === 1 ? b : x.n; };
 D.forEach(e => { if (e.t === 'country' && SHORT_NAME[e.n]) { e.on = e.n; e.n = SHORT_NAME[e.n]; } if (e.cn && CN_SHORT[e.cn]) e.cn = CN_SHORT[e.cn]; });
 const plainName = e => e.n;
 const nm = e => (e.t === 'country' && THE.test(e.n) ? 'the ' : '') + plainName(e);
@@ -865,7 +868,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzr';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzs';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1389,7 +1392,7 @@ async function localeMapShow(e){
   const mineIds = e.c === 'EUU' ? EU27N : (cEntry && cEntry.iso ? [cEntry.iso] : []); let mine = all.filter(f => mineIds.includes(f.id));
   if (!mine.length) return;
   const mk = (d, cls, slug, label) => `<path d="${d}" class="${cls}"${slug ? ` data-s="${slug}" tabindex="0" role="link"` : ''} aria-label="${esc(label || '')}"/>`;
-  const dotAt = (proj, x, cls) => { if (!x.ll) return ''; const p = proj([x.ll[1], x.ll[0]]); return p ? `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.2" class="${cls}" data-s="${x.s}" tabindex="0" role="link" aria-label="${esc(x.n)}"/>` : ''; };
+  const dotAt = (proj, x, cls) => { if (!x.ll) return ''; const p = proj([x.ll[1], x.ll[0]]); return p ? `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.2" class="${cls}" data-s="${x.s}" tabindex="0" role="link" aria-label="${esc(inCountryName(x))}"/>` : ''; };
   const countryProj = () => cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : (() => { const mf = mine.map(mainPart); let set = mf; if (regs.length && mf.length === 1) { const bb = d3.geoBounds(mf[0]); if (bb[0][0] <= bb[1][0]) { const k = regs.filter(f => { const c = d3.geoCentroid(f); return c[0] >= bb[0][0] - 3 && c[0] <= bb[1][0] + 3 && c[1] >= bb[0][1] - 3 && c[1] <= bb[1][1] + 3; }); if (k.length) set = k; } } const fc = {type:'FeatureCollection', features: set}; return d3.geoNaturalEarth1().rotate([-d3.geoCentroid(fc)[0], 0]).fitExtent([[6, 6], [W - 6, H - 6]], fc); })();
   const regs = e.c === 'EUU' ? [] : topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding);
   const cities = e.c === 'EUU' ? [] : D.filter(x => x.t === 'city' && x.c === e.c && x.ll);
@@ -1420,7 +1423,7 @@ async function localeMapShow(e){
   const go = el => { const sl = el && el.dataset && el.dataset.s; if (sl && sl !== e.s) location.hash = '#/e/' + sl; };
   box.addEventListener('click', ev => go(ev.target.closest('[data-s]')));
   box.addEventListener('keydown', ev => { if (ev.key === 'Enter') go(ev.target.closest('[data-s]')); });
-  const tip = ev => { const p = ev.target.closest('[data-s]'); if (!p) { hideTip(); return; } const x = BY[p.dataset.s]; if (!x) return; showTip(`<div class="tipms"><b>${esc(x.n)}</b><div class="mrow"><span class="my"></span><span>${esc(targetPhrase(x))}</span></div>${x.s === e.s ? '' : '<div class="mrow"><span class="my"></span><span style="color:#7a7385">Click to open</span></div>'}</div>`, ev); };
+  const tip = ev => { const p = ev.target.closest('[data-s]'); if (!p) { hideTip(); return; } const x = BY[p.dataset.s]; if (!x) return; showTip(`<div class="tipms"><b>${esc(inCountryName(x))}</b><div class="mrow"><span class="my"></span><span>${esc(targetPhrase(x))}</span></div>${x.s === e.s ? '' : '<div class="mrow"><span class="my"></span><span style="color:#7a7385">Click to open</span></div>'}</div>`, ev); };
   box.addEventListener('mousemove', tip); box.addEventListener('mouseleave', hideTip);
 }
 P.entity = (params, slug) => {
