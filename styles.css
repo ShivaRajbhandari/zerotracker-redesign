@@ -868,3 +868,5 @@ footer.site{padding:26px 0}
 .fxtab b{display:block;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.01em}
 .fxtab span{display:block;font-size:14px;color:var(--muted);margin-top:2px}
 .fxpanel{margin-top:14px}.fxpanel .fxblock:first-child{margin-top:0}
+
+.cm-r{fill:transparent;stroke:#fff;stroke-opacity:.6;stroke-width:.6;cursor:pointer;pointer-events:all}.cm-r:hover{stroke:#271039;stroke-opacity:1;stroke-width:1.8;fill:rgba(255,255,255,.12)}

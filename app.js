@@ -12,7 +12,7 @@ D.forEach(e => { if (e.c === 'EUU') { e.a2 = 'EU'; e.g = 'Europe'; } });  // the
 const BY = Object.fromEntries(D.map(e => [e.s, e]));
 D.forEach(e => { if (e.rev >= 1e12) { e.revBad = e.rev; delete e.rev; } }); // data issue in the source: see the notes page
 const THE = /^(United |Netherlands|Philippines|Bahamas|Gambia|Maldives|Marshall Islands|Solomon Islands|Comoros|Seychelles|Czech Republic|Dominican Republic|Central African Republic|Dem\. Rep\.|Republic of|European Union)/;
-const SHORT_NAME = {'Venezuela, Bolivarian Republic of':'Venezuela', 'Iran, Islamic Republic of':'Iran', 'Moldova, Republic of':'Moldova', 'Macedonia, the former Yugoslav Republic of':'North Macedonia', 'Palestinian Territory, Occupied':'Palestine', 'Russian Federation':'Russia', 'Syrian Arab Republic':'Syria', 'Brunei Darussalam':'Brunei'};
+const SHORT_NAME = {'Venezuela, Bolivarian Republic of':'Venezuela', 'Iran, Islamic Republic of':'Iran', 'Moldova, Republic of':'Moldova', 'Macedonia, the former Yugoslav Republic of':'North Macedonia', 'Palestinian Territory, Occupied':'Palestine', 'Russian Federation':'Russia', 'Syrian Arab Republic':'Syria', 'Brunei Darussalam':'Brunei', 'United States of America':'United States'};
 const CN_SHORT = {'Viet Nam':'Vietnam', 'Korea, Republic of':'South Korea', 'Russian Federation':'Russia', 'Taiwan, Province of China':'Taiwan', 'Congo, Democratic Republic of the':'DR Congo', 'Micronesia (Federated States of)':'Micronesia', "Lao People's Democratic Republic":'Laos', 'Bolivia (Plurinational State of)':'Bolivia', 'Brunei Darussalam':'Brunei', 'Iran (Islamic Republic of)':'Iran', 'Moldova, Republic of':'Moldova', "Korea (Democratic People's Republic of)":'North Korea', 'Palestine, State of':'Palestine', 'Syrian Arab Republic':'Syria', 'Tanzania, United Republic of':'Tanzania', 'Venezuela (Bolivarian Republic of)':'Venezuela'};
 // governments' formal names are kept only in the page title (e.on); everywhere else the everyday name is used
 D.forEach(e => { if (e.t === 'country' && SHORT_NAME[e.n]) { e.on = e.n; e.n = SHORT_NAME[e.n]; } if (e.cn && CN_SHORT[e.cn]) e.cn = CN_SHORT[e.cn]; });
@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzb';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzc';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -920,7 +920,7 @@ async function fxCellMap(id, e, rec, cfg){
   let feat = e.t === 'country' ? topojson.feature(WORLD, WORLD.objects.countries).features.find(f => f.id === e.iso) : topojson.feature(REG, REG.objects.regions).features.find(f => f.properties.s === e.s);
   if (!feat) return null;
   if (e.t === 'region') feat = fixWinding(feat);
-  const usa = e.t === 'country' && e.iso === 'USA', target = e.t === 'country' && !usa ? mainPart(feat) : feat;
+  const usa = e.t === 'country' && e.c === 'USA', target = e.t === 'country' && !usa ? mainPart(feat) : feat;
   const proj = (usa ? d3.geoAlbersUsa() : d3.geoNaturalEarth1()).fitExtent([[10, 8], [W - 10, MH]], target), P = d3.geoPath(proj);
   const [west, north, step, nc, nr, vals] = rec;
   const val = (lo, la) => { const c = Math.floor((lo - west) / step), r = Math.floor((north - la) / step); if (c < 0 || r < 0 || c >= nc || r >= nr) return null; const v = vals[r * nc + c]; return v === 999 ? null : v; };
@@ -937,10 +937,18 @@ async function fxCellMap(id, e, rec, cfg){
     const c = rgb[cfg.bin(v)], o = (y * cv.width + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
+  const regF = e.t === 'country' && e.c !== 'EUU' ? topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c && cfg.regAvg(f.properties.s) != null).map(fixWinding) : [];
+  const regSvg = regF.length ? `<g class="cm-regs">${regF.map(f => `<path class="cm-r" d="${P(f)}" data-rs="${f.properties.s}"/>`).join('')}</g>` : '';
   const outline = P(feat), n = cfg.cols.length, lw = 62, lx = (W - n * lw) / 2, ly = MH + 24;
   const legend = cfg.cols.map((c, i) => `<rect x="${lx + i * lw}" y="${ly}" width="${lw}" height="13" fill="${c}"/>`).join('') + cfg.edges.map((t, i) => `<text x="${lx + i * lw}" y="${ly + 30}" text-anchor="middle" font-size="12" fill="#5f5869">${t}</text>`).join('') + `<text x="${W / 2}" y="${ly - 6}" text-anchor="middle" font-size="12" fill="#7a7385">${cfg.legend}</text>`;
-  const svg = `<svg viewBox="0 0 ${W} ${H}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect width="${W}" height="${H}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" clip-path="url(#${id}-cp)" style="image-rendering:pixelated"/><path d="${outline}" fill="none" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${legend}</svg>`;
-  const wire = () => { const sv = $('#' + id + '-svg'); if (!sv) return; sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = proj.invert([(ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * H]), v = ll && val(ll[0], ll[1]); if (v == null) { hideTip(); return; } showTip(cfg.tip(v), ev); }); sv.addEventListener('mouseleave', hideTip); };
+  const svg = `<svg viewBox="0 0 ${W} ${H}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect width="${W}" height="${H}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" clip-path="url(#${id}-cp)" style="image-rendering:pixelated"/><path d="${outline}" fill="none" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${regSvg}${legend}</svg>`;
+  const wire = () => { const sv = $('#' + id + '-svg'); if (!sv) return;
+    sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = proj.invert([(ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * H]), v = ll && val(ll[0], ll[1]), rg = ev.target.closest && ev.target.closest('[data-rs]'), rs = rg && rg.dataset.rs, rx = rs && BY[rs];
+      if (v == null && !rx) { hideTip(); return; }
+      if (rg && rg.parentNode.lastChild !== rg) rg.parentNode.appendChild(rg);   // bring the hovered outline to the front
+      showTip(`<div class="tipms">${rx ? `<b>${esc(rx.n)}</b><div class="mrow"><span class="my">${cfg.fmt(cfg.regAvg(rs))}</span><span>average, ${cfg.what}</span></div>` : ''}${v != null ? `<div class="mrow"><span class="my">${cfg.fmt(v)}</span><span>${rx ? 'this square' : cfg.what}</span></div>` : ''}${rx ? '<div class="mrow"><span class="my"></span><span>Click to open its profile</span></div>' : ''}</div>`, ev); });
+    sv.addEventListener('click', ev => { const rg = ev.target.closest && ev.target.closest('[data-rs]'); if (rg) { hideTip(); location.hash = '#/e/' + rg.dataset.rs; } });
+    sv.addEventListener('mouseleave', hideTip); };
   return {svg, wire, step};
 }
 
@@ -963,12 +971,12 @@ async function fxRender(e){
     const U = fxU(e), vs = WR[5].filter(v => v !== 999), lo0 = Math.min(...vs), hi0 = Math.max(...vs), mid = (lo0 + hi0) / 2, span = Math.max(hi0 - lo0, 10), lo = mid - span / 2, hi = mid + span / 2, n = 7;   // at least a 1° spread, so an even place looks even
     const cols = ['#fff3d6', '#fdd9a0', '#fbb06a', '#f27f4d', '#d9482f', '#b01f24', '#7a0c1c'], f1 = t => { const x = t / 10 * U.k; return (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + U.u; };
     const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n)), mean = vs.reduce((a, b) => a + b, 0) / vs.length;
-    const m = await fxCellMap('fx-wm', e, WR, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Warming, 2015–2024 compared with 1951–1980', aria: `Map of how much each part of ${P} has warmed since 1951–1980. Areas range from ${f1(lo0)} to ${f1(hi0)}.`, tip: v => `<div class="tipms"><b>${f1(v)}</b><div class="mrow"><span class="my"></span><span>warmer than 1951–1980</span></div></div>`});
+    const m = await fxCellMap('fx-wm', e, WR, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Warming, 2015–2024 compared with 1951–1980', aria: `Map of how much each part of ${P} has warmed since 1951–1980. Areas range from ${f1(lo0)} to ${f1(hi0)}.`, fmt: v => f1(v), what: 'warmer than 1951–1980', regAvg: sl => { const r = WM.d[sl]; if (!r) return null; const a = r[5].filter(x => x !== 999); return a.length ? a.reduce((p, c) => p + c, 0) / a.length : null; }});
     if (m) {
       const fast = f1(hi0), slow = f1(lo0);
       blocks.push(fxBlock('fx-wm', 'Which parts are warming fastest?', `How much warmer each part of ${esc(P)} is in 2015–2024 than it was in 1951–1980. Darker areas have warmed more. The colours are scaled to ${esc(P)} itself, so the map shows which parts are warming faster or slower than the rest, not how ${esc(P)} compares with other places.${hi0 - lo0 < 5 ? ` Warming is fairly even across ${esc(P)}: the difference between its fastest and slowest areas is under half a degree Celsius.` : ''}`,
         `<div class="emis-facts"><div><span>Fastest-warming areas</span><b>${fast}</b></div><div><span>Slowest-warming areas</span><b>${slow}</b></div><div><span>Typical</span><b>${f1(mean)}</b></div></div>` + m.svg,
-        `<b>Source:</b> Berkeley Earth, <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">High Resolution Dataset</a> (CC BY-NC 4.0), land air temperature on a 0.25° grid, shown in squares of ${m.step}°. Hover over the map to read a square. Places with few weather stations are estimated from nearby ones, so small differences between neighbouring squares are not reliable.`));
+        `<b>Source:</b> Berkeley Earth, <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">High Resolution Dataset</a> (CC BY-NC 4.0), land air temperature on a 0.25° grid, shown in squares of ${m.step}°. Hover over the map to read a square; on countries, hover over a region outline to see its average and click to open it. Places with few weather stations are estimated from nearby ones, so small differences between neighbouring squares are not reliable.`));
       wires.push(() => { m.wire(); fxShare('fx-wm', e, 'warming-map', 'Where ' + P + ' is warming fastest', `Parts of ${P} have warmed by as much as ${fast} since 1951–1980, while others have warmed by ${slow} (Berkeley Earth). #ClimateAction`); });
     }
   }
@@ -1032,7 +1040,7 @@ async function fxRender(e){
     const vs = PQ[5].filter(v => v !== 999), mx = Math.max(20, Math.ceil(Math.max(...vs.map(Math.abs)) / 10) * 10), n = 7, lo = -mx, hi = mx;
     const cols = ['#8c510a', '#bf812d', '#dfc27d', '#f1ece2', '#80cdc1', '#35978f', '#01665e'], f1 = t => (t > 0 ? '+' : t < 0 ? '−' : '') + Math.abs(Math.round(t)) + '%';
     const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n));
-    const m = await fxCellMap('fx-pm', e, PQ, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Change in yearly rain and snow, 1994–2023 compared with 1951–1980', aria: `Map of where rain and snow have increased or decreased in ${P} between 1951–1980 and 1994–2023.`, tip: v => `<div class="tipms"><b>${f1(v)}</b><div class="mrow"><span class="my"></span><span>rain and snow a year, vs 1951–1980</span></div></div>`});
+    const m = await fxCellMap('fx-pm', e, PQ, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Change in yearly rain and snow, 1994–2023 compared with 1951–1980', aria: `Map of where rain and snow have increased or decreased in ${P} between 1951–1980 and 1994–2023.`, fmt: v => f1(v), what: 'rain and snow a year vs 1951–1980', regAvg: sl => { const r = PM.d[sl]; if (!r) return null; const a = r[5].filter(x => x !== 999); return a.length ? a.reduce((p, c) => p + c, 0) / a.length : null; }});
     if (m) {
       const wet = vs.filter(v => v > 5).length / vs.length, dry = vs.filter(v => v < -5).length / vs.length;
       fxg.precip.push(fxBlock('fx-pm', 'Which parts are getting wetter or drier?', `The change in yearly rain and snow across ${esc(P)}, comparing 1994–2023 with 1951–1980. Brown areas have become drier and green-blue areas wetter. Rainfall changes are patchy and vary a lot from decade to decade, so read this as a broad pattern.`,
