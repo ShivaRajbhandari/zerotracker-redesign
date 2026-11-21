@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzi';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzj';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -955,7 +955,10 @@ function fxComposite(feat, usa, W, boxTop, boxH, hasData){
 async function fxCellMap(id, e, rec, cfg){
   await loadGeo();
   const W = 640, MH = 350;
-  let feat = e.t === 'country' ? topojson.feature(WORLD, WORLD.objects.countries).features.find(f => f.id === e.iso) : topojson.feature(REG, REG.objects.regions).features.find(f => f.properties.s === e.s);
+  // small countries use a more detailed outline (Natural Earth 50m, public domain); the main map file is coarse
+  if (e.t === 'country' && window.__w50 === undefined) { try { window.__w50 = await fetch('world50.json?v=' + FX_V).then(r => r.json()); } catch (x) { window.__w50 = null; } }
+  const f50 = e.t === 'country' && window.__w50 ? topojson.feature(window.__w50, window.__w50.objects.countries).features.find(f => f.id === e.iso) : null;
+  let feat = f50 || (e.t === 'country' ? topojson.feature(WORLD, WORLD.objects.countries).features.find(f => f.id === e.iso) : topojson.feature(REG, REG.objects.regions).features.find(f => f.properties.s === e.s));
   if (!feat) return null;
   if (e.t === 'region') feat = fixWinding(feat);
   const usa = e.t === 'country' && e.c === 'USA';
@@ -977,7 +980,7 @@ async function fxCellMap(id, e, rec, cfg){
   }
   ctx.putImageData(img, 0, 0);
   const regF = e.t === 'country' && e.c !== 'EUU' ? topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c && cfg.regAvg(f.properties.s) != null).map(fixWinding) : [];
-  const regSvg = regF.length ? `<g class="cm-regs">${regF.map(f => `<path class="cm-r" d="${CP.pathOf(f)}" data-rs="${f.properties.s}"/>`).join('')}</g>` : '';
+  const regSvg = regF.length ? `<g class="cm-regs" clip-path="url(#${id}-cp)">${regF.map(f => `<path class="cm-r" d="${CP.pathOf(f)}" data-rs="${f.properties.s}"/>`).join('')}</g>` : '';
   const outline = CP.pathOf(feat), n = cfg.cols.length, lw = 62, lx = (W - n * lw) / 2, vy = Math.max(0, Math.floor(bb[0][1]) - 10), ly = Math.ceil(bb[1][1]) + 30, H = ly + 44;   // crop the picture to the place, legend just underneath
   const legend = cfg.cols.map((c, i) => `<rect x="${lx + i * lw}" y="${ly}" width="${lw}" height="13" fill="${c}"/>`).join('') + cfg.edges.map((t, i) => `<text x="${lx + i * lw}" y="${ly + 30}" text-anchor="middle" font-size="12" fill="#5f5869">${t}</text>`).join('') + `<text x="${W / 2}" y="${ly - 6}" text-anchor="middle" font-size="12" fill="#7a7385">${cfg.legend}</text>`;
   const svg = `<svg viewBox="0 ${vy} ${W} ${H - vy}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect x="0" y="${vy}" width="${W}" height="${H - vy}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" clip-path="url(#${id}-cp)" style="image-rendering:pixelated"/><path d="${outline}" fill="none" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${regSvg}${legend}</svg>`;
