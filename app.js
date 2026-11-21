@@ -603,7 +603,7 @@ function glScenarios(G){
   return {paris:{hi:from24(C.paris.hi), lo:from24(C.paris.lo), mid:from24(C.paris.mid)}, ndc:{mid:from24(C.ndc)}, pledges:{hi:from24(C.pledges.hi), lo:from24(C.pledges.lo), mid:from24(mid(C.pledges.hi, C.pledges.lo))}, pol:{hi:from24(C.policies.hi), lo:from24(C.policies.lo), mid:from24(mid(C.policies.hi, C.policies.lo))}, none:{mid:none}, slope};
 }
 function globalChartHtml(G, st){
-  const SC = glScenarios(G), x1 = st.to, x0 = st.from === '1850' ? G.y0 : 1990, off = x0 - G.y0, Gw = G.world.slice(off), Gs = G.s.map(l => l.slice(off)), W = 960, H = 400, Lm = 56, Rm = 190, T = 22, B = 36;
+  const SC = glScenarios(G), x1 = st.to, x0 = st.from === '1850' ? G.y0 : 1990, off = x0 - G.y0, Gw = G.world.slice(off), Gs = G.s.map(l => l.slice(off)), W = 960, H = 400, Lm = 56, Rm = 190, T = 46, B = 36;
   const x = yr => Lm + (yr - x0) / (x1 - x0) * (W - Lm - Rm);
   const all = [...Gw, ...Object.values(SC).flatMap(o => o.mid ? o.mid.slice(0, x1 - 2024 + 1) : []).filter(v => v != null), ...SC.pol.hi.slice(0, x1 - 2024 + 1).filter(v => v != null)];
   const ymax = Math.max(...all) * 1.06, y = v => T + (1 - v / ymax) * (H - T - B);
@@ -618,7 +618,7 @@ function globalChartHtml(G, st){
   let out = `<svg viewBox="0 0 ${W} ${H}" id="gl-svg" data-x0="${x0}" data-x1="${x1}" data-lm="${Lm}" data-rm="${Rm}" data-w="${W}" role="img" aria-label="Global greenhouse gas emissions by country since 1990 and scenarios to ${x1}" style="width:100%;height:auto;display:block">
     ${yt.map(t => `<line x1="${Lm}" x2="${W - Rm}" y1="${y(t)}" y2="${y(t)}" stroke="#ece8ef"/><text x="${Lm - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${t}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text>`).join('')}
-    <text x="10" y="${T - 8}" font-size="12" fill="#7a7385">Gt CO₂e per year</text>
+    <text x="10" y="13" font-size="12" fill="#7a7385">Gt CO₂e per year</text>
     ${Gs.map((_, k) => `<path d="${area(k)}" fill="${GL_STACK[k]}" stroke="#fff" stroke-width=".6"><title>${esc(G.names[k])}</title></path>`).join('')}
     <path d="${path(Gw.map((v, i) => [x0 + i, v]))}" fill="none" stroke="#271039" stroke-width="2.4"/>
     <line x1="${x(2024)}" x2="${x(2024)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
@@ -775,15 +775,13 @@ function timelineSVG(e){
 function pmarks(x, xa, xb, T, bottom, part){
   const L = [[1997, 'kyoto', 'Kyoto Protocol, 1997', 'end'], [2015, 'paris', 'Paris Agreement, 2015', 'start']].filter(([yr]) => yr >= xa && yr <= xb);
   if (part === 'labels') {
-    // narrow charts: shorter labels, kept inside the plot, stacked if they would collide
-    const narrow = x(xb) - x(xa) < 520, right = x(xb), lab = [];
+    // labels sit in a strip above the plot so they never touch the data; the second goes a row higher if the two would collide
+    const narrow = x(xb) - x(xa) < 520, right = x(xb) + 30, lab = [];
     L.forEach(([yr, k, l, a0]) => { const t = narrow ? l.replace(' Protocol', '').replace(' Agreement', '') : l, w = t.length * 6.3;
-      let a = a0; if (a === 'start' && x(yr) + 6 + w > right) a = 'end'; if (a === 'end' && x(yr) - 6 - w < x(xa)) a = 'start';
-      const lx0 = a === 'start' ? x(yr) + 6 : x(yr) - 6 - w, dy = lab.some(o => !(lx0 + w < o.l || lx0 > o.l + o.w)) ? 14 : 0;
-      lab.push({yr, k, t, a, a0, l: lx0, w, dy}); });
-    const rot = lab.some(o => o.a !== o.a0 || o.dy);   // would collide or not fit: run the labels up the page beside their own lines instead
-    if (rot) return lab.map(({yr, k, t}) => { t = t.replace(' Protocol', '').replace(' Agreement', ''); const X = x(yr) - 5, Y = T + 4; return `<text class="trl" data-tr="${k}" tabindex="0" x="${X}" y="${Y}" transform="rotate(-90 ${X} ${Y})" text-anchor="end" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${t}</text>`; }).join('');
-    return lab.map(({yr, k, t, a, dy}) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11 + dy}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${t}</text>`).join('');
+      let a = a0; if (a === 'start' && x(yr) + 6 + w > right) a = 'end'; if (a === 'end' && x(yr) - 6 - w < x(xa) - 40) a = 'start';
+      const lx0 = a === 'start' ? x(yr) + 6 : x(yr) - 6 - w, dy = lab.some(o => !(lx0 + w < o.l || lx0 > o.l + o.w)) ? -14 : 0;
+      lab.push({yr, k, t, a, l: lx0, w, dy}); });
+    return lab.map(({yr, k, t, a, dy}) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T - 6 + dy}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" style="cursor:help;text-decoration:underline dotted">${t}</text>`).join('');
   }
   if (part === 'labels-old') return L.map(([yr, k, l, a]) => `<text class="trl" data-tr="${k}" tabindex="0" x="${x(yr) + (a === 'start' ? 6 : -6)}" y="${T + 11}" text-anchor="${a}" font-size="11.5" font-weight="600" fill="#2f7a3f" paint-order="stroke" stroke="#fff" stroke-width="3" style="cursor:help;text-decoration:underline dotted">${l}</text>`).join('');
   return L.map(([yr]) => `<line x1="${x(yr)}" x2="${x(yr)}" y1="${T}" y2="${bottom}" stroke="#2f8a4c" stroke-width="1.6" stroke-dasharray="4 4" opacity=".75"/>`).join('');
@@ -863,7 +861,7 @@ function emisChart(e){
   const pc = EPC.on && e.t !== 'company' && hasPop(e), se = viewSeries(e, pc); if (!se) return '';
   const {y0, v, kind} = se, y1 = y0 + v.length - 1, nz = isNZ(e) ? year(e) : null, iy = iyear(e), ib = parseInt(e.ib), ip = +e.ip;
   const val = yr => v[yr - y0];
-  const endX = pc ? y1 + 2 : Math.min(2100, Math.max(2050, nz || 0, y1 + 5)), W = chartW(), H = W < 600 ? 300 : 330, L = 64, R = 24, T = 20, B = 36;
+  const endX = pc ? y1 + 2 : Math.min(2100, Math.max(2050, nz || 0, y1 + 5)), W = chartW(), H = W < 600 ? 300 : 330, L = 64, R = 24, T = 46, B = 36;
   const nzOk = !pc && nz && nz > y1 && nz <= 2100, endY = pc ? endX : Math.max(endX, nzOk ? nz : 0);
   const ymax = Math.max(...v) * 1.1, x = yr => L + (yr - y0) / (endY - y0) * (W - L - R), yy = m => T + (1 - m / ymax) * (H - T - B);
   const step = (endY - y0) > 120 ? 25 : (endY - y0) > 60 ? 10 : 5, ticks = []; for (let t = Math.ceil(y0 / step) * step; t <= endY; t += step) ticks.push(t);
@@ -884,7 +882,7 @@ function emisChart(e){
   const svg = `<svg viewBox="0 0 ${W} ${H}" id="emis-svg" data-end="${endY}" data-t="${T}" data-h="${H}" data-b="${B}" data-ymax="${ymax}" role="img" aria-label="Greenhouse gas emissions of ${esc(e.n)} from ${y0} to ${y1}, latest ${fmtMt(last)} million tonnes CO2 equivalent" style="width:100%;height:auto;display:block">
     ${yt.map(t => `<line x1="${L}" x2="${W - R}" y1="${yy(t)}" y2="${yy(t)}" stroke="#ece8ef"/><text x="${L - 8}" y="${yy(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${fmt(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text><line x1="${x(t)}" x2="${x(t)}" y1="${H - B}" y2="${H - B + 4}" stroke="#bbb"/>`).join('')}
-    <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">${pc ? 't CO₂e per person a year' : 'Mt CO₂e per year'}</text>
+    <text x="14" y="13" font-size="12" fill="#7a7385">${pc ? 't CO₂e per person a year' : 'Mt CO₂e per year'}</text>
     <path d="${line}L${lx} ${yy(0)}L${x(PT[0][0])} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/>${s1path}<path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>${dots}
     <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
     ${pmarks(x, y0, endY, T, H - B, 'lines')}
@@ -1231,7 +1229,7 @@ function cmpEmisHtml(es, st){
   S2.forEach((r, i) => { r.tg = st.paths === false || !TG[i] ? null : TG[i].map(p => [p[0], conv(r, p[1]), p[2]]); });
   for (let i = S2.length - 1; i >= 0; i--) if (!S2[i].pts.length || S2[i].pts.some(p => !isFinite(p[1]))) S2.splice(i, 1);
   if (!S2.length) return '';
-  const W = chartW(), H = W < 600 ? 300 : 340, Lm = 64, Rm = W < 600 ? 96 : 150, T = 20, B = 36, allv = S2.flatMap(r => r.pts.map(p => p[1]).concat((r.tg || []).map(p => p[1]))), ymax = Math.max(...allv, idx ? 10 : 0) * 1.08, ymin = idx ? Math.min(0, ...allv) * 1.08 : 0;
+  const W = chartW(), H = W < 600 ? 300 : 340, Lm = 64, Rm = W < 600 ? 96 : 150, T = 46, B = 36, allv = S2.flatMap(r => r.pts.map(p => p[1]).concat((r.tg || []).map(p => p[1]))), ymax = Math.max(...allv, idx ? 10 : 0) * 1.08, ymin = idx ? Math.min(0, ...allv) * 1.08 : 0;
   const x = yr => Lm + (yr - x0) / (x1 - x0) * (W - Lm - Rm), y = v => T + (1 - (v - ymin) / (ymax - ymin)) * (H - T - B);
   const step = (x1 - x0) > 120 ? 25 : (x1 - x0) > 50 ? 10 : 5, ticks = []; for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) ticks.push(t);
   const nice = (ymax - ymin) / 4, mag = 10 ** Math.floor(Math.log10(nice)), ny = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= nice), yt = []; for (let t = Math.ceil(ymin / ny) * ny; t <= ymax; t += ny) yt.push(t);
@@ -1242,7 +1240,7 @@ function cmpEmisHtml(es, st){
   const svg = `<svg viewBox="0 0 ${W} ${H}" id="cmpe-svg" data-x0="${x0}" data-x1="${x1}" data-t="${T}" data-b="${B}" data-h="${H}" data-lm="${Lm}" data-rm="${Rm}" data-w="${W}" role="img" aria-label="Emissions of ${S2.map(r => esc(r.e.n)).join(', ')}" style="width:100%;height:auto;display:block">
     ${yt.map(t => `<line x1="${Lm}" x2="${W - Rm}" y1="${y(t)}" y2="${y(t)}" stroke="#ece8ef"/><text x="${Lm - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${pf(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text>`).join('')}
-    <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">${idx ? 'Change since 1990' : pc ? 't CO₂e per person a year' : 'Mt CO₂e per year'}</text>
+    <text x="14" y="13" font-size="12" fill="#7a7385">${idx ? 'Change since 1990' : pc ? 't CO₂e per person a year' : 'Mt CO₂e per year'}</text>
     ${pmarks(x, x0, x1, T, H - B, 'lines')}
     ${idx ? `<line x1="${Lm}" x2="${W - Rm}" y1="${y(0)}" y2="${y(0)}" stroke="#9a93a6" stroke-dasharray="4 4"/>` : ''}
     ${S2.map(r => `<path d="${r.pts.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${y(p[1]).toFixed(1)}`).join('')}" fill="none" stroke="${r.c}" stroke-width="2.8" stroke-linejoin="round"/>`).join('')}
