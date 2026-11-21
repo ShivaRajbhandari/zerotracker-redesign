@@ -172,11 +172,18 @@ document.addEventListener('pointerdown', ev => { if (ev.pointerType === 'mouse')
 addEventListener('scroll', () => { if (matchMedia('(hover: none)').matches) hideTip(); }, {passive: true});
 // per-person emissions: countries use each year's population (Our World in Data), regions and cities today's population
 const EPC = {on: false};
-const EGD = {on: false};   // 'Show GDP' on the emissions chart
+const EGD = {on: false};
+const EFR = {y: 0};   // 0 = the full history, 1990 = start at 1990   // 'Show GDP' on the emissions chart
 function loadPop(){ return window.NZPOP ? Promise.resolve(window.NZPOP) : new Promise(res => { const t = document.createElement('script'); t.src = 'pop.js?v=20261121a'; t.onload = () => res(window.NZPOP); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function hasPop(e){ return e.t === 'country' || (e.t !== 'company' && +e.pop > 0); }
 function popAt(e, yr){ if (e.t === 'country') { const P = (window.NZPOP || {})[e.s]; if (!P) return null; const v = P[1][yr - P[0]]; return v ? v * 1e3 : null; } return +e.pop > 0 ? +e.pop : null; }
+// the history can start at its beginning (1850 for most countries) or at 1990, the usual reference year for climate targets
 function viewSeries(e, pc){
+  const se = viewSeries0(e, pc);
+  if (!se || EFR.y !== 1990 || se.kind === 'k' || se.y0 >= 1990 || se.y0 + se.v.length - 1 < 1995) return se;
+  return {...se, y0: 1990, v: se.v.slice(1990 - se.y0)};
+}
+function viewSeries0(e, pc){
   const se = emisSeries(e); if (!se || !pc || e.t === 'company') return se;
   const v = se.v.map((m, i) => { if (m == null) return null; const q = popAt(e, se.y0 + i); return q ? m * 1e6 / q : null; });
   let a = 0; while (a < v.length && v[a] == null) a++;
@@ -868,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzs';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzu';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1257,7 +1264,8 @@ function emisChart(e){
       return `Source: <a href="https://edgar.jrc.ec.europa.eu/dataset_ghg80" target="_blank" rel="noopener">EDGAR v8.0</a>, European Commission Joint Research Centre (CC BY 4.0): all greenhouse gases from human activity except land use, as CO₂ equivalent, ${where}. The data is gridded at roughly 11 km, so it is approximate and will not match an official inventory. <a href="#/notes/emissions">How this was built</a>.`; })();
   const gdpNote = GD ? ` GDP: World Bank (<a href="https://data.worldbank.org/indicator/NY.GDP.MKTP.KD" target="_blank" rel="noopener">GDP in constant 2015 US dollars</a>, CC BY 4.0), so price changes are removed${pc ? ' and then divided by each year’s population' : ''}; the series starts in 1960. “Decoupling” means the economy keeps growing while emissions fall (absolute) or grow more slowly than GDP (relative).` : gdpMiss ? ' GDP figures are not available for this country.' : '';
   const pcNote = pc ? (e.t === 'country' ? ' Per person: divided by each year\'s population (Our World in Data, CC BY).' : ` Per person: divided by today\'s population (${fmt(+e.pop)}), because yearly population figures are not available here, so earlier years are only indicative.`) + ' Target paths are shown only for totals, because targets are set for total emissions.' : '';
-  const html = `${e.t !== 'company' && hasPop(e) || e.t === 'country' ? `<div class="emis-ctl">${e.t !== 'company' && hasPop(e) ? `<div class="seg segs" role="group" aria-label="Measure"><button data-pc="0" class="${pc ? '' : 'on'}"><b>Total</b></button><button data-pc="1" class="${pc ? 'on' : ''}"><b>Per person</b></button></div>` : ''}${e.t === 'country' ? `<div class="seg segs" role="group" aria-label="GDP"><button data-gd="1" class="${EGD.on ? 'on' : ''}" aria-pressed="${EGD.on}"><b>Show GDP</b></button></div>` : ''}</div>` : ''}<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
+  const full = viewSeries0(e, pc), canFrom = !!full && full.kind !== 'k' && full.y0 < 1990 && full.y0 + full.v.length - 1 >= 1995;
+  const html = `${e.t !== 'company' && hasPop(e) || e.t === 'country' || canFrom ? `<div class="emis-ctl">${e.t !== 'company' && hasPop(e) ? `<div class="seg segs" role="group" aria-label="Measure"><button data-pc="0" class="${pc ? '' : 'on'}"><b>Total</b></button><button data-pc="1" class="${pc ? 'on' : ''}"><b>Per person</b></button></div>` : ''}${e.t === 'country' ? `<div class="seg segs" role="group" aria-label="GDP"><button data-gd="1" class="${EGD.on ? 'on' : ''}" aria-pressed="${EGD.on}"><b>Show GDP</b></button></div>` : ''}${canFrom ? `<div class="seg segs" role="group" aria-label="Start of the history"><button data-ef="0" class="${EFR.y === 1990 ? '' : 'on'}"><b>Since ${full.y0}</b></button><button data-ef="1990" class="${EFR.y === 1990 ? 'on' : ''}"><b>Since 1990</b></button></div>` : ''}</div>` : ''}<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
     <div class="emis-key">${K && K.src === 'wr' ? `<span><i style="background:#A5865C;opacity:.8"></i>Scope 1: direct</span><span><i style="background:#e6d6bd"></i>Scope 2: purchased energy (${m2Sum(K)})</span>` : `<span><i style="background:#A5865C"></i>Emissions</span>`}${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}</div>
     <p class="muted emis-src">${src}${pcNote}${gdpNote}</p></div>`;
   return GD ? html.replace('<div class="emis-key">', '<div class="emis-key"><span><i style="background:#1f7a8c;height:3px"></i>GDP (right axis)</span>') : html;
@@ -1524,6 +1532,7 @@ P.entity.after = (params, slug) => {
   localeMapShow(e);
   const renderE = () => { const html = emisChart(e); if (!html) return false;
     $('#emis').innerHTML = html; const se = viewSeries(e, EPC.on && e.t !== 'company' && hasPop(e));
+    $$('#emis [data-ef]').forEach(b => b.onclick = () => { EFR.y = +b.dataset.ef; renderE(); });
     $$('#emis [data-gd]').forEach(b => b.onclick = () => { EGD.on = !EGD.on; (EGD.on ? loadScr('gdp.js', 'NZG') : Promise.resolve()).then(renderE); });
     $$('#emis [data-pc]').forEach(b => b.onclick = () => { EPC.on = b.dataset.pc === '1'; (EPC.on ? loadPop() : Promise.resolve()).then(renderE); });
     $('#emis-lede').textContent = `How greenhouse gas emissions ${se.pc ? 'per person ' : ''}${e.c === 'EUU' ? 'in the European Union (its 27 current members)' : e.t === 'company' ? 'of ' + e.n : e.t === 'region' ? 'in ' + placeName(e) : 'in ' + nm(e)} have changed since ${se.y0}${!se.pc && (isNZ(e) || iyear(e)) ? ', and what the target would require from here' : ''}.`;
@@ -1621,7 +1630,7 @@ function wireTl(){}  // no hover details on the timeline markers
 /* ---------- COMPARE: emissions of all selected entries on one chart ---------- */
 const CMP_COL = ['#3B7CC3', '#E13B26', '#5EA845', '#8a6a3d'];
 function cmpEmisHtml(es, st){
-  const pc = st.mode === 'pc', L = es.map((e, i) => ({e, se: pc ? (e.t === 'company' ? null : viewSeries(e, hasPop(e))) : emisSeries(e), c: CMP_COL[i % 4]})).filter(r => r.se && (!pc || r.se.pc));
+  const pc = st.mode === 'pc', L = es.map((e, i) => ({e, se: pc ? (e.t === 'company' ? null : viewSeries0(e, hasPop(e))) : emisSeries(e), c: CMP_COL[i % 4]})).filter(r => r.se && (!pc || r.se.pc));
   if (!L.length) { if (pc) { st.mode = 'abs'; return cmpEmisHtml(es, st); } return ''; }
   const idx = st.mode === 'idx', allC = L.every(r => r.se.kind === 'c');
   let x0 = Math.max(...L.map(r => r.se.y0)); if (st.from === '1970') x0 = Math.max(x0, 1970); if (idx) x0 = Math.max(x0, 1990);
