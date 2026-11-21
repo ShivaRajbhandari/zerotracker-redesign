@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zza';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzb';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -924,12 +924,16 @@ async function fxCellMap(id, e, rec, cfg){
   const proj = (usa ? d3.geoAlbersUsa() : d3.geoNaturalEarth1()).fitExtent([[10, 8], [W - 10, MH]], target), P = d3.geoPath(proj);
   const [west, north, step, nc, nr, vals] = rec;
   const val = (lo, la) => { const c = Math.floor((lo - west) / step), r = Math.floor((north - la) / step); if (c < 0 || r < 0 || c >= nc || r >= nr) return null; const v = vals[r * nc + c]; return v === 999 ? null : v; };
+  // blend between the centres of neighbouring squares (only squares that have data), so the grid does not show as blocks
+  const cell = (c, r) => (c < 0 || r < 0 || c >= nc || r >= nr || vals[r * nc + c] === 999) ? null : vals[r * nc + c];
+  const smooth = (lo, la) => { const fc = (lo - west) / step - .5, fr = (north - la) / step - .5, c0 = Math.floor(fc), r0 = Math.floor(fr), tx = fc - c0, ty = fr - r0; let sw = 0, sv = 0; [[c0, r0, (1 - tx) * (1 - ty)], [c0 + 1, r0, tx * (1 - ty)], [c0, r0 + 1, (1 - tx) * ty], [c0 + 1, r0 + 1, tx * ty]].forEach(([c, r, w]) => { const v = cell(c, r); if (v != null && w > 0) { sw += w; sv += v * w; } }); return sw > 0 ? sv / sw : val(lo, la); };
   const cv = document.createElement('canvas'); cv.width = W; cv.height = MH + 10;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(cv.width, cv.height), rgb = cfg.cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
   const bb = P.bounds(target), xa = Math.max(0, Math.floor(bb[0][0]) - 1), xb = Math.min(W - 1, Math.ceil(bb[1][0]) + 1), ya = Math.max(0, Math.floor(bb[0][1]) - 1), yb = Math.min(MH + 9, Math.ceil(bb[1][1]) + 1);
   for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) {
     const ll = proj.invert([x + .5, y + .5]); if (!ll) continue;
-    const v = val(ll[0], ll[1]); if (v == null) continue;
+    if (val(ll[0], ll[1]) == null) continue;   // the outline of the data stays exact
+    const v = smooth(ll[0], ll[1]);
     const c = rgb[cfg.bin(v)], o = (y * cv.width + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
@@ -956,13 +960,13 @@ async function fxRender(e){
   try {
   const WR = WM && WM.d[e.s];
   if (WR && e.t !== 'city') {
-    const U = fxU(e), vs = WR[5].filter(v => v !== 999), lo0 = Math.min(...vs), hi0 = Math.max(...vs), lo = Math.floor(lo0 / 1) , hi = Math.max(hi0, lo + 4), n = 7;
+    const U = fxU(e), vs = WR[5].filter(v => v !== 999), lo0 = Math.min(...vs), hi0 = Math.max(...vs), mid = (lo0 + hi0) / 2, span = Math.max(hi0 - lo0, 10), lo = mid - span / 2, hi = mid + span / 2, n = 7;   // at least a 1° spread, so an even place looks even
     const cols = ['#fff3d6', '#fdd9a0', '#fbb06a', '#f27f4d', '#d9482f', '#b01f24', '#7a0c1c'], f1 = t => { const x = t / 10 * U.k; return (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + U.u; };
     const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n)), mean = vs.reduce((a, b) => a + b, 0) / vs.length;
     const m = await fxCellMap('fx-wm', e, WR, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Warming, 2015–2024 compared with 1951–1980', aria: `Map of how much each part of ${P} has warmed since 1951–1980. Areas range from ${f1(lo0)} to ${f1(hi0)}.`, tip: v => `<div class="tipms"><b>${f1(v)}</b><div class="mrow"><span class="my"></span><span>warmer than 1951–1980</span></div></div>`});
     if (m) {
       const fast = f1(hi0), slow = f1(lo0);
-      blocks.push(fxBlock('fx-wm', 'Which parts are warming fastest?', `How much warmer each part of ${esc(P)} is in 2015–2024 than it was in 1951–1980. Darker areas have warmed more. The colours are scaled to ${esc(P)} itself, so the map shows which parts are warming faster or slower than the rest, not how ${esc(P)} compares with other places.`,
+      blocks.push(fxBlock('fx-wm', 'Which parts are warming fastest?', `How much warmer each part of ${esc(P)} is in 2015–2024 than it was in 1951–1980. Darker areas have warmed more. The colours are scaled to ${esc(P)} itself, so the map shows which parts are warming faster or slower than the rest, not how ${esc(P)} compares with other places.${hi0 - lo0 < 5 ? ` Warming is fairly even across ${esc(P)}: the difference between its fastest and slowest areas is under half a degree Celsius.` : ''}`,
         `<div class="emis-facts"><div><span>Fastest-warming areas</span><b>${fast}</b></div><div><span>Slowest-warming areas</span><b>${slow}</b></div><div><span>Typical</span><b>${f1(mean)}</b></div></div>` + m.svg,
         `<b>Source:</b> Berkeley Earth, <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">High Resolution Dataset</a> (CC BY-NC 4.0), land air temperature on a 0.25° grid, shown in squares of ${m.step}°. Hover over the map to read a square. Places with few weather stations are estimated from nearby ones, so small differences between neighbouring squares are not reliable.`));
       wires.push(() => { m.wire(); fxShare('fx-wm', e, 'warming-map', 'Where ' + P + ' is warming fastest', `Parts of ${P} have warmed by as much as ${fast} since 1951–1980, while others have warmed by ${slow} (Berkeley Earth). #ClimateAction`); });
@@ -1025,7 +1029,7 @@ async function fxRender(e){
   try {
   const PQ = PM && PM.d[e.s];
   if (PQ && e.t !== 'city') {
-    const vs = PQ[5].filter(v => v !== 999), mx = Math.max(10, Math.ceil(Math.max(...vs.map(Math.abs)) / 10) * 10), n = 7, lo = -mx, hi = mx;
+    const vs = PQ[5].filter(v => v !== 999), mx = Math.max(20, Math.ceil(Math.max(...vs.map(Math.abs)) / 10) * 10), n = 7, lo = -mx, hi = mx;
     const cols = ['#8c510a', '#bf812d', '#dfc27d', '#f1ece2', '#80cdc1', '#35978f', '#01665e'], f1 = t => (t > 0 ? '+' : t < 0 ? '−' : '') + Math.abs(Math.round(t)) + '%';
     const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n));
     const m = await fxCellMap('fx-pm', e, PQ, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Change in yearly rain and snow, 1994–2023 compared with 1951–1980', aria: `Map of where rain and snow have increased or decreased in ${P} between 1951–1980 and 1994–2023.`, tip: v => `<div class="tipms"><b>${f1(v)}</b><div class="mrow"><span class="my"></span><span>rain and snow a year, vs 1951–1980</span></div></div>`});
