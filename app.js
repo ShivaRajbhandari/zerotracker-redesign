@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzc';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzh';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -914,36 +914,73 @@ const FX_SRC_CCKP = 'World Bank Climate Change Knowledge Portal, CMIP6 climate m
 
 // a map of how much each part of a place has changed. The grid squares are painted onto a canvas by inverting the map projection,
 // then clipped to the place's outline, so any outline shape works and the picture stays small.
+// Split a place into groups of nearby polygons. The biggest group is the "mainland"; far-away groups (Alaska and Hawaii for the US,
+// overseas territories for France, the Canaries for Spain ...) are drawn as insets at the SAME scale, so every part keeps its true size.
+function fxClusters(feat){
+  const polys = feat.geometry.type === 'Polygon' ? [feat.geometry.coordinates] : feat.geometry.coordinates;
+  const info = polys.map(c => { const g = {type: 'Polygon', coordinates: c}, b = d3.geoBounds(g); return {c, g, b, cen: d3.geoCentroid(g), area: d3.geoArea(g)}; });
+  const gap = (A, B) => {   // gap in degrees between two bounding boxes (longitude wraps around)
+    const iv = b => [b[0][0], b[1][0] < b[0][0] ? b[1][0] + 360 : b[1][0]], a = iv(A), c = iv(B);
+    let gx = Infinity; [-360, 0, 360].forEach(sh => { gx = Math.min(gx, Math.max(0, c[0] + sh - a[1], a[0] - (c[1] + sh))); });
+    const gy = Math.max(0, B[0][1] - A[1][1], A[0][1] - B[1][1]), la = (Math.max(A[0][1], B[0][1]) + Math.min(A[1][1], B[1][1])) / 2;
+    return Math.hypot(gx * Math.cos(la * Math.PI / 180), gy);
+  };
+  const par = info.map((_, i) => i), find = i => par[i] === i ? i : (par[i] = find(par[i]));
+  for (let i = 0; i < info.length; i++) for (let j = i + 1; j < info.length; j++) if (find(i) !== find(j) && gap(info[i].b, info[j].b) < 2.5) par[find(i)] = find(j);
+  const groups = {}; info.forEach((x, i) => (groups[find(i)] = groups[find(i)] || []).push(x));
+  const cl = Object.values(groups).map(m => { const g = {type: 'MultiPolygon', coordinates: m.map(x => x.c)}; return {m, geom: g, area: m.reduce((t, x) => t + x.area, 0), cen: d3.geoCentroid(g)}; }).sort((a, b) => b.area - a.area);
+  const total = cl.reduce((t, c) => t + c.area, 0);
+  return {all: cl, main: cl[0], ins: cl.slice(1).filter(c => c.area >= total * 0.0015).slice(0, 4)};
+}
+// the projections for every part, all at one scale, with the insets laid out in a row under the mainland
+function fxComposite(feat, usa, W, boxTop, boxH){
+  const cl = fxClusters(feat);
+  const mk = c => c === cl.main ? (usa ? d3.geoAlbers() : d3.geoNaturalEarth1().rotate([-c.cen[0], 0])) : d3.geoNaturalEarth1().rotate([-c.cen[0], -c.cen[1]]);
+  let h = boxH, main, parts;
+  for (let it = 0; it < 3; it++) {
+    main = mk(cl.main).fitExtent([[10, boxTop], [W - 10, boxTop + h]], cl.main.geom);
+    const k = main.scale(), ins = cl.ins.map(c => { const pr = mk(c).scale(k).translate([0, 0]), b = d3.geoPath(pr).bounds(c.geom); return {c, pr, b}; });
+    h = boxH - (ins.length ? Math.max(...ins.map(i => i.b[1][1] - i.b[0][1])) + 18 : 0);
+    parts = [{c: cl.main, pr: main}].concat(ins);
+  }
+  const mb = d3.geoPath(main).bounds(cl.main.geom); let cx = mb[0][0];
+  parts.slice(1).forEach(q => { const w = q.b[1][0] - q.b[0][0]; q.pr.translate([cx - q.b[0][0], mb[1][1] + 16 - q.b[0][1]]); cx += w + 16; });
+  parts.forEach(q => { q.path = d3.geoPath(q.pr); q.bb = q.path.bounds(q.c.geom); });
+  const near = poly => { const c = d3.geoCentroid(poly); let best = null, bd = Infinity; cl.all.forEach(g => g.m.forEach(x => { const d = d3.geoDistance(c, x.cen); if (d < bd) { bd = d; best = g; } })); return best; };
+  const pathOf = f => { const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates, by = new Map(); polys.forEach(c => { const g = near({type: 'Polygon', coordinates: c}); if (!by.has(g)) by.set(g, []); by.get(g).push(c); }); return parts.map(q => by.has(q.c) ? q.path({type: 'MultiPolygon', coordinates: by.get(q.c)}) : '').join(''); };
+  const inv = (x, y) => { for (const q of parts) if (x >= q.bb[0][0] - 2 && x <= q.bb[1][0] + 2 && y >= q.bb[0][1] - 2 && y <= q.bb[1][1] + 2) { const ll = q.pr.invert([x, y]); if (ll) return ll; } return null; };
+  const bb = [[Math.min(...parts.map(q => q.bb[0][0])), Math.min(...parts.map(q => q.bb[0][1]))], [Math.max(...parts.map(q => q.bb[1][0])), Math.max(...parts.map(q => q.bb[1][1]))]];
+  return {pathOf, inv, bb};
+}
 async function fxCellMap(id, e, rec, cfg){
   await loadGeo();
-  const W = 640, MH = 350, H = MH + 68;
+  const W = 640, MH = 350;
   let feat = e.t === 'country' ? topojson.feature(WORLD, WORLD.objects.countries).features.find(f => f.id === e.iso) : topojson.feature(REG, REG.objects.regions).features.find(f => f.properties.s === e.s);
   if (!feat) return null;
   if (e.t === 'region') feat = fixWinding(feat);
-  const usa = e.t === 'country' && e.c === 'USA', target = e.t === 'country' && !usa ? mainPart(feat) : feat;
-  const proj = (usa ? d3.geoAlbersUsa() : d3.geoNaturalEarth1()).fitExtent([[10, 8], [W - 10, MH]], target), P = d3.geoPath(proj);
+  const usa = e.t === 'country' && e.c === 'USA', CP = fxComposite(feat, usa, W, 8, MH - 8);
   const [west, north, step, nc, nr, vals] = rec;
-  const val = (lo, la) => { const c = Math.floor((lo - west) / step), r = Math.floor((north - la) / step); if (c < 0 || r < 0 || c >= nc || r >= nr) return null; const v = vals[r * nc + c]; return v === 999 ? null : v; };
+  const val = (lo, la) => { if (lo < west) lo += 360; const c = Math.floor((lo - west) / step), r = Math.floor((north - la) / step); if (c < 0 || r < 0 || c >= nc || r >= nr) return null; const v = vals[r * nc + c]; return v === 999 ? null : v; };
   // blend between the centres of neighbouring squares (only squares that have data), so the grid does not show as blocks
   const cell = (c, r) => (c < 0 || r < 0 || c >= nc || r >= nr || vals[r * nc + c] === 999) ? null : vals[r * nc + c];
-  const smooth = (lo, la) => { const fc = (lo - west) / step - .5, fr = (north - la) / step - .5, c0 = Math.floor(fc), r0 = Math.floor(fr), tx = fc - c0, ty = fr - r0; let sw = 0, sv = 0; [[c0, r0, (1 - tx) * (1 - ty)], [c0 + 1, r0, tx * (1 - ty)], [c0, r0 + 1, (1 - tx) * ty], [c0 + 1, r0 + 1, tx * ty]].forEach(([c, r, w]) => { const v = cell(c, r); if (v != null && w > 0) { sw += w; sv += v * w; } }); return sw > 0 ? sv / sw : val(lo, la); };
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = MH + 10;
+  const smooth = (lo, la) => { if (lo < west) lo += 360; const fc = (lo - west) / step - .5, fr = (north - la) / step - .5, c0 = Math.floor(fc), r0 = Math.floor(fr), tx = fc - c0, ty = fr - r0; let sw = 0, sv = 0; [[c0, r0, (1 - tx) * (1 - ty)], [c0 + 1, r0, tx * (1 - ty)], [c0, r0 + 1, (1 - tx) * ty], [c0 + 1, r0 + 1, tx * ty]].forEach(([c, r, w]) => { const v = cell(c, r); if (v != null && w > 0) { sw += w; sv += v * w; } }); return sw > 0 ? sv / sw : val(lo, la); };
+  const pick = (lo, la) => { const v = smooth(lo, la); if (v != null) return v; if (lo < west) lo += 360; const c0 = Math.floor((lo - west) / step), r0 = Math.floor((north - la) / step); let best = null, bd = Infinity; for (let dr = -3; dr <= 3; dr++) for (let dc = -3; dc <= 3; dc++) { const x = cell(c0 + dc, r0 + dr); if (x != null && dr * dr + dc * dc < bd) { bd = dr * dr + dc * dc; best = x; } } return best; };
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = Math.ceil(CP.bb[1][1]) + 10;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(cv.width, cv.height), rgb = cfg.cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
-  const bb = P.bounds(target), xa = Math.max(0, Math.floor(bb[0][0]) - 1), xb = Math.min(W - 1, Math.ceil(bb[1][0]) + 1), ya = Math.max(0, Math.floor(bb[0][1]) - 1), yb = Math.min(MH + 9, Math.ceil(bb[1][1]) + 1);
+  const bb = CP.bb, xa = Math.max(0, Math.floor(bb[0][0]) - 1), xb = Math.min(W - 1, Math.ceil(bb[1][0]) + 1), ya = Math.max(0, Math.floor(bb[0][1]) - 1), yb = Math.min(cv.height - 1, Math.ceil(bb[1][1]) + 1);
   for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) {
-    const ll = proj.invert([x + .5, y + .5]); if (!ll) continue;
-    if (val(ll[0], ll[1]) == null) continue;   // the outline of the data stays exact
-    const v = smooth(ll[0], ll[1]);
+    const ll = CP.inv(x + .5, y + .5); if (!ll) continue;
+    const v = pick(ll[0], ll[1]); if (v == null) continue;   // colour runs right up to the outline (the picture is clipped to it)
     const c = rgb[cfg.bin(v)], o = (y * cv.width + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
   const regF = e.t === 'country' && e.c !== 'EUU' ? topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c && cfg.regAvg(f.properties.s) != null).map(fixWinding) : [];
-  const regSvg = regF.length ? `<g class="cm-regs">${regF.map(f => `<path class="cm-r" d="${P(f)}" data-rs="${f.properties.s}"/>`).join('')}</g>` : '';
-  const outline = P(feat), n = cfg.cols.length, lw = 62, lx = (W - n * lw) / 2, ly = MH + 24;
+  const regSvg = regF.length ? `<g class="cm-regs">${regF.map(f => `<path class="cm-r" d="${CP.pathOf(f)}" data-rs="${f.properties.s}"/>`).join('')}</g>` : '';
+  const outline = CP.pathOf(feat), n = cfg.cols.length, lw = 62, lx = (W - n * lw) / 2, vy = Math.max(0, Math.floor(bb[0][1]) - 10), ly = Math.ceil(bb[1][1]) + 30, H = ly + 44;   // crop the picture to the place, legend just underneath
   const legend = cfg.cols.map((c, i) => `<rect x="${lx + i * lw}" y="${ly}" width="${lw}" height="13" fill="${c}"/>`).join('') + cfg.edges.map((t, i) => `<text x="${lx + i * lw}" y="${ly + 30}" text-anchor="middle" font-size="12" fill="#5f5869">${t}</text>`).join('') + `<text x="${W / 2}" y="${ly - 6}" text-anchor="middle" font-size="12" fill="#7a7385">${cfg.legend}</text>`;
-  const svg = `<svg viewBox="0 0 ${W} ${H}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect width="${W}" height="${H}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" clip-path="url(#${id}-cp)" style="image-rendering:pixelated"/><path d="${outline}" fill="none" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${regSvg}${legend}</svg>`;
+  const svg = `<svg viewBox="0 ${vy} ${W} ${H - vy}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect x="0" y="${vy}" width="${W}" height="${H - vy}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" clip-path="url(#${id}-cp)" style="image-rendering:pixelated"/><path d="${outline}" fill="none" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${regSvg}${legend}</svg>`;
   const wire = () => { const sv = $('#' + id + '-svg'); if (!sv) return;
-    sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = proj.invert([(ev.clientX - r.left) / r.width * W, (ev.clientY - r.top) / r.height * H]), v = ll && val(ll[0], ll[1]), rg = ev.target.closest && ev.target.closest('[data-rs]'), rs = rg && rg.dataset.rs, rx = rs && BY[rs];
+    sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = CP.inv((ev.clientX - r.left) / r.width * W, vy + (ev.clientY - r.top) / r.height * (H - vy)), v = ll && val(ll[0], ll[1]), rg = ev.target.closest && ev.target.closest('[data-rs]'), rs = rg && rg.dataset.rs, rx = rs && BY[rs];
       if (v == null && !rx) { hideTip(); return; }
       if (rg && rg.parentNode.lastChild !== rg) rg.parentNode.appendChild(rg);   // bring the hovered outline to the front
       showTip(`<div class="tipms">${rx ? `<b>${esc(rx.n)}</b><div class="mrow"><span class="my">${cfg.fmt(cfg.regAvg(rs))}</span><span>average, ${cfg.what}</span></div>` : ''}${v != null ? `<div class="mrow"><span class="my">${cfg.fmt(v)}</span><span>${rx ? 'this square' : cfg.what}</span></div>` : ''}${rx ? '<div class="mrow"><span class="my"></span><span>Click to open its profile</span></div>' : ''}</div>`, ev); });
@@ -1325,7 +1362,7 @@ async function localeMapShow(e){
   if (!mine.length) return;
   const mk = (d, cls, slug, label) => `<path d="${d}" class="${cls}"${slug ? ` data-s="${slug}" tabindex="0" role="link"` : ''} aria-label="${esc(label || '')}"/>`;
   const dotAt = (proj, x, cls) => { if (!x.ll) return ''; const p = proj([x.ll[1], x.ll[0]]); return p ? `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.2" class="${cls}" data-s="${x.s}" tabindex="0" role="link" aria-label="${esc(x.n)}"/>` : ''; };
-  const countryProj = () => cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : d3.geoNaturalEarth1().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine.map(mainPart)});
+  const countryProj = () => cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : d3.geoNaturalEarth1().rotate([-d3.geoCentroid({type:'FeatureCollection', features: mine.map(mainPart)})[0], 0]).fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine.map(mainPart)});
   const regs = e.c === 'EUU' ? [] : topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding);
   const cities = e.c === 'EUU' ? [] : D.filter(x => x.t === 'city' && x.c === e.c && x.ll);
   const figs = [];
@@ -1346,7 +1383,7 @@ async function localeMapShow(e){
       const near = (f, p) => { let best = Infinity; const rings = f.geometry.type === 'Polygon' ? f.geometry.coordinates : f.geometry.coordinates.flat(); rings.forEach(r => r.forEach(q => { const d = Math.hypot((q[0] - p[0]) * Math.cos(p[1] * Math.PI / 180), q[1] - p[1]); if (d < best) best = d; })); return best; };
       const CITY_REGION = {'new-york-cit-0101': 'new-york-state-reg-0015'};   // the simplified outlines put Manhattan inside New Jersey
       const inside = rf ? cities.filter(c => { if (CITY_REGION[c.s]) return CITY_REGION[c.s] === e.s; const p = [c.ll[1], c.ll[0]]; return d3.geoContains(rf, p) || (!regs.some(f => d3.geoContains(f, p)) && near(rf, p) < 0.35); }) : [];
-      if (rf && inside.length) { const pj2 = d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], rf), P2 = d3.geoPath(pj2); fig(mk(P2(rf), 'lm-me lm-self', '', e.n) + inside.map(c => dotAt(pj2, c, 'lm-dot2')).join(''), (inside.length === 1 ? 'The city in ' : 'Cities in ') + e.n); }
+      if (rf && inside.length) { const pj2 = d3.geoNaturalEarth1().rotate([-d3.geoCentroid(rf)[0], 0]).fitExtent([[8, 8], [W - 8, H - 8]], rf), P2 = d3.geoPath(pj2); fig(mk(P2(rf), 'lm-me lm-self', '', e.n) + inside.map(c => dotAt(pj2, c, 'lm-dot2')).join(''), (inside.length === 1 ? 'The city in ' : 'Cities in ') + e.n); }
     }
   }
   box.innerHTML = figs.join('') + `<div class="lm-cap">Click an area or a dot to open its profile</div>`;
