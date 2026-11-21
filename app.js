@@ -644,7 +644,6 @@ function globalChartHtml(G, st){
     <text x="10" y="13" font-size="12" fill="#7a7385">Gt CO₂e per year</text>
     ${Gs.map((_, k) => `<path d="${area(k)}" fill="${GL_STACK[k]}" stroke="#fff" stroke-width=".6"><title>${esc(G.names[k])}</title></path>`).join('')}
     <path d="${path(Gw.map((v, i) => [x0 + i, v]))}" fill="none" stroke="#271039" stroke-width="2.4"/>
-    <line x1="${x(2024)}" x2="${x(2024)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
     ${pmarks(x, x0, x1, T, H - B, 'lines')}
     ${['paris', 'pledges', 'pol'].map(k => `<path d="${band(SC[k].hi, SC[k].lo)}" fill="${GL_SCN[k][0]}" opacity=".13"/>`).join('')}
     ${[2030, 2035, 2050].filter(v => v <= x1).map(v => '').join('')}
@@ -865,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zx';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zy';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1104,7 +1103,6 @@ function emisChart(e){
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text><line x1="${x(t)}" x2="${x(t)}" y1="${H - B}" y2="${H - B + 4}" stroke="#bbb"/>`).join('')}
     <text x="14" y="13" font-size="12" fill="#7a7385">${pc ? 't CO₂e per person a year' : 'Mt CO₂e per year'}</text>
     <path d="${line}L${lx} ${yy(0)}L${x(PT[0][0])} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/>${s1path}<path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>${dots}
-    <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
     ${pmarks(x, y0, endY, T, H - B, 'lines')}
     ${path.join('')}
     <circle cx="${lx}" cy="${ly}" r="5" fill="#A5865C" stroke="#fff" stroke-width="2"/>
