@@ -913,13 +913,17 @@ async function fxRender(e){
   const T = F && F.t[e.s];
   if (T) {
     const obs = S && S.d[e.s], base0 = (() => { if (!obs) return null; const v = obs.slice(1995 - S.y0, 2015 - S.y0).filter(x => x != null); return v.length >= 15 ? v.reduce((a, b) => a + b, 0) / v.length : null; })();
-    const series = []; if (base0 != null) { const raw = obs.map((v, i) => [S.y0 + i, v == null ? null : (v - base0) / 100]).filter(p => p[0] >= 1950); series.push({name: 'Measured, each year', color: '#9a94a3', w: 1.1, op: .55, pts: raw}); series.push({name: 'Measured, 11-year average', color: '#3d3647', w: 2.8, smooth: true, pts: fxMean(raw, 11)}); }
-    FX_SCN.forEach((sc, k) => series.push({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], smooth: true, pts: fxSoft(F.years.map((y, i) => [y, T[k + 1][i] == null ? null : T[k + 1][i] / 10]))}));
-    const end = FX_SCN.map((_, k) => T[k + 1][T[k + 1].length - 1] / 10), mid = F.years.indexOf(2050), at50 = FX_SCN.map((_, k) => T[k + 1][mid] / 10);
+    const series = []; let off = 0;
+    if (base0 != null) { const raw = obs.map((v, i) => [S.y0 + i, v == null ? null : (v - base0) / 100]).filter(p => p[0] >= 1950), sm = fxMean(raw, 11).filter(p => p[0] <= S.y1 - 5);
+      series.push({name: 'Measured, each year', color: '#9a94a3', w: 1.1, op: .55, pts: raw}); series.push({name: 'Measured, 11-year average', color: '#3d3647', w: 2.8, smooth: true, pts: sm});
+      // line the model curves up with the measured average where they meet (2020), so the two parts join
+      const a0 = sm.find(p => p[0] === F.years[0]), m0 = FX_SCN.reduce((t, _, k) => t + (T[k + 1][0] || 0), 0) / FX_SCN.length / 10; if (a0) off = a0[1] - m0; }
+    FX_SCN.forEach((sc, k) => series.push({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], smooth: true, pts: fxSoft(F.years.map((y, i) => [y, T[k + 1][i] == null ? null : T[k + 1][i] / 10 + off]))}));
+    const end = FX_SCN.map((_, k) => T[k + 1][T[k + 1].length - 1] / 10 + off);
     const facts = FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k])}°C</b></div>`).join('') + `<div><span>${esc(P)} 1995–2014 average</span><b>${(T[0] / 10).toFixed(1)}°C</b></div>`;
     const svg = fxLine('fx-t', {x0: 1950, x1: 2100, series, aria: `Projected temperature change for ${P} to 2100 under three emissions paths, compared with the 1995–2014 average`, yfmt: v => fxSign(v, 0) + '°', vfmt: v => fxSign(v) + '°C', snap: 6, note: '°C above the 1995–2014 average', bands: [[2020, 2100, 'rgba(235,232,239,.35)']]});
     const key = FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('') + (base0 != null ? '<span><i style="background:#3d3647;height:4px"></i>Measured, 11-year average (Berkeley Earth)</span><span><i style="background:#9a94a3;height:2px"></i>Measured, each year</span>' : '');
-    blocks.push(fxBlock('fx-t', 'How much warmer could it get?', `Temperature in ${esc(P)} compared with its 1995–2014 average, from measurements up to now and from climate models to 2100.`, `<div class="emis-facts">${facts}</div>${svg}<div class="emis-key">${key}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Low emissions is roughly the Tracker’s “all pledges met” path, middle is roughly where today’s policies lead, and high is more warming than that.`));
+    blocks.push(fxBlock('fx-t', 'How much warmer could it get?', `Temperature in ${esc(P)} compared with its 1995–2014 average, from measurements up to now and from climate models to 2100.`, `<div class="emis-facts">${facts}</div>${svg}<div class="emis-key">${key}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Low emissions is roughly the Tracker’s “all pledges met” path, middle is roughly where today’s policies lead, and high is more warming than that. The model curves are lined up with the measured average in 2020 so the two join smoothly.`));
     wires.push(() => { fxLineWire('fx-t'); fxShare('fx-t', e, 'projected-warming', 'Projected warming: ' + P, `${P} could be ${fxSign(end[1])}°C warmer by 2100 than in 1995–2014 on the middle emissions path (${fxSign(end[0])}°C if emissions fall fast, ${fxSign(end[2])}°C on a high path). #ClimateAction`); });
   }
   // 3. hot days
