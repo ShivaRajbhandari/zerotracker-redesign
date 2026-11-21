@@ -814,6 +814,40 @@ function treatyWire(svg, ents){
 function loadComp(){ return window.NZCE ? Promise.resolve(window.NZCE) : new Promise(res => { const t = document.createElement('script'); t.src = 'compemis.js?v=20261120e'; t.onload = () => res(window.NZCE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function loadEmis(){ return Promise.all([loadEmis0(), loadComp()]).then(a => a[0]); }
 function loadEmis0(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bz'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+/* ---------- WARMING STRIPES (Berkeley Earth High Resolution Dataset, April 2026, land air temperature; CC BY-NC 4.0) ---------- */
+function loadStripes(){ return window.NZS ? Promise.resolve(window.NZS) : new Promise(res => { const t = document.createElement('script'); t.src = 'stripes.js?v=20261121s'; t.onload = () => res(window.NZS); t.onerror = () => res(null); document.head.appendChild(t); }); }
+const STR_BLUE = ['#deebf7', '#c6dbef', '#9ecae1', '#6baed6', '#4292c6', '#2171b5', '#08519c', '#08306b'], STR_RED = ['#fee0d2', '#fcbba1', '#fc9272', '#fb6a4a', '#ef3b2c', '#cb181d', '#a50f15', '#67000d'];
+function stripesHtml(e){
+  const S = window.NZS, a = S && S.d[e.s]; if (!a) return null;
+  const y0 = S.y0, n = a.length, v = a.map(x => x == null ? null : x / 100), yr = i => y0 + i;
+  const sl = (A, B) => v.slice(A - y0, B - y0 + 1).filter(x => x != null), mean = xs => xs.reduce((p, c) => p + c, 0) / xs.length;
+  const ref = sl(1971, 2000); if (ref.length < 20) return null;
+  const base = mean(ref), hist = sl(1901, 2000), sd = Math.sqrt(mean(hist.map(x => (x - mean(hist)) ** 2))) || 0.5, range = 2.6 * sd;
+  const col = x => { if (x == null) return '#ebe8ef'; const z = (x - base) / range, k = Math.min(7, Math.floor(Math.min(1, Math.abs(z)) * 8)); return z < 0 ? STR_BLUE[k] : STR_RED[k]; };
+  const W = 900, H = 150, bw = W / n, rects = v.map((x, i) => `<rect x="${(i * bw).toFixed(2)}" y="0" width="${(bw + 0.6).toFixed(2)}" height="${H}" fill="${col(x)}"/>`).join('');
+  const ticks = [1850, 1900, 1950, 2000, 2025].filter(t => t >= y0 && t <= y0 + n - 1).map(t => `<text x="${Math.min(W - 14, Math.max(14, (t - y0 + 0.5) * bw))}" y="${H + 20}" text-anchor="middle" font-size="12.5" fill="#7a7385">${t}</text>`).join('');
+  const last10 = sl(y0 + n - 10, y0 + n - 1), pre = sl(1850, 1900), m1951 = sl(1951, 1980);
+  const d1951 = last10.length >= 8 && m1951.length >= 20 ? mean(last10) - mean(m1951) : null, dPre = last10.length >= 8 && pre.length >= 30 ? mean(last10) - mean(pre) : null;
+  const sg = x => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + '°C';
+  const first = v.findIndex(x => x != null);
+  const facts = [d1951 != null ? ['Last 10 years', `${sg(d1951)} vs 1951–1980`] : null, dPre != null ? ['Since the 1850s', `${sg(dPre)} vs 1850–1900`] : null, first > 0 ? ['Record starts', String(yr(first))] : null].filter(Boolean).map(([k, t]) => `<div><span>${k}</span><b>${t}</b></div>`).join('');
+  return {facts, svg: `<svg viewBox="0 0 ${W} ${H + 28}" id="str-svg" role="img" aria-label="Warming stripes for ${esc(e.n)}, ${yr(0)} to ${yr(n - 1)}. Each stripe is one year; blue years were cooler and red years warmer than the 1971–2000 average." style="width:100%;height:auto;display:block;border-radius:6px">${rects}${ticks}<rect id="str-hit" x="0" y="0" width="${W}" height="${H}" fill="transparent"/><line id="str-x" y1="0" y2="${H}" stroke="#271039" stroke-width="2" opacity="0"/></svg>`, v, y0, n, base, W};
+}
+function stripesWire(e, st){
+  const svg = $('#str-svg'), hit = $('#str-hit'), ln = $('#str-x'); if (!svg) return;
+  const mv = ev => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse()), i = Math.max(0, Math.min(st.n - 1, Math.floor(p.x / (st.W / st.n)))), x = st.v[i];
+    ln.setAttribute('x1', (i + 0.5) * st.W / st.n); ln.setAttribute('x2', (i + 0.5) * st.W / st.n); ln.setAttribute('opacity', .55);
+    showTip(`<div class="tipms"><b>${st.y0 + i}</b>${x == null ? '<div class="mrow"><span class="my"></span><span>No usable temperature record</span></div>' : `<div class="mrow"><span class="my" style="color:${x >= st.base ? '#a50f15' : '#08519c'}">${(x >= st.base ? '+' : '−') + Math.abs(x - st.base).toFixed(1)}°C</span><span>vs the 1971–2000 average</span></div><div class="mrow"><span class="my" style="color:#7a7385">${(x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1)}°C</span><span>vs 1951–1980</span></div>`}</div>`, ev); };
+  hit.addEventListener('mousemove', mv); hit.addEventListener('mouseleave', () => { hideTip(); ln.setAttribute('opacity', 0); });
+}
+function stripesShow(e){
+  if (e.t === 'company') return;
+  loadStripes().then(S => { if (!S || location.hash.indexOf('/e/' + e.s) < 0) return; const r = stripesHtml(e); if (!r) return;
+    const where = e.c === 'EUU' ? 'the European Union' : e.t === 'region' ? e.n + ' region' : e.t === 'country' ? nm(e) : e.n;
+    $('#str-lede').textContent = `How the average temperature in ${where} has changed since ${r.y0}. Each stripe is one year: blue years were cooler than the 1971–2000 average, red years warmer.`;
+    $('#str').innerHTML = `<div class="card emis"><div class="emis-facts">${r.facts}</div>${r.svg}<p class="muted emis-src"><b>Source:</b> <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth</a> High Resolution Dataset (April 2026), land air temperature on a 0.25° grid (about 25 km), CC BY-NC 4.0. ${e.t === 'city' ? 'This is the temperature at the city’s location, not for a wider area.' : e.t === 'region' ? 'This averages the land inside the region’s outline.' : 'This averages the land inside the country’s borders.'} Light grey stripes are years with no usable record; the early decades rest on few weather stations and are less certain. The colours follow the “warming stripes” by climate scientist <a href="https://showyourstripes.info" target="_blank" rel="noopener">Ed Hawkins</a>: the scale runs ±2.6 standard deviations around the 1971–2000 average.</p></div>`;
+    $('#str-sec').hidden = false; stripesWire(e, r); });
+}
 function emisSeries(e){ const K = window.NZCE; if (e.t === 'company') { const k = K && K.d[e.s]; return k ? {y0:k.y0, v:k.v, kind:'k', k} : null; } const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
 const M2 = {L:'location-based (local grid average)', M:'counts renewable-energy certificates', U:'may count renewable-energy certificates (not stated)'};
 function m2Sum(K){ const c = new Set(K.m2.filter(Boolean)); return c.size === 1 ? {L:'location-based', M:'counts renewable-energy certificates', U:'may count renewable-energy certificates'}[[...c][0]] : 'method varies by year, see hover'; }
@@ -1038,6 +1072,11 @@ P.entity = (params, slug) => {
     <p class="muted mt0" id="emis-lede"></p>
     <div id="emis"></div>
   </div></section>
+  <section class="tight" id="str-sec" hidden><div class="wrap">
+    <h2 class="h-brand" style="font-size:24px">Warming stripes</h2>
+    <p class="muted mt0" id="str-lede"></p>
+    <div id="str"></div>
+  </div></section>
 
   <section class="tight"><div class="wrap">
     <div class="flex" style="justify-content:space-between"><h2 class="h-brand" style="font-size:24px">Credibility checklist</h2><a href="#/learn/method" style="font-size:15px">Why these questions?</a></div>
@@ -1076,6 +1115,7 @@ P.entity = (params, slug) => {
 };
 P.entity.after = (params, slug) => {
   const e = BY[slug]; if (!e) return;
+  stripesShow(e);
   const renderE = () => { const html = emisChart(e); if (!html) return false;
     $('#emis').innerHTML = html; const se = viewSeries(e, EPC.on && e.t !== 'company' && hasPop(e));
     $$('#emis [data-pc]').forEach(b => b.onclick = () => { EPC.on = b.dataset.pc === '1'; (EPC.on ? loadPop() : Promise.resolve()).then(renderE); });
@@ -1372,7 +1412,7 @@ const CNT_SHORT = {'United States of America': 'United States', 'Russian Federat
 function countingHtml(){
   return `<section class="band" id="counting"><div class="wrap">
     <div class="center"><h2 class="h-brand">Why the way we count emissions matters</h2>
-    <p class="lede">Ask “who is responsible for climate change?” and the answer depends on how you count. Countries argue hard about this in climate talks, because it decides who should cut first and who should pay. Try the four ways of counting below.</p></div>
+    <p class="lede">Ask “who is responsible for climate change?” and the answer depends on how you count. Countries argue hard about this in climate talks, because it decides who should cut first and who should pay. Try the six ways of counting below: three time periods, each for the whole country or per person.</p></div>
     <div class="cnt-ctl"><div class="seg segs" id="cnt-when" role="group" aria-label="Which years to count"><button data-w="year" class="on"><b>This year</b></button><button data-w="1990"><b>Since 1990</b></button><button data-w="1850"><b>Since 1850</b></button></div>
     <div class="seg segs" id="cnt-how" role="group" aria-label="Total or per person"><button data-h="tot" class="on"><b>Whole country</b></button><button data-h="pp"><b>Per person</b></button></div></div>
     <div class="grid2 mt1 cnt-grid" style="align-items:start">
@@ -1409,7 +1449,7 @@ function wireCounting(){
         '1990pp': `<h3>Since 1990, per person</h3><p>Dividing the total since 1990 by today's population combines both arguments. Rich countries with smaller populations, such as ${t[0]} and ${t[1]}, move to the top, while ${cn ? 'China' : 'large developing countries'} and India fall down the list.</p>`,
         '1850pp': `<h3>Since 1850, per person</h3><p>This is the view most favourable to poorer, more populous countries. Measured this way, the average person in ${t[0]} carries a historical share roughly <b>${ratio(srt[0], ind) ? ratio(srt[0], ind).toFixed(0) : 'many'} times</b> that of the average person in India.</p>`,
       };
-      $('#cnt-why').innerHTML = W[k] + `<p class="muted" style="font-size:13.5px;margin-bottom:0">None of these is “the right one”: each answers a different question. Net zero targets are set against a country's own total emissions, but debates about fairness use all four.</p>`;
+      $('#cnt-why').innerHTML = W[k] + `<p class="muted" style="font-size:13.5px;margin-bottom:0">None of these is “the right one”: each answers a different question. Net zero targets are set against a country's own total emissions, but debates about fairness use all of them.</p>`;
     };
     $$('#cnt-when button').forEach(b => b.onclick = () => { st.w = b.dataset.w; $$('#cnt-when button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
     $$('#cnt-how button').forEach(b => b.onclick = () => { st.h = b.dataset.h; $$('#cnt-how button').forEach(x => x.classList.toggle('on', x === b)); draw(); });
@@ -2033,6 +2073,7 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <div><h3>A Learn page that starts from the basics</h3><p>It opens with why net zero matters for the climate and the Paris Agreement goals, a greenhouse-effect diagram, and an interactive "net zero in one picture" that shows emissions as pollution from power plants, cars and cows, then what cutting, removing and relying on offsets each look like. A section on offsets, removals and greenwashing links from the picture's warnings.</p></div>
       <div><h3>Explore: governments or companies at the top</h3><p>A switch above the table shows the map (governments) or the treemap (companies). Hovering "Next milestone" lists every later milestone up to the target. A small key explains the check icons.</p></div>
       <div><h3>Choose what to compare with</h3><p>On every profile, "How it compares" can be set to the entry's region, its country, the world, or similar size (or sector and revenue for companies). Regions are our own grouping (for example the Middle East and North Africa, South and Central Asia, China on its own). Cities with fewer than 500,000 people, which the Tracker does not cover, pick a city to compare with instead.</p></div>
+      <div><h3>Warming stripes</h3><p>Country, region and city profiles show how much warmer the place has become since 1850, one coloured stripe per year, from Berkeley Earth's 0.25° land temperature grid. Hover for each year's change.</p></div>
       <div><h3>Share it and write to someone who can act</h3><p>The advocates page drafts a post for X, Facebook and LinkedIn, downloads a picture card for Instagram stories or posts, and drafts an email to a policymaker. Emails can be written in 17 languages (English, Spanish, French, Portuguese, German, Italian, Arabic, Chinese, Russian, Hindi, Japanese, Korean, Indonesian, Turkish, Swahili, Dutch and Polish), with local place names, and a “whom to email” box links to the official parliament directory and a search for the right ministry. Nothing is sent from the site.</p></div>
       <div><h3>The live site's menu, rebuilt</h3><p>A "More" menu (and the footer) now has Analysis, Insights, Methodology, Volunteering, In the news, About and The team, plus Bluesky and LinkedIn links. Analysis, Insights and In the news list every item with search and filters and link to the articles on zerotracker.net. Methodology, Volunteering, The team and the terms pages are rebuilt here from the live content.</p></div>
       <div><h3>Emissions history on every profile</h3><p>Countries show greenhouse gas emissions since 1850 (Our World in Data, from Jones et al. 2024). Cities and regions show 1970 to 2022 from the European Commission's EDGAR v8.0, summed from its 0.1° grid over the region's boundary, or over roughly 6 to 45 km around a city centre depending on its population. A dashed line shows a straight path from today to the target milestone and net zero year. City figures are approximate and will differ from official inventories. Companies show worldwide Scope 1 and 2 emissions where a usable figure exists: as reported by the company (compiled by Wikirate) or, for some heavy-industry companies, as estimated by Climate TRACE.</p></div>
@@ -2081,7 +2122,17 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <p><b>Backup: Climate TRACE estimates.</b> For power companies, and for steel, aluminium and chemicals makers, with no usable reported figures, the chart shows <a href="https://climatetrace.org" target="_blank" rel="noopener">Climate TRACE</a> estimates (CC BY 4.0) for 2021 onwards: the sites owned by the company and by every subsidiary it owns more than half of, from Climate TRACE's ownership data, added up by this prototype. These are independent estimates from satellite and other data, not company figures, and they count direct (Scope 1) emissions only. Oil and gas companies are left out: their fields are usually shared between partners, and Climate TRACE credits each partner with the whole field, which overstates them several times over. An estimate is also left out if it is below 300 tonnes per US$1 million of revenue for a power company or 500 for a materials company (a sign that plants are missing), above 20,000, or below the same company's figure in any national registry (EU, US, Canada, Australia or Japan). Companies whose history includes plants bought later are also left out, because Climate TRACE applies today's ownership to every year. 27 companies passed.</p></div>
     </div>
     <div class="note mt2"><b>Limits.</b> These are modelled grid totals, not official inventories, and city boundaries differ from administrative ones. Please treat city numbers as indicative. Company figures depend on what each company chose to report and are not independently verified.</div>
-  </div></section>`;
+  </div></section>
+  <section class="tight" id="stripes"><div class="wrap prose-wide">
+    <h2 class="h-brand" style="font-size:26px">Warming stripes: how they are made</h2>
+    <p class="muted mt0">Each profile for a country, region or city has a strip of one coloured stripe per year, from 1850 to 2025.</p>
+    <div class="grid2" style="align-items:start">
+      <div><p><b>Data.</b> The <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth High Resolution Dataset</a> (April 2026): monthly land air-temperature anomalies on a 0.25° grid (about 25 km), CC BY-NC 4.0. We averaged each year's months, then averaged the grid cells inside each country's or region's outline, weighted by cell area. For a city we use the cell at its location, or the nearest land cell. The EU is the 27 current members together.</p>
+      <p><b>Colours.</b> Following climate scientist Ed Hawkins' <a href="https://showyourstripes.info" target="_blank" rel="noopener">warming stripes</a>, blue is cooler and red warmer than the place's own 1971–2000 average, on a scale of plus or minus 2.6 standard deviations of its yearly values. A stripe's tooltip also gives the change from 1951–1980, the dataset's own reference period.</p></div>
+      <div><p><b>Gaps and early years.</b> A year needs at least 8 months of data in a cell, and at least half of an area's cells must have data. Light grey stripes are years with no usable record. Before about 1880 many places had few weather stations, so the early stripes are noisy; the figure “since the 1850s” is only shown when there are at least 30 early years.</p>
+      <p><b>Not shown.</b> Companies (there is no meaningful temperature for a company), 31 small countries (mostly islands), 20 small regions and 1 city that fall outside the land grid. Land temperatures warm faster than the ocean, so a country's stripes will look redder than the global average.</p></div>
+    </div>
+</div></section>`;
 
 P.notes.after = (params, sub) => { if (sub === 'emissions') setTimeout(() => $('#emissions')?.scrollIntoView(), 30); };
 
