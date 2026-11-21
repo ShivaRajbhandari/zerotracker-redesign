@@ -1776,7 +1776,7 @@ P.advocates = () => {
 };
 function shareText(e, lang){
   const X = lang && lang !== 'en' && window.EMLS && window.EMLS[lang];
-  if (X) { const cs = checks(e), t = tally(cs); return X.post(emlName(e, lang), isNZ(e) ? year(e) : '', t.yes, cs.length, isNZ(e)) + ' #NetZero #ClimateAction'; }
+  if (X) { const cs = checks(e), t = tally(cs); const r = X.post(emlName(e, lang), isNZ(e) ? year(e) : '', t.yes, cs.length, isNZ(e)) + ' #NetZero #ClimateAction'; return lang === 'hi' ? devnum(r) : r; }
   const cs = checks(e), t = tally(cs), gaps = cs.filter(c => c.v === 'no').map(c => shortGap[c.id]).filter(Boolean);
   let x = isNZ(e) ? `${Nm(e)}: ${targetPhrase(e)}. It meets ${t.yes} of ${cs.length} Net Zero Tracker credibility checks${gaps.length ? `; gap: ${gaps[0]}` : ''}.` : `${Nm(e)} has no net zero target, according to the Net Zero Tracker.`;
   return x + ' #NetZero #ClimateAction';
@@ -1842,6 +1842,7 @@ function emlKeys(e){
   cs.filter(c => c.v === 'unk' && ok.includes(c.id)).slice(0, 2).forEach(c => out.push(key(c)));
   return out.length ? out : ['track'];
 }
+const devnum = s => s.split(/(https?:\/\/\S+)/).map((p, i) => i % 2 ? p : p.replace(/[0-9]/g, d => '०१२३४५६७८९'[d])).join('');
 function emlName(e, lang){
   const v = window.NZN && window.NZN[e.s];
   if (v && v[0] === lang) return v[1].replace(/\s*\(.*\)\s*$/, '');
@@ -1853,7 +1854,7 @@ function emailDraftLang(e, lang){
   const L = EML[lang], cs = checks(e), t = tally(cs), n = emlName(e, lang), y = isNZ(e) ? year(e) : '';
   const qs = emlKeys(e).slice(0, 3).map(k => L.q[k](n));
   const body = `${L.greet}\n\n${L.intro(n, y, t.yes, cs.length, isNZ(e))}\n\n${L.grate}\n\n${qs.map((q, i) => `${i + 1}. ${q}`).join('\n')}\n\n${L.link} ${official(e)}\n\n${L.thanks}\n\n${L.bye}\n${L.you}`;
-  return {subject: L.subj(n), body, rtl: !!L.rtl};
+  return lang === 'hi' ? {subject: devnum(L.subj(n)), body: devnum(body), rtl: false} : {subject: L.subj(n), body, rtl: !!L.rtl};
 }
 function emailDraft(e){
   const qs = asks(e).slice(0, 3), cs = checks(e), t = tally(cs);
@@ -1862,7 +1863,7 @@ function emailDraft(e){
   return {subject, body};
 }
 function shareCard(e, fmt, lang){
-  const X = lang && lang !== 'en' && window.EMLS && window.EMLS[lang], RT = lang === 'ar', nmx = X ? emlName(e, lang) : nm(e);
+  const X = lang && lang !== 'en' && window.EMLS && window.EMLS[lang], RT = lang === 'ar', dn = v => lang === 'hi' ? devnum(String(v)) : v, nmx = X ? dn(emlName(e, lang)) : nm(e);
   const W = 1080, H = fmt === 'story' ? 1920 : 1080, c = document.createElement('canvas'); c.width = W; c.height = H;
   const g = c.getContext('2d'), F = 'Outfit, Helvetica, Arial, sans-serif', cs = checks(e), t = tally(cs);
   const wrap = (txt, x, y, w, lh) => { let line = ''; const cjk = /[\u3000-\u9fff\uac00-\ud7af]/.test(txt); for (const wd of (cjk ? [...txt] : txt.split(' '))) { const tr = line ? line + (cjk ? '' : ' ') + wd : wd; if (g.measureText(tr).width > w && line) { g.fillText(line, x, y); y += lh; line = wd; } else line = tr; } g.fillText(line, x, y); return y + lh; };
@@ -1872,9 +1873,9 @@ function shareCard(e, fmt, lang){
   const top = fmt === 'story' ? 260 : 120; let y = top;
   g.fillStyle = '#ffb3a8'; g.font = `600 34px ${F}`; g.fillText(((X ? X.ty[e.t] : TYPE[e.t][0]) + (e.cn && e.t !== 'country' ? ' · ' + e.cn : '')).toUpperCase(), PX, y); y += 90;
   g.fillStyle = '#fff'; g.font = `700 78px ${F}`; y = wrap(nmx, PX, y, W - 160, 92) + 10;
-  g.fillStyle = '#e0d6ea'; g.font = `400 46px ${F}`; y = wrap(X ? (isNZ(e) ? X.tgt(year(e)) : X.no) : targetPhrase(e), PX, y, W - 160, 60) + 30;
+  g.fillStyle = '#e0d6ea'; g.font = `400 46px ${F}`; y = wrap(X ? (isNZ(e) ? dn(X.tgt(year(e))) : X.no) : targetPhrase(e), PX, y, W - 160, 60) + 30;
   if (isNZ(e)) {
-    g.fillStyle = '#fff'; const sc = X ? X.of(t.yes, cs.length) : t.yes + ' of ' + cs.length; let fs = 150; g.font = `700 ${fs}px ${F}`; while (g.measureText(sc).width > W - 160 && fs > 56) { fs -= 6; g.font = `700 ${fs}px ${F}`; } g.fillText(sc, PX, y + 120); y += 160;
+    g.fillStyle = '#fff'; const sc = X ? dn(X.of(t.yes, cs.length)) : t.yes + ' of ' + cs.length; let fs = 150; g.font = `700 ${fs}px ${F}`; while (g.measureText(sc).width > W - 160 && fs > 56) { fs -= 6; g.font = `700 ${fs}px ${F}`; } g.fillText(sc, PX, y + 120); y += 160;
     g.fillStyle = '#e0d6ea'; g.font = `400 42px ${F}`; y = wrap(X ? X.ck : 'credibility checks met', PX, y + 40, W - 160, 52) + 40;
     const gaps = cs.filter(k => k.v === 'no').map(k => shortGap[k.id]).filter(Boolean).slice(0, 3);
     if (gaps.length && !X) { g.fillStyle = '#ffb3a8'; g.font = `600 36px ${F}`; g.fillText('GAPS', PX, y + 20); y += 60; g.fillStyle = '#fff'; g.font = `400 42px ${F}`; gaps.forEach(q => { y = wrap('✗  ' + q, PX, y + 20, W - 160, 56); }); }
