@@ -825,3 +825,6 @@ footer.site{padding:26px 0}
 .pside .yr{text-align:right}
 
 .fxblock{margin-top:28px}.fxblock:first-child{margin-top:0}.fxblock h3{margin:0;font-size:20px}.fxblock .card.emis{margin-top:0}
+
+.fxglobal{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}.fxg .shead h3{font-size:18px;margin:0}.fxg .fxbig{font-size:38px;font-weight:800;line-height:1.1;color:var(--purple);margin-top:6px}
+@media(max-width:1000px){.fxglobal{grid-template-columns:1fr}}
