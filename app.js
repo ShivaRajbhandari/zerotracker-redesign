@@ -1430,7 +1430,8 @@ const RIVALS = ['Coca-Cola Company', 'Microsoft', 'Walmart', 'Shell plc', 'Exxon
 const WORLD_PC = 6.7;  // 54.4 Gt in 2024 over 8.16 billion people (Our World in Data)
 function peopleHtml(){
   return `<section id="people"><div class="wrap">
-    <h2 class="h-brand">Why we track companies and governments, not individuals</h2>
+    <h2 class="h-brand">Institutional action &gt; individual action</h2>
+    <p class="lede">One person's choices change a few tonnes of emissions a year, while one government's rules or one company's plans can change millions of tonnes. That is why the biggest lever on climate change is what institutions decide, and why the Tracker holds governments and companies to their promises.</p>
     <div class="grid3 mt1">
       <div class="card"><h3>Most emissions are decided upstream</h3><p>Which power stations get built, how homes are heated, what cars are sold and how steel and cement are made are decided by governments and companies. Your choices happen inside the options they create.</p></div>
       <div class="card"><h3>The scale is very different</h3><p>The ${'<span id="pp-n">390</span>'} companies in this prototype with emissions figures add up to <b id="pp-tot">about 5 billion tonnes</b> a year. The average person emits about ${WORLD_PC} tonnes.</p></div>
