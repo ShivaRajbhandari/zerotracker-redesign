@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzk';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzl';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1364,13 +1364,15 @@ async function localeMapShow(e){
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
   const W = 300, H = 180, byIso = {}; D.forEach(x => { if (x.t === 'country' && x.iso) byIso[x.iso] = x; });
   const cEntry = e.t === 'country' ? e : D.find(x => x.t === 'country' && x.c === e.c), all = topojson.feature(WORLD, WORLD.objects.countries).features.filter(f => f.id !== '010');
-  const mineIds = e.c === 'EUU' ? EU27N : (cEntry && cEntry.iso ? [cEntry.iso] : []), mine = all.filter(f => mineIds.includes(f.id));
+  const mineIds = e.c === 'EUU' ? EU27N : (cEntry && cEntry.iso ? [cEntry.iso] : []); let mine = all.filter(f => mineIds.includes(f.id));
   if (!mine.length) return;
   const mk = (d, cls, slug, label) => `<path d="${d}" class="${cls}"${slug ? ` data-s="${slug}" tabindex="0" role="link"` : ''} aria-label="${esc(label || '')}"/>`;
   const dotAt = (proj, x, cls) => { if (!x.ll) return ''; const p = proj([x.ll[1], x.ll[0]]); return p ? `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.2" class="${cls}" data-s="${x.s}" tabindex="0" role="link" aria-label="${esc(x.n)}"/>` : ''; };
   const countryProj = () => cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : d3.geoNaturalEarth1().rotate([-d3.geoCentroid({type:'FeatureCollection', features: mine.map(mainPart)})[0], 0]).fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine.map(mainPart)});
   const regs = e.c === 'EUU' ? [] : topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding);
   const cities = e.c === 'EUU' ? [] : D.filter(x => x.t === 'city' && x.c === e.c && x.ll);
+  // a small country with no regions gets the more detailed outline (the main map file is coarse)
+  if (!regs.length && e.c !== 'EUU') { if (window.__w50 === undefined) { try { window.__w50 = await fetch('world50.json?v=' + FX_V).then(r => r.json()); } catch (x) { window.__w50 = null; } } if (window.__w50) { const f50 = topojson.feature(window.__w50, window.__w50.objects.countries).features; mine = mine.map(f => f50.find(g => g.id === f.id) || f); } if (location.hash.indexOf('/e/' + e.s) < 0) return; }
   const figs = [];
   const fig = (svg, cap) => figs.push(`<figure class="lmapfig"><svg viewBox="0 0 ${W} ${H}" role="group" aria-label="${esc(cap)}">${svg}</svg><figcaption>${esc(cap)}</figcaption></figure>`);
   if (e.t === 'country') {
