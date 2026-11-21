@@ -12,7 +12,9 @@ D.forEach(e => { if (e.c === 'EUU') { e.a2 = 'EU'; e.g = 'Europe'; } });  // the
 const BY = Object.fromEntries(D.map(e => [e.s, e]));
 D.forEach(e => { if (e.rev >= 1e12) { e.revBad = e.rev; delete e.rev; } }); // data issue in the source: see the notes page
 const THE = /^(United |Netherlands|Philippines|Bahamas|Gambia|Maldives|Marshall Islands|Solomon Islands|Comoros|Seychelles|Czech Republic|Dominican Republic|Central African Republic|Dem\. Rep\.|Republic of|European Union)/;
-const nm = e => (e.t === 'country' && THE.test(e.n) ? 'the ' : '') + e.n;
+const SHORT_NAME = {'Venezuela, Bolivarian Republic of':'Venezuela', 'Iran, Islamic Republic of':'Iran', 'Moldova, Republic of':'Moldova', 'Macedonia, the former Yugoslav Republic of':'North Macedonia', 'Palestinian Territory, Occupied':'Palestine', 'Russian Federation':'Russia', 'Syrian Arab Republic':'Syria', 'Brunei Darussalam':'Brunei'};
+const plainName = e => (e.t === 'country' && SHORT_NAME[e.n]) || e.n;
+const nm = e => (e.t === 'country' && THE.test(e.n) ? 'the ' : '') + plainName(e);
 const Nm = e => { const s = nm(e); return s[0].toUpperCase() + s.slice(1); };
 
 /* ---------- vocabulary: plain language ---------- */
@@ -842,22 +844,24 @@ function stripesHtml(e){
   const ticks = [1850, 1900, 1950, 2000, 2025].filter(t => t >= y0 && t <= y0 + n - 1).map(t => `<text x="${Math.min(W - 14, Math.max(14, (t - y0 + 0.5) * bw))}" y="${H + 20}" text-anchor="middle" font-size="12.5" fill="#7a7385">${t}</text>`).join('');
   const last10 = sl(y0 + n - 10, y0 + n - 1), pre = sl(1850, 1900), m1951 = sl(1951, 1980);
   const d1951 = last10.length >= 8 && m1951.length >= 20 ? mean(last10) - mean(m1951) : null, dPre = last10.length >= 8 && pre.length >= 30 ? mean(last10) - mean(pre) : null;
-  const sg = x => (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + '°C';
+  const UU = fxU(e), sg = x => (x >= 0 ? '+' : '−') + Math.abs(x * UU.k).toFixed(1) + UU.u;
   const first = v.findIndex(x => x != null);
   const facts = [d1951 != null ? ['Last 10 years', `${sg(d1951)} vs 1951–1980`] : null, dPre != null ? ['Since the 1850s', `${sg(dPre)} vs 1850–1900`] : null, first > 0 ? ['Record starts', String(yr(first))] : null].filter(Boolean).map(([k, t]) => `<div><span>${k}</span><b>${t}</b></div>`).join('');
-  return {facts, svg: `<svg viewBox="0 0 ${W} ${H + 28}" id="str-svg" role="img" aria-label="Warming stripes for ${esc(e.n)}, ${yr(0)} to ${yr(n - 1)}. Each stripe is one year; blue years were cooler and red years warmer than the 1971–2000 average." style="width:100%;height:auto;display:block;border-radius:6px">${rects}${ticks}<rect id="str-hit" x="0" y="0" width="${W}" height="${H}" fill="transparent"/><line id="str-x" y1="0" y2="${H}" stroke="#271039" stroke-width="2" opacity="0"/></svg>`, v, y0, n, base, W, d1951};
+  return {facts, svg: `<svg viewBox="0 0 ${W} ${H + 28}" id="str-svg" role="img" aria-label="Warming stripes for ${esc(e.n)}, ${yr(0)} to ${yr(n - 1)}. Each stripe is one year; blue years were cooler and red years warmer than the 1971–2000 average." style="width:100%;height:auto;display:block;border-radius:6px">${rects}${ticks}<rect id="str-hit" x="0" y="0" width="${W}" height="${H}" fill="transparent"/><line id="str-x" y1="0" y2="${H}" stroke="#271039" stroke-width="2" opacity="0"/></svg>`, v, y0, n, base, W, d1951, k: UU.k, u: UU.u};
 }
 function stripesWire(e, st){
   const svg = $('#str-svg'), hit = $('#str-hit'), ln = $('#str-x'); if (!svg) return;
   const mv = ev => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svg.getScreenCTM().inverse()), i = Math.max(0, Math.min(st.n - 1, Math.floor(p.x / (st.W / st.n)))), x = st.v[i];
     ln.setAttribute('x1', (i + 0.5) * st.W / st.n); ln.setAttribute('x2', (i + 0.5) * st.W / st.n); ln.setAttribute('opacity', .55);
-    showTip(`<div class="tipms"><b>${st.y0 + i}</b>${x == null ? '<div class="mrow"><span class="my"></span><span>No usable temperature record</span></div>' : `<div class="mrow"><span class="my" style="color:${x >= st.base ? '#a50f15' : '#08519c'}">${(x >= st.base ? '+' : '−') + Math.abs(x - st.base).toFixed(1)}°C</span><span>vs the 1971–2000 average</span></div><div class="mrow"><span class="my" style="color:#7a7385">${(x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1)}°C</span><span>vs 1951–1980</span></div>`}</div>`, ev); };
+    showTip(`<div class="tipms"><b>${st.y0 + i}</b>${x == null ? '<div class="mrow"><span class="my"></span><span>No usable temperature record</span></div>' : `<div class="mrow"><span class="my" style="color:${x >= st.base ? '#a50f15' : '#08519c'}">${(x >= st.base ? '+' : '−') + (Math.abs(x - st.base) * st.k).toFixed(1)}${st.u}</span><span>vs the 1971–2000 average</span></div><div class="mrow"><span class="my" style="color:#7a7385">${(x >= 0 ? '+' : '−') + (Math.abs(x) * st.k).toFixed(1)}${st.u}</span><span>vs 1951–1980</span></div>`}</div>`, ev); };
   hit.addEventListener('mousemove', mv); hit.addEventListener('mouseleave', () => { hideTip(); ln.setAttribute('opacity', 0); });
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zg';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zi';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
+const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
+const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
 const FX_SCN = [['Low emissions', 'SSP1-2.6', '#2f8a4c', 'roughly the “all pledges met” path'], ['Middle emissions', 'SSP2-4.5', '#c27a00', 'roughly where today’s policies lead'], ['High emissions', 'SSP3-7.0', '#c8331f', 'more warming than today’s policies']];
 const fxSign = (v, d = 1) => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(d);
 function fxPlace(e){ return e.c === 'EUU' ? 'the European Union' : e.t === 'country' ? nm(e) : e.n; }
@@ -911,7 +915,7 @@ async function fxRender(e){
   try {
   const r = stripesHtml(e);
   if (r) { blocks.push(`<div class="fxblock" id="fxb-str"><div class="shead"><h3>Warming stripes</h3>${shareBarHtml('sh-str')}</div><p class="muted mt0" style="margin-bottom:8px">How the average temperature in ${esc(e.t === 'region' ? placeName(e) : P)} has changed since ${r.y0}. Each stripe is one year: blue years were cooler than the 1971–2000 average, red years warmer.</p><div class="card emis"><div class="emis-facts">${r.facts}</div>${r.svg}<p class="muted emis-src"><b>Source:</b> <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth</a> High Resolution Dataset (April 2026), land air temperature on a 0.25° grid (about 25 km), CC BY-NC 4.0. ${e.t === 'city' ? 'This is the temperature at the city’s location, not for a wider area.' : `This averages the land inside the ${regTerm(e)[0]}’s outline.`} Light grey stripes are years with no usable record; the early decades rest on few weather stations and are less certain. The colours follow the “warming stripes” by climate scientist <a href="https://showyourstripes.info" target="_blank" rel="noopener">Ed Hawkins</a>: the scale runs ±2.6 standard deviations around the 1971–2000 average.</p></div></div>`);
-    wires.push(() => { stripesWire(e, r); const d1 = r.d1951; fxShare('str', e, 'warming-stripes', 'Warming stripes: ' + P, `${P} has warmed ${d1 != null ? fxSign(d1) + '°C in the last 10 years compared with 1951–1980' : 'since 1850'}. Each stripe is one year, from 1850 to 2025. #ClimateAction`); }); }
+    wires.push(() => { stripesWire(e, r); const d1 = r.d1951; fxShare('str', e, 'warming-stripes', 'Warming stripes: ' + P, `${P} has warmed ${d1 != null ? fxSign(d1 * r.k) + r.u + ' in the last 10 years compared with 1951–1980' : 'since 1850'}. Each stripe is one year, from 1850 to 2025. #ClimateAction`); }); }
   } catch (err) { console.error(err); }
   // 2. temperature ahead
   try {
@@ -924,28 +928,30 @@ async function fxRender(e){
       // line the model curves up with the measured average where they meet (2020), so the two parts join
       const a0 = sm.find(p => p[0] === F.years[0]), m0 = FX_SCN.reduce((t, _, k) => t + (T[k + 1][0] || 0), 0) / FX_SCN.length / 10; if (a0) off = a0[1] - m0; }
     FX_SCN.forEach((sc, k) => series.push({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], smooth: true, pts: fxSoft(F.years.map((y, i) => [y, T[k + 1][i] == null ? null : T[k + 1][i] / 10 + off]))}));
-    const end = FX_SCN.map((_, k) => T[k + 1][T[k + 1].length - 1] / 10 + off);
-    const facts = FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k])}°C</b></div>`).join('') + `<div><span>${esc(P)} 1995–2014 average</span><b>${(T[0] / 10).toFixed(1)}°C</b></div>`;
-    const svg = fxLine('fx-t', {x0: 1950, x1: 2100, series, aria: `Projected temperature change for ${P} to 2100 under three emissions paths, compared with the 1995–2014 average`, yfmt: v => fxSign(v, 0) + '°', vfmt: v => fxSign(v) + '°C', snap: 6, note: '°C above the 1995–2014 average', bands: [[2020, 2100, 'rgba(235,232,239,.35)']]});
+    const U = fxU(e); if (U.k !== 1) series.forEach(s => { s.pts = s.pts.map(p => [p[0], p[1] == null ? null : p[1] * U.k]); });
+    const end = FX_SCN.map((_, k) => (T[k + 1][T[k + 1].length - 1] / 10 + off) * U.k);
+    const facts = FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k])}${U.u}</b></div>`).join('') + `<div><span>${esc(P)} 1995–2014 average</span><b>${U.abs(T[0] / 10).toFixed(1)}${U.u}</b></div>`;
+    const svg = fxLine('fx-t', {x0: 1950, x1: 2100, series, aria: `Projected temperature change for ${P} to 2100 under three emissions paths, compared with the 1995–2014 average`, yfmt: v => fxSign(v, 0) + '°', vfmt: v => fxSign(v) + U.u, snap: 6, note: U.u + ' above the 1995–2014 average', bands: [[2020, 2100, 'rgba(235,232,239,.35)']]});
     const key = FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('') + (base0 != null ? '<span><i style="background:#3d3647;height:4px"></i>Measured, 11-year average (Berkeley Earth)</span><span><i style="background:#9a94a3;height:2px"></i>Measured, each year</span>' : '');
     blocks.push(fxBlock('fx-t', 'How much warmer could it get?', `Temperature in ${esc(P)} compared with its 1995–2014 average, from measurements up to now and from climate models to 2100.`, `<div class="emis-facts">${facts}</div>${svg}<div class="emis-key">${key}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Low emissions is roughly the Tracker’s “all pledges met” path, middle is roughly where today’s policies lead, and high is more warming than that. The model curves are lined up with the measured average in 2020 so the two join smoothly.`));
-    wires.push(() => { fxLineWire('fx-t'); fxShare('fx-t', e, 'projected-warming', 'Projected warming: ' + P, `${P} could be ${fxSign(end[1])}°C warmer by 2100 than in 1995–2014 on the middle emissions path (${fxSign(end[0])}°C if emissions fall fast, ${fxSign(end[2])}°C on a high path). #ClimateAction`); });
+    wires.push(() => { fxLineWire('fx-t'); fxShare('fx-t', e, 'projected-warming', 'Projected warming: ' + P, `${P} could be ${fxSign(end[1])}${U.u} warmer by 2100 than in 1995–2014 on the middle emissions path (${fxSign(end[0])}${U.u} if emissions fall fast, ${fxSign(end[2])}${U.u} on a high path). #ClimateAction`); });
   }
   } catch (err) { console.error(err); }
   // 3. hot days
   try {
+  const UH = fxU(e);
   const H = F && F.hd[e.s];
   if (H && H[0] != null) {
     const per = F.periods, now = H[0] / 10, vals = H.slice(1).map(a => a.map(v => v == null ? null : v / 10)), mx = Math.max(now, ...vals.flat().filter(v => v != null));
-    if (mx < 1) blocks.push(`<div class="fxblock" id="fxb-fx-h"><div class="shead"><h3>Very hot days</h3></div><div class="card"><p style="margin:0">Days above 35°C are rare in ${esc(P)}: fewer than one a year today, and still fewer than one a year on every path to 2100, according to the climate models.</p></div></div>`);
+    if (mx < 1) blocks.push(`<div class="fxblock" id="fxb-fx-h"><div class="shead"><h3>Very hot days</h3></div><div class="card"><p style="margin:0">Days above ${UH.th} are rare in ${esc(P)}: fewer than one a year today, and still fewer than one a year on every path to 2100, according to the climate models.</p></div></div>`);
     else {
       const W = 900, Hh = 290, L = 72, R = 18, Tt = 14, B = 46, sc = fxNiceScale(0, mx * 1.08), y = v => Tt + (1 - v / sc.b) * (Hh - Tt - B), gw = (W - L - R) / (per.length + 1), bw = gw / 4.4;
       const groups = [['1995–2014', [[now, '#8a8394', 'Now']]]].concat(per.map((p, i) => [p, FX_SCN.map((s, k) => [vals[k][i], s[2], s[0]])]));
       const bars = groups.map(([lab, bs], gi) => { const cx = L + gw * (gi + .5), x0 = cx - (bs.length * bw + (bs.length - 1) * 4) / 2; return bs.map(([v, col, nmx], bi) => v == null ? '' : `<rect x="${(x0 + bi * (bw + 4)).toFixed(1)}" y="${y(v).toFixed(1)}" width="${bw.toFixed(1)}" height="${(y(0) - y(v)).toFixed(1)}" rx="3" fill="${col}"><title>${esc(nmx)}, ${lab}: ${v.toFixed(v < 10 ? 1 : 0)} days a year</title></rect><text x="${(x0 + bi * (bw + 4) + bw / 2).toFixed(1)}" y="${(y(v) - 5).toFixed(1)}" text-anchor="middle" font-size="11.5" font-weight="700" fill="#4a4358">${v < 10 ? v.toFixed(1) : Math.round(v)}</text>`).join('') + `<text x="${cx}" y="${Hh - 22}" text-anchor="middle" font-size="12.5" fill="#5f5869">${lab}</text>`; }).join('');
-      const svg = `<svg viewBox="0 0 ${W} ${Hh}" id="fx-h-svg" role="img" aria-label="Days a year above 35°C in ${esc(P)}: now, and in four future periods under three emissions paths" style="width:100%;height:auto;display:block">${sc.t.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 0 ? '#9a94a3' : '#ece8ef'}"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${t}</text>`).join('')}${bars}<text transform="rotate(-90 14 ${((Tt + Hh - B) / 2).toFixed(1)})" x="14" y="${((Tt + Hh - B) / 2).toFixed(1)}" text-anchor="middle" font-size="12.5" fill="#7a7385">days a year above 35°C</text></svg>`;
+      const svg = `<svg viewBox="0 0 ${W} ${Hh}" id="fx-h-svg" role="img" aria-label="Days a year above ${UH.th} in ${esc(P)}: now, and in four future periods under three emissions paths" style="width:100%;height:auto;display:block">${sc.t.map(t => `<line x1="${L}" x2="${W - R}" y1="${y(t)}" y2="${y(t)}" stroke="${t === 0 ? '#9a94a3' : '#ece8ef'}"/><text x="${L - 8}" y="${y(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${t}</text>`).join('')}${bars}<text transform="rotate(-90 14 ${((Tt + Hh - B) / 2).toFixed(1)})" x="14" y="${((Tt + Hh - B) / 2).toFixed(1)}" text-anchor="middle" font-size="12.5" fill="#7a7385">days a year above ${UH.th}</text></svg>`;
       const m80 = FX_SCN.map((_, k) => vals[k][3]);
-      blocks.push(fxBlock('fx-h', 'More very hot days', `Days a year when the highest temperature reaches 35°C or more in ${esc(P)}: the 1995–2014 average, and what the models say for the coming decades.`, `<div class="emis-facts"><div><span>1995–2014</span><b>${now < 10 ? now.toFixed(1) : Math.round(now)} days a year</b></div>${FX_SCN.map((sc, k) => `<div><span>2080–2099, ${sc[0].toLowerCase()}</span><b style="color:${sc[2]}">${m80[k] < 10 ? m80[k].toFixed(1) : Math.round(m80[k])} days</b></div>`).join('')}</div>${svg}<div class="emis-key">${FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:10px"></i>${sc[0]} (${sc[1]})</span>`).join('')}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} “Hot days” are days when the daily maximum reaches 35°C. The first bar is the models’ own 1995–2014 average, so it can differ from local weather records.`));
-      wires.push(() => fxShare('fx-h', e, 'hot-days', 'Very hot days: ' + P, `${P}: ${now < 10 ? now.toFixed(1) : Math.round(now)} days a year above 35°C in 1995–2014, and about ${m80[1] < 10 ? m80[1].toFixed(1) : Math.round(m80[1])} by 2080–2099 on the middle emissions path (${m80[0] < 10 ? m80[0].toFixed(1) : Math.round(m80[0])} if emissions fall fast, ${m80[2] < 10 ? m80[2].toFixed(1) : Math.round(m80[2])} on a high path). #ClimateAction`));
+      blocks.push(fxBlock('fx-h', 'More very hot days', `Days a year when the highest temperature reaches ${UH.th} or more in ${esc(P)}: the 1995–2014 average, and what the models say for the coming decades.`, `<div class="emis-facts"><div><span>1995–2014</span><b>${now < 10 ? now.toFixed(1) : Math.round(now)} days a year</b></div>${FX_SCN.map((sc, k) => `<div><span>2080–2099, ${sc[0].toLowerCase()}</span><b style="color:${sc[2]}">${m80[k] < 10 ? m80[k].toFixed(1) : Math.round(m80[k])} days</b></div>`).join('')}</div>${svg}<div class="emis-key">${FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:10px"></i>${sc[0]} (${sc[1]})</span>`).join('')}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} “Hot days” are days when the daily maximum reaches ${UH.th}. The first bar is the models’ own 1995–2014 average, so it can differ from local weather records.`));
+      wires.push(() => fxShare('fx-h', e, 'hot-days', 'Very hot days: ' + P, `${P}: ${now < 10 ? now.toFixed(1) : Math.round(now)} days a year above ${UH.th} in 1995–2014, and about ${m80[1] < 10 ? m80[1].toFixed(1) : Math.round(m80[1])} by 2080–2099 on the middle emissions path (${m80[0] < 10 ? m80[0].toFixed(1) : Math.round(m80[0])} if emissions fall fast, ${m80[2] < 10 ? m80[2].toFixed(1) : Math.round(m80[2])} on a high path). #ClimateAction`));
     }
   }
   } catch (err) { console.error(err); }
@@ -965,7 +971,7 @@ async function fxRender(e){
   G = SL && SL[e.s];
   if (G) {
     const [gname, dist, y0, y1, slope, vals] = G, pts = vals.map((v, i) => [y0 + i, v]), have = vals.filter(v => v != null), rise = have[have.length - 1] - have[0];
-    const svg = fxLine('fx-s', {x0: y0, x1: y1, zero: false, series: [{name: 'Each year', color: '#9ecae1', pts, w: 1.2, op: .9}, {name: '11-year average', color: '#08519c', smooth: true, pts: fxMean(pts, 11), w: 2.8}], aria: `Sea level at the ${gname} tide gauge, ${y0} to ${y1}`, yfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v), vfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v) + ' mm', snap: 2, note: 'mm, compared with the 1990s average'});
+    const svg = fxLine('fx-s', {x0: y0, x1: y1, zero: false, series: [{name: 'Each year', color: '#9ecae1', pts, w: 1.2, op: .9}, {name: '11-year average', color: '#08519c', smooth: true, pts: fxMean(pts, 11), w: 2.8}], aria: `Sea level at the ${gname} tide gauge, ${y0} to ${y1}`, yfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v), vfmt: v => (v >= 0 ? '+' : '−') + Math.round(Math.abs(v)) + ' mm', snap: 2, note: 'mm, compared with the 1990s average'});
     blocks.push(fxBlock('fx-s', 'Rising seas', `Yearly average sea level at the ${esc(gname)} tide gauge${dist ? ` (${dist} km from the city centre)` : ''}, compared with its 1990–1999 average.`, `<div class="emis-facts"><div><span>Rise since ${y0}</span><b>${rise >= 0 ? '+' : '−'}${Math.abs(rise)} mm</b></div>${slope != null ? `<div><span>Last 50 years</span><b>${slope >= 0 ? '+' : '−'}${Math.abs(slope).toFixed(1)} mm a year</b></div>` : ''}</div>${svg}`, `<b>Source:</b> <a href="https://psmsl.org" target="_blank" rel="noopener">Permanent Service for Mean Sea Level</a> (PSMSL), revised local reference annual data; the nearest long tide-gauge record within 60 km. This is sea level relative to the land the gauge sits on, so it also includes land that is sinking or rising locally. For comparison, global sea level has risen about 3.5 mm a year recently.`));
     wires.push(() => { fxLineWire('fx-s'); fxShare('fx-s', e, 'sea-level', 'Sea level: ' + P, `Sea level at the ${gname} tide gauge near ${P} has risen ${Math.abs(rise)} mm since ${y0}${slope != null ? ` (about ${slope.toFixed(1)} mm a year over the last 50 years)` : ''}. #ClimateAction`); });
   }
@@ -1224,7 +1230,11 @@ async function localeMapShow(e){
     const pj = countryProj(), P = d3.geoPath(pj);
     fig(mine.map(f => mk(P(f), 'lm-c lm-base', cEntry.s, cEntry.n)).join('') + regs.map(f => { const r = BY[f.properties.s]; return mk(P(f), r.s === e.s ? 'lm-me' : 'lm-r', r.s, r.n); }).join('') + (e.t === 'city' ? dotAt(pj, e, 'lm-dot') .replace('r="4.2"', 'r="5"') + '' : ''), (e.t === 'region' ? placeName(e) + ' in ' : e.n + ' in ') + nm(cEntry));
     if (e.t === 'region') {
-      const rf = regs.find(f => f.properties.s === e.s), inside = rf ? cities.filter(c => d3.geoContains(rf, [c.ll[1], c.ll[0]])) : [];
+      const rf = regs.find(f => f.properties.s === e.s);
+      // a city belongs to the region that contains it; if the (simplified) outlines leave it in no region at all, give it to the nearest one within about 35 km
+      const near = (f, p) => { let best = Infinity; const rings = f.geometry.type === 'Polygon' ? f.geometry.coordinates : f.geometry.coordinates.flat(); rings.forEach(r => r.forEach(q => { const d = Math.hypot((q[0] - p[0]) * Math.cos(p[1] * Math.PI / 180), q[1] - p[1]); if (d < best) best = d; })); return best; };
+      const CITY_REGION = {'new-york-cit-0101': 'new-york-state-reg-0015'};   // the simplified outlines put Manhattan inside New Jersey
+      const inside = rf ? cities.filter(c => { if (CITY_REGION[c.s]) return CITY_REGION[c.s] === e.s; const p = [c.ll[1], c.ll[0]]; return d3.geoContains(rf, p) || (!regs.some(f => d3.geoContains(f, p)) && near(rf, p) < 0.35); }) : [];
       if (rf && inside.length) { const pj2 = d3.geoNaturalEarth1().fitExtent([[8, 8], [W - 8, H - 8]], rf), P2 = d3.geoPath(pj2); fig(mk(P2(rf), 'lm-me lm-self', '', e.n) + inside.map(c => dotAt(pj2, c, 'lm-dot2')).join(''), (inside.length === 1 ? 'The city in ' : 'Cities in ') + e.n); }
     }
   }
@@ -1548,6 +1558,8 @@ P.compare.after = () => {
 
 /* ---------- LEARN ---------- */
 const GLOSS = [
+  ['Greenhouse gas','A gas in the air, such as carbon dioxide or methane, that traps heat near the Earth’s surface.','These gases are why burning coal, oil and gas warms the planet. A target that counts only CO₂ leaves out others, such as methane, that also trap heat.'],
+  ['Greenhouse effect','The way heat-trapping gases act like a blanket around the Earth. Some of this is natural and keeps the planet warm enough to live on; burning fossil fuels thickens it.','The more of these gases in the air, the more heat stays near the surface, so the planet keeps warming until the amount we add falls to zero.'],
   ['Net zero','Cutting emissions as close to zero as possible, then balancing the small remainder by removing the same amount of CO₂ from the air.','Scientists say global CO₂ must reach net zero around 2050 to limit warming to 1.5°C.'],
   ['Interim target','A nearer-term goal, usually for 2030 or 2035, on the way to net zero.','Without one, a 2050 promise cannot be checked until it is too late.'],
   ['Scope 1, 2 and 3','Scope 1: emissions from your own operations. Scope 2: from the electricity and heat you buy. Scope 3: everything else in your value chain, from suppliers to customers using your products.','For an oil company or a carmaker, Scope 3 is usually most of the footprint.'],
@@ -1634,7 +1646,7 @@ function countingHtml(){
       <div class="card"><p id="cnt-unit" class="muted" style="margin:0 0 12px;font-size:14px"></p><div id="cnt-bars" class="cnt-bars" aria-live="polite"><div class="empty">Loading…</div></div></div>
       <div class="card cnt-why" id="cnt-why"></div>
     </div>
-    <p class="muted" style="font-size:13px">Greenhouse gases including land use and deforestation, which is why Brazil and Indonesia rank high. “Per person” divides by each year's population for a single year, and by today's population for totals since 1990 or 1850. Sources: <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (emissions from Jones et al., 2024; population), CC BY.</p>
+    <p class="muted" style="font-size:13px">Greenhouse gases including land use and deforestation, which is why Brazil and Indonesia rank high. “Per person” divides each year's emissions by that year's population; for totals since 1990 or 1850 those yearly amounts are added up. Sources: <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (emissions from Jones et al., 2024; population), CC BY.</p>
   </div></section>`;
 }
 function wireCounting(){
@@ -1644,15 +1656,16 @@ function wireCounting(){
     if (!E || !P || !$('#cnt-bars')) { box.innerHTML = '<div class="empty">The data did not load.</div>'; return; }
     const rows = CNT_NAMES.map(n => D.find(e => e.n === n && e.t === 'country')).filter(e => e && E.c[e.s] && P[e.s]).map(e => {
       const [y0, v] = E.c[e.s], Y = y0 + v.length - 1, [p0, pv] = P[e.s], popY = y => (pv[y - p0] || 0) * 1e3, sum = from => v.slice(Math.max(0, from - y0)).reduce((a, b) => a + (b || 0), 0);
-      return {e, name: CNT_SHORT[e.n] || e.n, Y, year: v[v.length - 1], s1990: sum(1990), s1850: sum(1850), pop: popY(Y)};
+      const ppSum = from => v.reduce((a, x, i) => { const yr = y0 + i, p = popY(yr); return yr >= from && p > 0 && x ? a + x * 1e6 / p : a; }, 0);
+      return {e, name: CNT_SHORT[e.n] || e.n, Y, year: v[v.length - 1], s1990: sum(1990), s1850: sum(1850), pp1990: ppSum(1990), pp1850: ppSum(1850), pop: popY(Y)};
     });
-    const val = r => { const t = st.w === 'year' ? r.year : st.w === '1990' ? r.s1990 : r.s1850; return st.h === 'tot' ? t : t * 1e6 / r.pop; };
+    const val = r => { const t = st.w === 'year' ? r.year : st.w === '1990' ? r.s1990 : r.s1850; return st.h === 'tot' ? t : st.w === 'year' ? t * 1e6 / r.pop : st.w === '1990' ? r.pp1990 : r.pp1850; };
         const show = (r) => { const v = val(r); return st.h === 'tot' && st.w !== 'year' ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) : v >= 100 ? fmt(Math.round(v)) : v.toFixed(1); };
     box.innerHTML = rows.map(r => `<div class="cnt-row" data-k="${r.e.s}"><span class="cnt-n">${r.e.a2 ? flag(r.e.a2) + ' ' : ''}${esc(r.name)}</span><span class="cnt-b"><i></i></span><span class="cnt-v"></span></div>`).join('');
     const draw = () => {
       const srt = rows.slice().sort((a, b) => val(b) - val(a)), mx = val(srt[0]);
       srt.forEach((r, i) => { const el = box.querySelector(`[data-k="${r.e.s}"]`); el.style.transform = `translateY(${i * 34}px)`; el.querySelector('i').style.width = (val(r) / mx * 100).toFixed(1) + '%'; el.querySelector('.cnt-v').textContent = show(r); });
-      $('#cnt-unit').textContent = st.h === 'pp' ? (st.w === 'year' ? 'Tonnes of CO₂e per person this year' : 'Tonnes of CO₂e per person: the total emitted over the period, divided by today’s population') : (st.w === 'year' ? 'Million tonnes (Mt) of CO₂e emitted this year' : 'Billion tonnes (Gt) of CO₂e emitted over the period');
+      $('#cnt-unit').textContent = st.h === 'pp' ? (st.w === 'year' ? 'Tonnes of CO₂e per person this year' : 'Tonnes of CO₂e per person: each year’s emissions divided by that year’s population, added up. This is what one resident would have emitted had they lived through the whole period') : (st.w === 'year' ? 'Million tonnes (Mt) of CO₂e emitted this year' : 'Billion tonnes (Gt) of CO₂e emitted over the period');
       box.style.height = rows.length * 34 + 'px';
       const t = srt.slice(0, 3).map(r => r.name), find = n => rows.find(r => r.e.n === n), us = find('United States of America'), ind = find('India'), cn = find('China');
       const k = st.w + st.h, ratio = (a, b) => a && b ? (val(a) / val(b)) : null;
@@ -1661,8 +1674,8 @@ function wireCounting(){
         yearpp: `<h3>Who emits most per person?</h3><p>Divide by population and the order changes. The average person in the United States emits about <b>${ratio(us, ind) ? ratio(us, ind).toFixed(0) : 'several'} times</b> as much as the average person in India, and China's per-person figure is now above the EU's. Countries with low emissions per person, such as India and Nigeria, argue that fairness should be judged person by person: everyone should have a similar share of what the atmosphere can still absorb.</p>`,
         '1990tot': `<h3>Counting from 1990</h3><p>1990 is when the UN climate science panel (the IPCC) published its first report, so the risks were widely known from then on. It is also the base year of the Kyoto Protocol, and many developed countries prefer counting from here. On this view <b>${t[0]}</b> has emitted the most, because its emissions grew fastest after 1990.</p>`,
         '1850tot': `<h3>Counting since the Industrial Revolution</h3><p>Carbon dioxide stays in the air for centuries, so emissions from the 1800s are still warming the planet today. Counting from 1850 puts <b>${t[0]}</b> and ${t[1]} ahead. Many developing countries argue that those who emitted first and most should cut fastest and help pay for others to adapt. The UN climate convention (1992) calls this <i>common but differentiated responsibilities</i>.</p>`,
-        '1990pp': `<h3>Since 1990, per person</h3><p>Dividing the total since 1990 by today's population combines both arguments. Rich countries with smaller populations, such as ${t[0]} and ${t[1]}, move to the top, while ${cn ? 'China' : 'large developing countries'} and India fall down the list.</p>`,
-        '1850pp': `<h3>Since 1850, per person</h3><p>This is the view most favourable to poorer, more populous countries. Measured this way, the average person in ${t[0]} carries a historical share roughly <b>${ratio(srt[0], ind) ? ratio(srt[0], ind).toFixed(0) : 'many'} times</b> that of the average person in India.</p>`,
+        '1990pp': `<h3>Since 1990, per person</h3><p>Adding up each year's emissions per person since 1990 combines both arguments. Rich countries with smaller populations, such as ${t[0]} and ${t[1]}, move to the top, while ${cn ? 'China' : 'large developing countries'} and India fall down the list.</p>`,
+        '1850pp': `<h3>Since 1850, per person</h3><p>Adding up each year's emissions per person follows the average resident through time, so fast-growing countries are not flattered by today's larger population. This is still the view most favourable to poorer, more populous countries. Measured this way, the average person in ${t[0]} carries a historical share roughly <b>${ratio(srt[0], ind) ? ratio(srt[0], ind).toFixed(0) : 'many'} times</b> that of the average person in India.</p>`,
       };
       $('#cnt-why').innerHTML = W[k] + `<p class="muted" style="font-size:13.5px;margin-bottom:0">None of these is “the right one”: each answers a different question. Net zero targets are set against a country's own total emissions, but debates about fairness use all of them.</p>`;
     };
@@ -1846,8 +1859,8 @@ P.learn = (params, sub) => `
   <section id="why"><div class="wrap">
     <div class="center"><h2 class="h-brand">Why net zero matters for the climate</h2><p class="lede">Heat-trapping gases build up in the air. To stop the planet warming, the amount we add has to fall to zero, not just fall.</p></div>
     <div class="grid3 mt2">
-      <div class="card" style="border-top:5px solid var(--brown)"><h3>Carbon dioxide piles up</h3><p>Carbon dioxide stays in the air for centuries. Each year’s emissions are added to what is already there, a bit like a bathtub filling faster than it drains.</p></div>
-      <div class="card" style="border-top:5px solid var(--red)"><h3>So warming only stops at zero</h3><p>Cutting emissions slows the warming, but does not stop it. The temperature stops climbing only when the carbon dioxide we add is balanced by what is taken out. That is what “net zero” means.</p></div>
+      <div class="card" style="border-top:5px solid var(--brown)"><h3>Carbon piles up</h3><p>Carbon dioxide stays in the air for centuries. Each year’s emissions are added to what is already there, a bit like a bathtub filling faster than it drains.</p></div>
+      <div class="card" style="border-top:5px solid var(--red)"><h3>Warming only stops at zero</h3><p>Cutting emissions slows the warming, but does not stop it. The temperature stops climbing only when the carbon dioxide we add is balanced by what is taken out. That is what “net zero” means.</p></div>
       <div class="card" style="border-top:5px solid var(--green)"><h3>Targets turn that into action</h3><p>Governments, regions, cities and companies set net zero targets to say when, and how, they will get there. The Tracker checks whether each promise holds up.</p></div>
     </div>
     <div class="grid2 mt2" style="align-items:center">
@@ -1868,7 +1881,7 @@ P.learn = (params, sub) => `
   </div></section>
   <section><div class="wrap grid2" style="align-items:center">
     <div><h2 class="h-brand">Net zero in one picture</h2>
-    <p class="lede">Emissions are the heat-trapping gases, mostly carbon dioxide, released when we burn coal, oil and gas. <b>Net zero</b> means cutting them as far as we can, then taking the small amount left back out of the air.</p><p>It does <b>not</b> mean releasing nothing. It means roughly 90% or more is cut first.</p>
+    <p class="lede">Emissions are the heat-trapping gases, mostly carbon dioxide, released when we burn coal, oil and gas. <b>Net zero</b> means cutting them as far as we can, then taking the small amount left back out of the air.</p><p>It doesn’t necessarily mean releasing nothing. It means roughly 90% or more is cut first.</p>
     <p>Offsetting a large share instead of cutting is not net zero. Planting trees today while emissions keep rising is not net zero either.</p></div>
     <div class="card">${netZeroDiagram()}</div>
   </div></section>
@@ -2079,7 +2092,7 @@ P.advocates = () => {
         <div><h3>Read the checklist</h3><p>Every red ✗ or "partly" is a gap you can press on. "Unknown" usually means they haven't said, which is worth asking about too.</p></div>
         <div><h3>Use the questions</h3><p>Each profile generates questions from its own gaps, for shareholder meetings, council sessions, interviews or letters.</p></div>
       </div></div>
-    <div class="card" style="align-self:start;border-top:5px solid var(--red)"><h3>Six warning signs of a weak pledge</h3>
+    <div style="align-self:start;display:grid;gap:18px"><div class="card" style="border-top:5px solid var(--red)"><h3>Six warning signs of a weak pledge</h3>
       <ul class="flags">
         <li><b>Only a distant date.</b> "Net zero by 2050" with nothing before 2035.</li>
         <li><b>Just a press release.</b> Announced, but not in law or official strategy.</li>
@@ -2090,6 +2103,14 @@ P.advocates = () => {
       </ul>
       <p class="muted" style="font-size:14px;margin-bottom:0">Of the ${fmt(G.n)} companies with a net zero target, only <b>${G.interim}%</b> have a milestone by 2035 and only <b>${G.plan}%</b> have a complete plan.</p>
     </div>
+    <div class="card" style="border-top:5px solid var(--green)"><h3>Action &gt; words</h3>
+      <p class="mt0">A good pledge is only the start. What counts is whether it gets delivered, so after you check the target, check the follow-through.</p>
+      <ul class="flags">
+        <li><b>Are emissions actually falling?</b> Ask for the yearly figures, not just the end date.</li>
+        <li><b>Is there money and a named owner?</b> Look for a budget, a deadline for each step and someone accountable.</li>
+        <li><b>Is anyone checking?</b> Independent reviews and yearly reports show whether a promise is on track. This site checks the promise; pair it with data on delivery.</li>
+      </ul>
+    </div></div>
   </div></section>
   <section class="band"><div class="wrap">
     <h2 class="h-brand">Among the world's 200 largest public companies, no net zero target yet</h2>
@@ -2167,8 +2188,8 @@ function whoToWrite(e){
   else {
     if (e.t === 'city') L.push([q(e.n + ' mayor office contact'), 'Search for the mayor’s office']);
     else if (e.t === 'region') L.push([q(e.n + ' environment minister contact'), 'Search for the ' + regTerm(e)[0] + ' environment minister']);
-    else L.push([q(e.n + ' ministry of environment climate change contact'), 'Search for the climate or environment ministry']);
-    if (a2) L.push(['https://data.ipu.org/parliament/' + a2, 'Parliament of ' + cn + ' (Inter-Parliamentary Union directory, with contact details and the official website)']);
+    else L.push([q(plainName(e) + ' ministry of environment climate change contact'), 'Search for the climate or environment ministry']);
+    if (a2) L.push(['https://data.ipu.org/parliament/' + a2, 'Parliament of ' + (c ? plainName(c) : cn) + ' (Inter-Parliamentary Union directory, with contact details and the official website)']);
   }
   return `<div class="note" style="margin-top:12px;font-size:14px"><b>Whom to email</b><ul style="margin:6px 0 0;padding-left:18px">${L.map(([h, t]) => `<li><a href="${h}" target="_blank" rel="noopener">${esc(t)}</a></li>`).join('')}</ul><span class="muted">These are starting points. Check the person’s role on an official page before you send anything.</span></div>`;
 }
