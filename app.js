@@ -844,6 +844,7 @@ function stripesShow(e){
   if (e.t === 'company') return;
   loadStripes().then(S => { if (!S || location.hash.indexOf('/e/' + e.s) < 0) return; const r = stripesHtml(e); if (!r) return;
     const where = e.c === 'EUU' ? 'the European Union' : e.t === 'region' ? e.n + ' region' : e.t === 'country' ? nm(e) : e.n;
+    $('#fx-title').textContent = `See the effects of climate change on ${where}`;
     $('#str-lede').textContent = `How the average temperature in ${where} has changed since ${r.y0}. Each stripe is one year: blue years were cooler than the 1971–2000 average, red years warmer.`;
     $('#str').innerHTML = `<div class="card emis"><div class="emis-facts">${r.facts}</div>${r.svg}<p class="muted emis-src"><b>Source:</b> <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth</a> High Resolution Dataset (April 2026), land air temperature on a 0.25° grid (about 25 km), CC BY-NC 4.0. ${e.t === 'city' ? 'This is the temperature at the city’s location, not for a wider area.' : e.t === 'region' ? 'This averages the land inside the region’s outline.' : 'This averages the land inside the country’s borders.'} Light grey stripes are years with no usable record; the early decades rest on few weather stations and are less certain. The colours follow the “warming stripes” by climate scientist <a href="https://showyourstripes.info" target="_blank" rel="noopener">Ed Hawkins</a>: the scale runs ±2.6 standard deviations around the 1971–2000 average.</p></div>`;
     $('#str-sec').hidden = false; stripesWire(e, r); });
@@ -1072,11 +1073,6 @@ P.entity = (params, slug) => {
     <p class="muted mt0" id="emis-lede"></p>
     <div id="emis"></div>
   </div></section>
-  <section class="tight" id="str-sec" hidden><div class="wrap">
-    <h2 class="h-brand" style="font-size:24px">Warming stripes</h2>
-    <p class="muted mt0" id="str-lede"></p>
-    <div id="str"></div>
-  </div></section>
 
   <section class="tight"><div class="wrap">
     <div class="flex" style="justify-content:space-between"><h2 class="h-brand" style="font-size:24px">Credibility checklist</h2><a href="#/learn/method" style="font-size:15px">Why these questions?</a></div>
@@ -1099,6 +1095,12 @@ P.entity = (params, slug) => {
   <section class="tight band" id="share-box"><div class="wrap">
     <details id="share-dd" class="sharedd"><summary><h2 class="h-brand" style="font-size:24px;display:inline">Share it, or write to someone who can act</h2><span class="muted" style="display:block;font-size:15px;margin-top:4px">Post about this profile, download a picture card, or draft an email to a policymaker, in 17 languages.</span></summary>
       <div id="sh-out" class="mt2"></div></details>
+  </div></section>
+
+  <section class="tight" id="str-sec" hidden><div class="wrap">
+    <details class="sharedd" id="fx-dd"><summary><h2 class="h-brand" style="font-size:24px;display:inline" id="fx-title">See the effects of climate change here</h2><span class="muted" style="display:block;font-size:15px;margin-top:4px" id="fx-sub">How much warmer it has become since 1850, one stripe per year.</span></summary>
+      <div class="mt2"><h3 style="margin:0 0 4px">Warming stripes</h3><p class="muted mt0" id="str-lede"></p><div id="str"></div></div>
+    </details>
   </div></section>
 
   <section class="tight band"><div class="wrap">
