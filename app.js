@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzh';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzi';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -916,7 +916,7 @@ const FX_SRC_CCKP = 'World Bank Climate Change Knowledge Portal, CMIP6 climate m
 // then clipped to the place's outline, so any outline shape works and the picture stays small.
 // Split a place into groups of nearby polygons. The biggest group is the "mainland"; far-away groups (Alaska and Hawaii for the US,
 // overseas territories for France, the Canaries for Spain ...) are drawn as insets at the SAME scale, so every part keeps its true size.
-function fxClusters(feat){
+function fxClusters(feat, hasData){
   const polys = feat.geometry.type === 'Polygon' ? [feat.geometry.coordinates] : feat.geometry.coordinates;
   const info = polys.map(c => { const g = {type: 'Polygon', coordinates: c}, b = d3.geoBounds(g); return {c, g, b, cen: d3.geoCentroid(g), area: d3.geoArea(g)}; });
   const gap = (A, B) => {   // gap in degrees between two bounding boxes (longitude wraps around)
@@ -930,11 +930,11 @@ function fxClusters(feat){
   const groups = {}; info.forEach((x, i) => (groups[find(i)] = groups[find(i)] || []).push(x));
   const cl = Object.values(groups).map(m => { const g = {type: 'MultiPolygon', coordinates: m.map(x => x.c)}; return {m, geom: g, area: m.reduce((t, x) => t + x.area, 0), cen: d3.geoCentroid(g)}; }).sort((a, b) => b.area - a.area);
   const total = cl.reduce((t, c) => t + c.area, 0);
-  return {all: cl, main: cl[0], ins: cl.slice(1).filter(c => c.area >= total * 0.0015).slice(0, 4)};
+  return {all: cl, main: cl[0], ins: cl.slice(1).filter(c => c.area >= total * 0.0015 && (!hasData || hasData(d3.geoBounds(c.geom)))).slice(0, 4)};
 }
 // the projections for every part, all at one scale, with the insets laid out in a row under the mainland
-function fxComposite(feat, usa, W, boxTop, boxH){
-  const cl = fxClusters(feat);
+function fxComposite(feat, usa, W, boxTop, boxH, hasData){
+  const cl = fxClusters(feat, hasData);
   const mk = c => c === cl.main ? (usa ? d3.geoAlbers() : d3.geoNaturalEarth1().rotate([-c.cen[0], 0])) : d3.geoNaturalEarth1().rotate([-c.cen[0], -c.cen[1]]);
   let h = boxH, main, parts;
   for (let it = 0; it < 3; it++) {
@@ -958,13 +958,15 @@ async function fxCellMap(id, e, rec, cfg){
   let feat = e.t === 'country' ? topojson.feature(WORLD, WORLD.objects.countries).features.find(f => f.id === e.iso) : topojson.feature(REG, REG.objects.regions).features.find(f => f.properties.s === e.s);
   if (!feat) return null;
   if (e.t === 'region') feat = fixWinding(feat);
-  const usa = e.t === 'country' && e.c === 'USA', CP = fxComposite(feat, usa, W, 8, MH - 8);
+  const usa = e.t === 'country' && e.c === 'USA';
   const [west, north, step, nc, nr, vals] = rec;
   const val = (lo, la) => { if (lo < west) lo += 360; const c = Math.floor((lo - west) / step), r = Math.floor((north - la) / step); if (c < 0 || r < 0 || c >= nc || r >= nr) return null; const v = vals[r * nc + c]; return v === 999 ? null : v; };
   // blend between the centres of neighbouring squares (only squares that have data), so the grid does not show as blocks
   const cell = (c, r) => (c < 0 || r < 0 || c >= nc || r >= nr || vals[r * nc + c] === 999) ? null : vals[r * nc + c];
   const smooth = (lo, la) => { if (lo < west) lo += 360; const fc = (lo - west) / step - .5, fr = (north - la) / step - .5, c0 = Math.floor(fc), r0 = Math.floor(fr), tx = fc - c0, ty = fr - r0; let sw = 0, sv = 0; [[c0, r0, (1 - tx) * (1 - ty)], [c0 + 1, r0, tx * (1 - ty)], [c0, r0 + 1, (1 - tx) * ty], [c0 + 1, r0 + 1, tx * ty]].forEach(([c, r, w]) => { const v = cell(c, r); if (v != null && w > 0) { sw += w; sv += v * w; } }); return sw > 0 ? sv / sw : val(lo, la); };
   const pick = (lo, la) => { const v = smooth(lo, la); if (v != null) return v; if (lo < west) lo += 360; const c0 = Math.floor((lo - west) / step), r0 = Math.floor((north - la) / step); let best = null, bd = Infinity; for (let dr = -3; dr <= 3; dr++) for (let dc = -3; dc <= 3; dc++) { const x = cell(c0 + dc, r0 + dr); if (x != null && dr * dr + dc * dc < bd) { bd = dr * dr + dc * dc; best = x; } } return best; };
+  const hasData = bx => { const w = bx[0][0], e2 = bx[1][0] < w ? bx[1][0] + 360 : bx[1][0]; for (let la = bx[0][1]; la <= bx[1][1] + step; la += step) for (let lo = w; lo <= e2 + step; lo += step) if (val(lo > 180 ? lo - 360 : lo, la) != null) return true; return false; };   // does a far-away part have any data?
+  const CP = fxComposite(feat, usa, W, 8, MH - 8, hasData);
   const cv = document.createElement('canvas'); cv.width = W; cv.height = Math.ceil(CP.bb[1][1]) + 10;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(cv.width, cv.height), rgb = cfg.cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
   const bb = CP.bb, xa = Math.max(0, Math.floor(bb[0][0]) - 1), xb = Math.min(W - 1, Math.ceil(bb[1][0]) + 1), ya = Math.max(0, Math.floor(bb[0][1]) - 1), yb = Math.min(cv.height - 1, Math.ceil(bb[1][1]) + 1);
