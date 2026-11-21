@@ -26,6 +26,8 @@ const isNZ = e => NZ_TYPES.has(e.e);
 const hasAnyTarget = e => e.e && e.e !== 'No target';
 const year = e => { const y = +e.y; return y >= 2000 ? y : null; };
 const iyear = e => { const y = +e.iy; return y >= 2000 ? y : null; };
+// an end target that falls due between now and 2035 is itself a near-term milestone, even with no separate interim target
+const nearEnd = e => { const y = +e.y; return e.e === 'Net zero' && y >= 2000 && y >= NOW && y <= 2035; };
 const TYPE = {country:['Country','Countries'], region:['Region','Regions'], city:['City','Cities'], company:['Company','Companies']};
 // what each country calls its first-level divisions: [singular, plural, word added after the name]
 const REG_TERM = {USA:['state','states'], AUS:['state','states'], IND:['state','states'], MEX:['state','states'], BRA:['state','states'], DEU:['state','states'], MYS:['state','states'],
@@ -93,8 +95,8 @@ function checks(e){
   }
   const iy = iyear(e), hasI = e.it && e.it !== 'No target';
   const passed = hasI && iy && iy < NOW;
-  add('target','interim','Is there a near-term milestone?', hasI && iy && iy <= 2035 && !passed ? 'yes' : hasI ? 'part' : (e.it ? 'no' : 'unk'),
-    hasI ? `${e.ip ? e.ip + '% cut' : (e.it === 'Net zero or similar' ? 'Net zero' : 'A reduction target')}${iy ? ' by ' + iy : ''}${e.ib ? ' (vs ' + e.ib + ')' : ''}.${passed ? ' That year has passed and no newer milestone is recorded.' : iy && iy > 2035 ? ' That is still more than ten years away.' : ''}` : (e.it ? 'No interim target. Only a distant end date.' : 'Not assessed.'),
+  add('target','interim','Is there a near-term milestone?', hasI && iy && iy <= 2035 && !passed ? 'yes' : !hasI && nearEnd(e) ? 'yes' : hasI ? 'part' : (e.it ? 'no' : 'unk'),
+    hasI ? `${e.ip ? e.ip + '% cut' : (e.it === 'Net zero or similar' ? 'Net zero' : 'A reduction target')}${iy ? ' by ' + iy : ''}${e.ib ? ' (vs ' + e.ib + ')' : ''}.${passed ? ' That year has passed and no newer milestone is recorded.' : iy && iy > 2035 ? ' That is still more than ten years away.' : ''}` : (nearEnd(e) ? `No separate interim target, but the end target itself is only ${+e.y - NOW} years away (${e.y}).` : e.it ? 'No interim target. Only a distant end date.' : 'Not assessed.'),
     'A milestone within about 5 to 10 years shows whether cuts are actually starting now, not after current leaders have left.');
   // COVERAGE
   add('cover','gas','Does it cover all greenhouse gases?', e.gas === 'Carbon dioxide and other GHGs' ? 'yes' : e.gas === 'Carbon dioxide only' ? 'part' : 'unk',
@@ -285,7 +287,7 @@ function gapStats(t){
   const xs = universe(t).filter(isNZ), n = xs.length;
   const f = fn => pct(xs.filter(fn).length, n);
   return { n,
-    interim: f(e => e.it && e.it !== 'No target' && iyear(e) >= NOW && iyear(e) <= 2035),
+    interim: f(e => (e.it && e.it !== 'No target' && iyear(e) >= NOW && iyear(e) <= 2035) || nearEnd(e)),
     plan: f(e => e.plan === 'Yes' && e.po >= 4),
     rep: f(e => e.rep === 'Annual reporting'),
     gas: f(e => e.gas === 'Carbon dioxide and other GHGs'),
@@ -408,7 +410,7 @@ const MODES = {
     of:e => { if (!isNZ(e)) return 'No net zero target'; const y = year(e); if (!y) return 'Net zero, year not given'; return y <= 2040 ? '2040 or earlier' : y <= 2050 ? '2041–2050' : y <= 2060 ? '2051–2060' : 'After 2060'; }},
   interim:{name:'Milestone before 2035?', help:'Is there a near-term step, not just a far-off date?',
     cats:[{label:'Milestone between 2026 and 2035', hex:'#4a8a3c'},{label:'Net zero, but no milestone by 2035', hex:'#e6d6bd'},{label:'No net zero target', hex:'#c9c7cc'}],
-    of:e => { if (!isNZ(e)) return 'No net zero target'; return e.it && e.it !== 'No target' && iyear(e) >= NOW && iyear(e) <= 2035 ? 'Milestone between 2026 and 2035' : 'Net zero, but no milestone by 2035'; }},
+    of:e => { if (!isNZ(e)) return 'No net zero target'; return (e.it && e.it !== 'No target' && iyear(e) >= NOW && iyear(e) <= 2035) || nearEnd(e) ? 'Milestone between 2026 and 2035' : 'Net zero, but no milestone by 2035'; }},
   checks:{name:'How many credibility checks?', help:'How many of our yes/no checks the target meets.',
     cats:[{label:'7 or more checks met', hex:'#4b2a73'},{label:'5–6 checks met', hex:'#8d68b3'},{label:'3–4 checks met', hex:'#bfa9d6'},{label:'0–2 checks met', hex:'#e4dcee'},{label:'No net zero target', hex:'#c9c7cc'}],
     of:e => { if (!isNZ(e)) return 'No net zero target'; const n = nChecks(e).y; return n >= 7 ? '7 or more checks met' : n >= 5 ? '5–6 checks met' : n >= 3 ? '3–4 checks met' : '0–2 checks met'; }},
@@ -763,6 +765,7 @@ function summaryText(e){
     s.push(`${name} aims for <b>${esc(targetWord(e).toLowerCase())}${y ? ' by ' + y : ''}</b>${y && y > NOW ? `, ${y - NOW} years from now` : ''}. The target ${how}${e.sd && L.k>=1 ? ` (since ${e.sd})` : ''}.`);
   }
   if (hasI) s.push(`Its ${iy && iy < NOW ? 'most recent' : 'next'} milestone is ${e.ip ? `a <b>${e.ip}% cut</b>` : '<b>' + esc(e.it.toLowerCase()) + '</b>'}${iy ? ` by <b>${iy}</b>` : ''}${e.ib ? ` compared with ${e.ib}` : ''}.`);
+  else if (nearEnd(e)) s.push(`It has no separate interim milestone, but its end target is only <b>${+e.y - NOW} years</b> away, so progress will be easy to check soon.`);
   else if (isNZ(e)) s.push(`It has <b>no interim milestone</b>, so there is no way to check progress before the end date.`);
   if (isNZ(e)) {
     const cs = checks(e), t = tally(cs);
@@ -862,7 +865,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zs';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zv';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -914,7 +917,7 @@ async function fxRender(e){
   const body = $('#fx-body'); if (!body) return;
   let S, F, SL, DS, SN; try { [S, F, SL, DS, SN] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN')]); } catch (err) { console.error(err); }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
-  const P = fxPlace(e), blocks = [], wires = [];
+  const P = fxPlace(e), blocks = [], wires = [], fxg = {snow: [], precip: [], humid: []};   // the three weather groups sit in their own dropdowns at the bottom
   let G = null, dv = null;   // set inside the sections, used for the sub-title
   // 1. stripes
   try {
@@ -968,7 +971,7 @@ async function fxRender(e){
     const series = FX_SCN.map((sc, k) => ({name: sc[0] + ' (' + sc[1] + ')', color: sc[2], smooth: true, pts: fxSoft(F.years.map((y, i) => [y, RN[k][i] == null ? null : RN[k][i] / 10]))}));
     const end = RN.map(a => a[a.length - 1] / 10), lo = Math.min(...end), hi = Math.max(...end), dir = lo > 2 ? 'wetter' : hi < -2 ? 'drier' : 'a mixed picture';
     const svg = fxLine('fx-r', {x0: 2020, x1: 2100, series, aria: `Projected change in yearly rainfall for ${P} to 2100 under three emissions paths`, yfmt: v => fxSign(v, 0) + '%', vfmt: v => fxSign(v) + '%', snap: 5, note: 'change in yearly rainfall vs 1995–2014'});
-    blocks.push(fxBlock('fx-r', 'Will it get wetter or drier?', `Change in the total rain and snow that falls in a year in ${esc(P)}, compared with 1995–2014. The models point to ${dir} conditions overall, but rainfall is much harder to project than temperature.`, `<div class="emis-facts">${FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k], 0)}%</b></div>`).join('')}</div>${svg}<div class="emis-key">${FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('')}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Yearly totals hide big changes within the year: rain tends to arrive in heavier bursts with longer dry spells in between. Where the three lines disagree about whether rainfall goes up or down, treat the direction as uncertain.`));
+    fxg.precip.push(fxBlock('fx-r', 'Will it get wetter or drier?', `Change in the total rain and snow that falls in a year in ${esc(P)}, compared with 1995–2014. The models point to ${dir} conditions overall, but rainfall is much harder to project than temperature.`, `<div class="emis-facts">${FX_SCN.map((sc, k) => `<div><span>${sc[0]}, by 2100</span><b style="color:${sc[2]}">${fxSign(end[k], 0)}%</b></div>`).join('')}</div>${svg}<div class="emis-key">${FX_SCN.map(sc => `<span><i style="background:${sc[2]};height:4px"></i>${sc[0]} (${sc[1]})</span>`).join('')}</div>`, `<b>Source:</b> ${FX_SRC_CCKP} Yearly totals hide big changes within the year: rain tends to arrive in heavier bursts with longer dry spells in between. Where the three lines disagree about whether rainfall goes up or down, treat the direction as uncertain.`));
     wires.push(() => { fxLineWire('fx-r'); fxShare('fx-r', e, 'rainfall-change', 'Rainfall change: ' + P, `Climate models suggest yearly rainfall in ${P} could change by ${fxSign(end[1], 0)}% by 2100 on the middle emissions path (${fxSign(end[0], 0)}% if emissions fall fast, ${fxSign(end[2], 0)}% on a high path), compared with 1995–2014. #ClimateAction`); });
   }
   } catch (err) { console.error(err); }
@@ -980,7 +983,7 @@ async function fxRender(e){
     const a1 = avg(seg(1981, 2000)), a2 = avg(seg(2005, 2024)), ch = (a2 / a1 - 1) * 100, small = a1 < 30, dmm = a2 - a1;   // with little snow a percentage is misleading, so show millimetres
     const svg = fxLine('fx-sn', {x0: y0, x1: SN.y1, zero: true, series: [{name: 'Each year', color: '#9ecae1', pts: raw, w: 1.2, op: .9}, {name: '11-year average', color: '#08519c', smooth: true, pts: sm, w: 2.8}], aria: `Deepest snow each year in ${P}, ${y0} to ${SN.y1}`, yfmt: v => small ? v.toFixed(0) : Math.round(v), vfmt: v => (small ? v.toFixed(1) : Math.round(v)) + ' mm', snap: 2, note: 'peak snow, mm of water'});
     const facts = `<div class="emis-facts"><div><span>1981–2000 average</span><b>${small ? a1.toFixed(1) : Math.round(a1)} mm</b></div><div><span>2005–2024 average</span><b>${small ? a2.toFixed(1) : Math.round(a2)} mm</b></div><div><span>Change</span><b style="color:${ch < 0 ? '#c8331f' : '#2f8a4c'}">${small ? (dmm >= 0 ? '+' : '−') + Math.abs(dmm).toFixed(1) + ' mm' : (ch >= 0 ? '+' : '−') + Math.abs(Math.round(ch)) + '%'}</b></div></div>`;
-    blocks.push(fxBlock('fx-sn', 'Is the snow shrinking?', `The deepest snow on the ground each year in ${esc(P)}, as millimetres of water: what you would get if it melted. It is a monthly average over the whole area, so it is lower than the snow in the mountains themselves.`, facts + svg + `<div class="emis-key"><span><i style="background:#08519c;height:4px"></i>11-year average</span><span><i style="background:#9ecae1;height:2px"></i>Each year</span></div>`, `<b>Source:</b> Generated using Copernicus Climate Change Service information (2026): <a href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means" target="_blank" rel="noopener">ERA5 reanalysis</a>, monthly mean snow depth as water equivalent on a 0.25° grid (about 25 km), CC BY. A reanalysis blends a weather model with observations. We start in 1981 because its snow estimates shift artificially around 1979, when satellite snow data first enters, and even afterwards trends are less certain than temperature. The grid also smooths out mountains. Shown only for places where the typical yearly peak is at least 5 mm; where there is little snow, the change is given in millimetres because a percentage would exaggerate it.`));
+    fxg.snow.push(fxBlock('fx-sn', 'Is the snow shrinking?', `The deepest snow on the ground each year in ${esc(P)}, as millimetres of water: what you would get if it melted. It is a monthly average over the whole area, so it is lower than the snow in the mountains themselves.`, facts + svg + `<div class="emis-key"><span><i style="background:#08519c;height:4px"></i>11-year average</span><span><i style="background:#9ecae1;height:2px"></i>Each year</span></div>`, `<b>Source:</b> Generated using Copernicus Climate Change Service information (2026): <a href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means" target="_blank" rel="noopener">ERA5 reanalysis</a>, monthly mean snow depth as water equivalent on a 0.25° grid (about 25 km), CC BY. A reanalysis blends a weather model with observations. We start in 1981 because its snow estimates shift artificially around 1979, when satellite snow data first enters, and even afterwards trends are less certain than temperature. The grid also smooths out mountains. Shown only for places where the typical yearly peak is at least 5 mm; where there is little snow, the change is given in millimetres because a percentage would exaggerate it.`));
     wires.push(() => { fxLineWire('fx-sn'); fxShare('fx-sn', e, 'snow', 'Snow: ' + P, `The deepest snow each year in ${P} averages ${small ? Math.abs(dmm).toFixed(1) + ' mm' : Math.round(Math.abs(ch)) + '%'} ${ch < 0 ? 'less' : 'more'} in 2005–2024 than in 1981–2000 (ERA5, Copernicus). #ClimateAction`); });
   }
   } catch (err) { console.error(err); }
@@ -1016,8 +1019,11 @@ async function fxRender(e){
     wires.push(() => fxShare('fx-d', e, 'disaster-damage', 'Cost of natural disasters: ' + P, `Natural disasters have cost ${P} about ${pf(avg)} of its GDP a year on average since ${D0}, and ${pf(mxv)} in the worst year (${D0 + wi}) (EM-DAT). #ClimateAction`));
   }
   } catch (err) { console.error(err); }
-  if (!blocks.length) { body.innerHTML = '<p class="muted">We could not show climate data for this place. If the page was open for a while, please refresh it.</p>'; return; }
-  body.innerHTML = blocks.join(''); wires.forEach(w => { try { w(); } catch (x) {} });
+  if (!blocks.length && !fxg.snow.length && !fxg.precip.length && !fxg.humid.length) { body.innerHTML = '<p class="muted">We could not show climate data for this place. If the page was open for a while, please refresh it.</p>'; return; }
+  const groups = [['snow', 'Snowpack', 'Snow on the ground at its deepest each year', fxg.snow], ['precip', 'Precipitation', 'Rain and snow that has fallen, and where it is heading', fxg.precip], ['humid', 'Humidity', 'How moist the air is, year by year', fxg.humid]].filter(g => g[3].length);
+  body.innerHTML = blocks.join('') + (groups.length ? `<div class="fxtabs">${groups.map(g => `<button type="button" class="fxtab" data-g="${g[0]}" aria-expanded="false" aria-controls="fxp-${g[0]}"><b>${g[1]}</b><span>${g[2]}</span></button>`).join('')}</div>${groups.map(g => `<div class="fxpanel" id="fxp-${g[0]}" hidden>${g[3].join('')}</div>`).join('')}` : '');
+  $$('#fx-body .fxtab').forEach(btn => btn.onclick = () => { const open = btn.getAttribute('aria-expanded') !== 'true'; $$('#fx-body .fxtab').forEach(x => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('on'); }); $$('#fx-body .fxpanel').forEach(p => p.hidden = true); if (open) { btn.setAttribute('aria-expanded', 'true'); btn.classList.add('on'); $('#fxp-' + btn.dataset.g).hidden = false; } });
+  wires.forEach(w => { try { w(); } catch (x) {} });
   const sub = $('#fx-sub'); if (sub) sub.textContent = 'Warming so far, what the models project, very hot days, rainfall' + (SN && SN.d[e.s] ? ', snow' : '') + (G ? ', sea level' : '') + (dv ? ' and disasters' : '') + '.';
 }
 /* ---------- HOME: climate change so far (global indicators) ---------- */

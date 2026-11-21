@@ -850,3 +850,21 @@ footer.site{padding:26px 0}
 .pgrid .pmaps .lm-base{fill:#d9d3e2}
 
 .fxhit:hover{fill:rgba(122,74,158,.1)}
+
+.fxsub{margin-top:16px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.fxsub>summary{cursor:pointer;list-style:none;padding:12px 44px 12px 16px;position:relative}
+.fxsub>summary::-webkit-details-marker{display:none}
+.fxsub>summary::after{content:"▾";position:absolute;right:16px;top:14px;color:var(--purple);font-size:17px}
+.fxsub[open]>summary::after{content:"▴"}
+.fxsub>summary b{display:block;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.01em}
+.fxsub>summary span{display:block;font-size:14px;color:var(--muted);margin-top:2px}
+.fxsub-body{padding:4px 16px 18px}.fxsub-body .fxblock:first-child{margin-top:14px}
+
+.fxtabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:26px}
+.fxtab{font:inherit;text-align:left;cursor:pointer;background:#fff;border:1px solid var(--line);border-radius:10px;padding:12px 40px 12px 16px;position:relative;color:var(--ink)}
+.fxtab::after{content:"\25BE";position:absolute;right:16px;top:14px;color:var(--purple);font-size:17px}
+.fxtab.on{border-color:var(--purple);box-shadow:0 0 0 1px var(--purple) inset}.fxtab.on::after{content:"\25B4"}
+.fxtab:hover{border-color:var(--purple)}
+.fxtab b{display:block;font-size:17px;font-weight:800;text-transform:uppercase;letter-spacing:.01em}
+.fxtab span{display:block;font-size:14px;color:var(--muted);margin-top:2px}
+.fxpanel{margin-top:14px}.fxpanel .fxblock:first-child{margin-top:0}
