@@ -1374,7 +1374,7 @@ function countingHtml(){
     <div class="cnt-ctl"><div class="seg segs" id="cnt-when" role="group" aria-label="Which years to count"><button data-w="year" class="on"><b>This year</b></button><button data-w="1990"><b>Since 1990</b></button><button data-w="1850"><b>Since 1850</b></button></div>
     <div class="seg segs" id="cnt-how" role="group" aria-label="Total or per person"><button data-h="tot" class="on"><b>Whole country</b></button><button data-h="pp"><b>Per person</b></button></div></div>
     <div class="grid2 mt1 cnt-grid" style="align-items:start">
-      <div class="card"><div id="cnt-bars" class="cnt-bars" aria-live="polite"><div class="empty">Loading…</div></div></div>
+      <div class="card"><p id="cnt-unit" class="muted" style="margin:0 0 12px;font-size:14px"></p><div id="cnt-bars" class="cnt-bars" aria-live="polite"><div class="empty">Loading…</div></div></div>
       <div class="card cnt-why" id="cnt-why"></div>
     </div>
     <p class="muted" style="font-size:13px">Greenhouse gases including land use and deforestation, which is why Brazil and Indonesia rank high. “Per person” divides by each year's population for a single year, and by today's population for totals since 1990 or 1850. Sources: <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (emissions from Jones et al., 2024; population), CC BY.</p>
@@ -1390,12 +1390,12 @@ function wireCounting(){
       return {e, name: CNT_SHORT[e.n] || e.n, Y, year: v[v.length - 1], s1990: sum(1990), s1850: sum(1850), pop: popY(Y)};
     });
     const val = r => { const t = st.w === 'year' ? r.year : st.w === '1990' ? r.s1990 : r.s1850; return st.h === 'tot' ? t : t * 1e6 / r.pop; };
-    const unit = () => st.h === 'pp' ? (st.w === 'year' ? 't per person' : 't per person, in total') : st.w === 'year' ? 'Mt a year' : 'Gt in total';
-    const show = (r) => { const v = val(r); return st.h === 'tot' && st.w !== 'year' ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) : v >= 100 ? fmt(Math.round(v)) : v.toFixed(1); };
+        const show = (r) => { const v = val(r); return st.h === 'tot' && st.w !== 'year' ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) : v >= 100 ? fmt(Math.round(v)) : v.toFixed(1); };
     box.innerHTML = rows.map(r => `<div class="cnt-row" data-k="${r.e.s}"><span class="cnt-n">${r.e.a2 ? flag(r.e.a2) + ' ' : ''}${esc(r.name)}</span><span class="cnt-b"><i></i></span><span class="cnt-v"></span></div>`).join('');
     const draw = () => {
       const srt = rows.slice().sort((a, b) => val(b) - val(a)), mx = val(srt[0]);
-      srt.forEach((r, i) => { const el = box.querySelector(`[data-k="${r.e.s}"]`); el.style.transform = `translateY(${i * 34}px)`; el.querySelector('i').style.width = (val(r) / mx * 100).toFixed(1) + '%'; el.querySelector('.cnt-v').textContent = show(r) + ' ' + (i ? '' : unit()); });
+      srt.forEach((r, i) => { const el = box.querySelector(`[data-k="${r.e.s}"]`); el.style.transform = `translateY(${i * 34}px)`; el.querySelector('i').style.width = (val(r) / mx * 100).toFixed(1) + '%'; el.querySelector('.cnt-v').textContent = show(r); });
+      $('#cnt-unit').textContent = st.h === 'pp' ? (st.w === 'year' ? 'Tonnes of CO₂e per person this year' : 'Tonnes of CO₂e per person: the total emitted over the period, divided by today’s population') : (st.w === 'year' ? 'Million tonnes (Mt) of CO₂e emitted this year' : 'Billion tonnes (Gt) of CO₂e emitted over the period');
       box.style.height = rows.length * 34 + 'px';
       const t = srt.slice(0, 3).map(r => r.name), find = n => rows.find(r => r.e.n === n), us = find('United States of America'), ind = find('India'), cn = find('China');
       const k = st.w + st.h, ratio = (a, b) => a && b ? (val(a) / val(b)) : null;
