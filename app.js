@@ -1030,6 +1030,37 @@ function briefing(e){
   b += `\nSource: Net Zero Tracker, ${official(e)} (entry updated ${e.upd || 'n/a'}).`;
   return b;
 }
+/* ---------- LOCATOR MAP in the profile header: the world for countries, the country for regions and cities; every area is clickable ---------- */
+const EU27N = ['040','056','100','191','196','203','208','233','246','250','276','300','348','372','380','428','440','442','470','528','616','620','642','703','705','724','752'];
+async function loadGeo(){ if (!(window.d3 && window.topojson)) throw new Error('no map library'); if (!WORLD || !REG) [WORLD, REG] = await Promise.all([WORLD || fetch('world.json').then(r => r.json()), REG || fetch('regions.json').then(r => r.json())]); }
+function mainPart(f){ if (f.geometry.type !== 'MultiPolygon') return f; let best = null, ba = -1; f.geometry.coordinates.forEach(c => { const a = d3.geoArea({type:'Polygon', coordinates:c}); if (a < 2 * Math.PI && a > ba) { ba = a; best = c; } }); return best ? {type:'Feature', properties:{}, geometry:{type:'Polygon', coordinates:best}} : f; }
+async function localeMapShow(e){
+  const box = $('#lmap'); if (!box || e.t === 'company') return;
+  try { await loadGeo(); } catch (x) { return; }
+  if (location.hash.indexOf('/e/' + e.s) < 0) return;
+  const W = 340, H = 210, byIso = {}; D.forEach(x => { if (x.t === 'country' && x.iso) byIso[x.iso] = x; });
+  const cEntry = e.t === 'country' ? e : D.find(x => x.t === 'country' && x.c === e.c), all = topojson.feature(WORLD, WORLD.objects.countries).features.filter(f => f.id !== '010');
+  const mineIds = e.c === 'EUU' ? EU27N : (cEntry && cEntry.iso ? [cEntry.iso] : []), mine = all.filter(f => mineIds.includes(f.id));
+  if (!mine.length) return;
+  let proj, paths = '', dot = '';
+  const mk = (d, cls, slug, label) => `<path d="${d}" class="${cls}"${slug ? ` data-s="${slug}" tabindex="0" role="link"` : ''} aria-label="${esc(label || '')}"/>`;
+  if (e.t === 'country') {
+    proj = d3.geoNaturalEarth1().fitExtent([[4, 4], [W - 4, H - 4]], {type:'Sphere'}); const P = d3.geoPath(proj);
+    paths = `<path d="${P({type:'Sphere'})}" class="lm-sea"/>` + all.map(f => { const x = byIso[f.id], me = mineIds.includes(f.id); return mk(P(f), me ? 'lm-me' : 'lm-c', x ? x.s : '', x ? x.n : ''); }).join('');
+  } else {
+    const fc = {type:'FeatureCollection', features: mine.map(mainPart)};
+    proj = cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : d3.geoNaturalEarth1().fitExtent([[6, 6], [W - 6, H - 6]], fc);
+    const P = d3.geoPath(proj), regs = topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding);
+    paths = mine.map(f => mk(P(f), 'lm-c lm-base', cEntry.s, cEntry.n)).join('') + regs.map(f => { const r = BY[f.properties.s]; return mk(P(f), r.s === e.s ? 'lm-me' : 'lm-r', r.s, r.n); }).join('');
+    if (e.t === 'city' && e.ll) { const p = proj([e.ll[1], e.ll[0]]); if (p) dot = `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="9" class="lm-ring"/><circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.5" class="lm-dot"/>`; }
+  }
+  box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="group" aria-label="Map showing where ${esc(e.n)} is. Click an area to open its profile.">${paths}${dot}</svg><div class="lm-cap">${e.t === 'country' ? 'Click any country to open its profile' : 'Click an area to open its profile'}</div>`;
+  const go = el => { const sl = el && el.dataset && el.dataset.s; if (sl && sl !== e.s) location.hash = '#/e/' + sl; };
+  box.addEventListener('click', ev => go(ev.target.closest('path[data-s]')));
+  box.addEventListener('keydown', ev => { if (ev.key === 'Enter') go(ev.target.closest('path[data-s]')); });
+  const tip = ev => { const p = ev.target.closest('path[data-s]'); if (!p) { hideTip(); return; } const x = BY[p.dataset.s]; if (!x) return; showTip(`<div class="tipms"><b>${esc(x.n)}</b><div class="mrow"><span class="my"></span><span>${esc(targetPhrase(x))}</span></div>${x.s === e.s ? '' : '<div class="mrow"><span class="my"></span><span style="color:#7a7385">Click to open</span></div>'}</div>`, ev); };
+  box.addEventListener('mousemove', tip); box.addEventListener('mouseleave', hideTip);
+}
 P.entity = (params, slug) => {
   const e = BY[slug]; if (!e) return `<section><div class="wrap empty"><h1>Not found</h1><p>We couldn't find that entry. <a href="#/explore">Browse all entries</a>.</p></div></section>`;
   const L = level(e), cs = checks(e), t = tally(cs), n = cs.length, y = year(e);
@@ -1053,6 +1084,7 @@ P.entity = (params, slug) => {
     <div class="ptop"><div>${typeBadge(e.t, e)}
       <h1>${e.t==='country' ? `<span class="flag">${flag(e.a2)}</span>` : ''}${esc(e.n)}</h1>
       <div class="facts">${facts.map(([k,v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('')}</div></div>
+      <div class="lmap" id="lmap"></div>
       <div class="yr"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div>
     </div>
   </div></div>
@@ -1092,7 +1124,7 @@ P.entity = (params, slug) => {
   <section class="tight band"><div class="wrap">
     <h2 class="h-brand" style="font-size:24px">How it compares</h2>
     ${pr.small ? `<p class="muted mt0">${esc(e.n)} has about ${fmt(e.pop)} people. The Tracker's city coverage starts at 500,000, so there is no peer group for it. Choose a city to compare it with.</p>
-    <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <div class="seg peerseg" id="peerseg" role="group" aria-label="Compare with">${peerModes(e).map(([m, l]) => `<button data-m="${m}" class="${m === pr.mode ? 'on' : ''}"${m === 'country' && byType(e.t).filter(x => x.c === e.c && (e.t !== 'city' || x.pop >= CITY_MIN)).length < 3 ? ' disabled title="Too few entries in this country"' : ''}${m === 'gdp' && !(e.gdp > 0) ? ' disabled title="No GDP figure for this entry"' : ''}><b>${l}</b></button>`).join('')}</div>
+    <div class="light mt1" style="max-width:520px">${searchBox('s-peer', 'Search for a city to compare with…')}</div><p id="peer-msg" class="muted" style="font-size:14px" hidden>Please pick a city from the list.</p>` : `    <div class="seg peerseg" id="peerseg" role="group" aria-label="Compare with">${peerModes(e).map(([m, l]) => `<button data-m="${m}" class="${m === pr.mode ? 'on' : ''}"${m === 'country' && byType(e.t).filter(x => x.c === e.c && (e.t !== 'city' || x.pop >= CITY_MIN)).length < 3 ? ' disabled title="Too few entries in this country"' : ''}${m === 'gdp' && !(e.gdp > 0) ? ' disabled title="No GDP figure for this entry"' : ''}><b>${l}</b></button>`).join('')}</div>${e.t === 'country' && !(e.gdp > 0) ? `<p class="muted" style="font-size:13.5px;margin:6px 0 0">“Similar GDP” is switched off because the Tracker has no GDP figure for ${esc(nm(e))}.</p>` : ''}
     <p class="muted mt1">Compared with ${pr.mode === 'size' ? '' : pr.mode === 'world' && e.t === 'company' ? 'all ' : 'the '}${fmt(px.length)} ${esc(pr.label)}. ${esc(peerBasis(e))}${peerBasis(e) ? ' ' : ''}Bars show the share of peers that meet each check. The right-hand column shows ${esc(e.n)}.</p>
     <table class="gap-chart peer" style="max-width:900px">${peerRows.map(([lab, fn, me]) => { const v = pct(px.filter(fn).length, px.length); return `<tr><td class="q" style="width:45%">${esc(lab)}</td><td><div class="hb"><div class="tr"><i style="width:${v}%"></i></div><span>${v}%</span></div></td><td style="width:190px;max-width:190px;font-weight:700;color:${me ? 'var(--ok)' : 'var(--bad)'};white-space:nowrap;overflow:hidden;text-overflow:ellipsis" title="${esc(e.n)}">${me ? '✓ ' : '✗ '}${esc(shortName(e))}</td></tr>`; }).join('')}</table>`}
   </div></section>
@@ -1124,6 +1156,7 @@ P.entity = (params, slug) => {
 P.entity.after = (params, slug) => {
   const e = BY[slug]; if (!e) return;
   stripesShow(e);
+  localeMapShow(e);
   const renderE = () => { const html = emisChart(e); if (!html) return false;
     $('#emis').innerHTML = html; const se = viewSeries(e, EPC.on && e.t !== 'company' && hasPop(e));
     $$('#emis [data-pc]').forEach(b => b.onclick = () => { EPC.on = b.dataset.pc === '1'; (EPC.on ? loadPop() : Promise.resolve()).then(renderE); });
