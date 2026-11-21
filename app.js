@@ -691,8 +691,18 @@ function treatyWire(svg, ents){
   svg.addEventListener('mousemove', ev => { const t = ev.target.closest && ev.target.closest('.trl'); if (t) showTip(treatyTip(t.dataset.tr, typeof ents === 'function' ? ents() : ents), ev); });
   svg.addEventListener('mouseout', ev => { if (ev.target.closest && ev.target.closest('.trl')) hideTip(); });
 }
-function loadEmis(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bz'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
-function emisSeries(e){ const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
+function loadComp(){ return window.NZCE ? Promise.resolve(window.NZCE) : new Promise(res => { const t = document.createElement('script'); t.src = 'compemis.js?v=20261120a'; t.onload = () => res(window.NZCE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadEmis(){ return Promise.all([loadEmis0(), loadComp()]).then(a => a[0]); }
+function loadEmis0(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bz'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function emisSeries(e){ const K = window.NZCE; if (e.t === 'company') { const k = K && K.d[e.s]; return k ? {y0:k.y0, v:k.v, kind:'k', k} : null; } const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
+const M2 = {L:'location-based (local grid average)', M:'counts renewable-energy certificates', U:'may count renewable-energy certificates (not stated)'};
+function m2Sum(K){ const c = new Set(K.m2.filter(Boolean)); return c.size === 1 ? {L:'location-based', M:'counts renewable-energy certificates', U:'may count renewable-energy certificates'}[[...c][0]] : 'method varies by year, see hover'; }
+function compSrc(e, K, y0, y1){
+  if (K.src === 'ct') return `Source: <a href="https://climatetrace.org" target="_blank" rel="noopener">Climate TRACE</a> (CC BY 4.0), ${y0}–${y1}. Independent estimates from satellite and other data for the sites owned by ${esc(K.nm)} and its majority-owned subsidiaries, in the industries Climate TRACE tracks (such as power, oil and gas, coal mining, steel, cement and aluminium). They are not figures the company reported, and they leave out activities Climate TRACE does not track. Changes made: this prototype added up the sites using Climate TRACE's ownership data. <a href="#/notes/emissions">How this was built</a>.`;
+  const ms = new Set(K.m2.filter(Boolean));
+  const meth = ms.size === 1 && ms.has('L') ? 'Scope 2 is location-based (the average emissions of the local grid).' : ms.has('U') || ms.has('M') ? `${ms.has('U') ? 'The reports do not say whether Scope 2 counts renewable-energy certificates.' : 'Some years count renewable-energy certificates.'} Companies can buy these paper claims to report their electricity as clean while the grid they draw from is no cleaner. Like <a href="#/learn/offsets">offsets</a>, they can make emissions look lower than they are, so read drops in the lighter band with care. Hover a year to see what is known.` : 'Hover a year to see which Scope 2 method was used.';
+  return `Source: worldwide greenhouse gas emissions reported by ${esc(e.n)} in its GRI and CDP disclosures, compiled by <a href="https://wikirate.org" target="_blank" rel="noopener">Wikirate</a> (CC BY 4.0)${K.doc ? ` (<a href="${esc(K.doc)}" target="_blank" rel="noopener">latest source document</a>)` : ''}. Scope 1 is direct emissions; Scope 2 is from the electricity, heat and steam the company buys. ${meth} Years with clear unit errors were left out, and gaps are years with no usable figure. <a href="#/notes/emissions">How this was built</a>.`;
+}
 const fmtMt = v => v >= 100 ? fmt(Math.round(v)) : v >= 10 ? v.toFixed(1) : v.toFixed(2);
 function emisChart(e){
   const se = emisSeries(e); if (!se) return '';
@@ -703,7 +713,12 @@ function emisChart(e){
   const ymax = Math.max(...v) * 1.1, x = yr => L + (yr - y0) / (endY - y0) * (W - L - R), yy = m => T + (1 - m / ymax) * (H - T - B);
   const step = (endY - y0) > 120 ? 25 : (endY - y0) > 60 ? 10 : 5, ticks = []; for (let t = Math.ceil(y0 / step) * step; t <= endY; t += step) ticks.push(t);
   const nice = ymax / 4, mag = 10 ** Math.floor(Math.log10(nice)), ny = [1, 2, 2.5, 5, 10].map(k => k * mag).find(k => k >= nice), yt = []; for (let t = 0; t <= ymax; t += ny) yt.push(t);
-  const line = v.map((m, i) => `${i ? 'L' : 'M'}${x(y0 + i).toFixed(1)} ${yy(m).toFixed(1)}`).join('');
+  const PT = v.map((m, i) => [y0 + i, m]).filter(p => p[1] != null);  // company series can skip years
+  const line = PT.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${yy(p[1]).toFixed(1)}`).join('');
+  const K = kind === 'k' ? se.k : null;
+  const s1p = K && K.s1 ? K.s1.map((m, i) => [y0 + i, m]).filter(p => p[1] != null && v[p[0] - y0] != null) : [];
+  const s1path = s1p.length > 1 ? `<path d="${s1p.map((p, i) => `${i ? 'L' : 'M'}${x(p[0]).toFixed(1)} ${yy(p[1]).toFixed(1)}`).join('')}L${x(s1p[s1p.length - 1][0])} ${yy(0)}L${x(s1p[0][0])} ${yy(0)}Z" fill="#A5865C" opacity=".8"/>` : '';
+  const dots = K ? PT.map(p => `<circle cx="${x(p[0]).toFixed(1)}" cy="${yy(p[1]).toFixed(1)}" r="3.4" fill="#A5865C"/>`).join('') : '';
   const last = v[v.length - 1], lx = x(y1), ly = yy(last);
   const base = ib >= y0 && ib <= y1 ? val(ib) : null, ims = base && iy && ip > 0 && iy > y1 && iy <= 2100 ? [iy, base * (1 - ip / 100)] : null;
   const rec = e.ghg && e.iy_inv && +e.iy_inv >= y0 && +e.iy_inv <= y1 ? [+e.iy_inv, e.ghg / 1e6] : null;
@@ -715,7 +730,7 @@ function emisChart(e){
     ${yt.map(t => `<line x1="${L}" x2="${W - R}" y1="${yy(t)}" y2="${yy(t)}" stroke="#ece8ef"/><text x="${L - 8}" y="${yy(t) + 4}" text-anchor="end" font-size="12" fill="#7a7385">${fmt(t)}</text>`).join('')}
     ${ticks.map(t => `<text x="${x(t)}" y="${H - 12}" text-anchor="middle" font-size="12" fill="#7a7385">${t}</text><line x1="${x(t)}" x2="${x(t)}" y1="${H - B}" y2="${H - B + 4}" stroke="#bbb"/>`).join('')}
     <text x="14" y="${T - 6}" font-size="12" fill="#7a7385">Mt CO₂e per year</text>
-    <path d="${line}L${lx} ${yy(0)}L${x(y0)} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/><path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>
+    <path d="${line}L${lx} ${yy(0)}L${x(y0)} ${yy(0)}Z" fill="#e6d6bd" opacity=".75"/>${s1path}<path d="${line}" fill="none" stroke="#A5865C" stroke-width="2.6" stroke-linejoin="round"/>${dots}
     <line x1="${x(y1)}" x2="${x(y1)}" y1="${T}" y2="${H - B}" stroke="#bdb6c6" stroke-dasharray="3 4"/>
     ${pmarks(x, y0, endY, T, H - B, 'lines')}
     ${path.join('')}
@@ -725,15 +740,16 @@ function emisChart(e){
     <rect id="emis-hit" x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>${pmarks(x, y0, endY, T, H - B, 'labels')}</svg>`;
   let pk = 0; v.forEach((m, i) => { if (m > v[pk]) pk = i; });
   const facts = [[`Latest (${y1})`, `${fmtMt(last)} Mt CO₂e`], [`Peak (${y0 + pk})`, `${fmtMt(v[pk])} Mt CO₂e`]];
-  if (y0 <= 1990 && y1 > 1990) { const c = (last / val(1990) - 1) * 100; facts.push(['Change since 1990', `${c > 0 ? '+' : '−'}${Math.abs(c).toFixed(0)}%`]); }
+  if (y0 <= 1990 && y1 > 1990 && val(1990)) { const c = (last / val(1990) - 1) * 100; facts.push(['Change since 1990', `${c > 0 ? '+' : '−'}${Math.abs(c).toFixed(0)}%`]); }
+  if (K) facts.push(['Years with figures', `${PT.length} of ${y1 - y0 + 1} (${y0}–${y1})`]);
   if (kind === 'c') facts.push([`Since ${y0}`, `${fmt(Math.round(v.reduce((a, b) => a + b, 0) / 1000))} Gt CO₂e in total`]);
-  const src = kind === 'c'
+  const src = K ? compSrc(e, K, y0, y1) : kind === 'c'
     ? `Source: <a href="https://ourworldindata.org/co2-and-greenhouse-gas-emissions" target="_blank" rel="noopener">Our World in Data</a> (total greenhouse gases including land use and forestry, from Jones et al., 2024; CC BY). Estimates before about 1950 are rough.`
     : (() => { const u = (window.NZE.u || {})[e.s], R = (window.NZE.r || {})[e.s] || 10;
       const where = e.t !== 'city' ? 'summed over the grid cells inside the region' : u ? (u[2] ? `summed over the part of the urban centre “${esc(u[0])}” (${fmt(u[1])} km²) within about ${Math.max(R, 10)} km of the city centre, because that urban centre contains several cities in the Tracker` : `summed over the urban centre outline for ${esc(u[0])} (${fmt(u[1])} km²) from the European Commission’s <a href="https://human-settlement.emergency.copernicus.eu/ghs_ucdb_2024.php" target="_blank" rel="noopener">Global Human Settlement Layer</a>`) : `summed over the grid cells within about ${R} km of the city centre, because no urban outline matched`;
       return `Source: <a href="https://edgar.jrc.ec.europa.eu/dataset_ghg80" target="_blank" rel="noopener">EDGAR v8.0</a>, European Commission Joint Research Centre (CC BY 4.0): all greenhouse gases from human activity except land use, as CO₂ equivalent, ${where}. The data is gridded at roughly 11 km, so it is approximate and will not match an official inventory. <a href="#/notes/emissions">How this was built</a>.`; })();
   return `<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
-    <div class="emis-key"><span><i style="background:#A5865C"></i>Emissions</span>${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}</div>
+    <div class="emis-key">${K && K.src === 'wr' ? `<span><i style="background:#A5865C;opacity:.8"></i>Scope 1: direct</span><span><i style="background:#e6d6bd"></i>Scope 2: purchased energy (${m2Sum(K)})</span>` : `<span><i style="background:#A5865C"></i>Emissions</span>`}${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}</div>
     <p class="muted emis-src">${src}</p></div>`;
 }
 function emisWire(e){
@@ -746,9 +762,12 @@ function emisWire(e){
     const hx = +hit.getAttribute('x'), hw = +hit.getAttribute('width'), t = Math.max(0, Math.min(1, (p.x - hx) / hw));
     const yrs = svg.querySelector('text[font-size="12"][text-anchor="middle"]'); void yrs;
     const endAttr = +svg.dataset.end; const yr = Math.round(y0 + t * ((endAttr || y1) - y0)); if (yr > y1 || yr < y0) { hideTip(); vx.setAttribute('opacity', 0); vd.setAttribute('opacity', 0); return; }
-    const X = hx + (yr - y0) / ((endAttr || y1) - y0) * hw, Y = +svg.dataset.t + (1 - v[yr - y0] / +svg.dataset.ymax) * (+svg.dataset.h - +svg.dataset.t - +svg.dataset.b);
+    const X = hx + (yr - y0) / ((endAttr || y1) - y0) * hw, K = se.k, i = yr - y0;
+    if (v[i] == null) { vx.setAttribute('x1', X); vx.setAttribute('x2', X); vx.setAttribute('opacity', .2); vd.setAttribute('opacity', 0); showTip(`<div class="tipms"><b>${yr}</b><div class="mrow"><span>No figure for this year</span></div></div>`, ev); return; }
+    const Y = +svg.dataset.t + (1 - v[yr - y0] / +svg.dataset.ymax) * (+svg.dataset.h - +svg.dataset.t - +svg.dataset.b);
     vx.setAttribute('x1', X); vx.setAttribute('x2', X); vx.setAttribute('opacity', .35); vd.setAttribute('cx', X); vd.setAttribute('cy', Y); vd.setAttribute('opacity', 1);
-    showTip(`<div class="tipms"><b>${yr}</b><div class="mrow"><span class="my">${fmtMt(v[yr - y0])}</span><span>Mt CO₂e</span></div></div>`, ev);
+    const split = K && K.s1 ? `<div class="mrow"><span class="my">${fmtMt(K.s1[i])}</span><span>Scope 1 (direct)</span></div>` + (K.s2[i] != null ? `<div class="mrow"><span class="my">${fmtMt(K.s2[i])}</span><span>Scope 2, ${M2[K.m2[i]] || 'method not stated'}</span></div>` : `<div class="mrow"><span>Scope 2 not reported</span></div>`) : '';
+    showTip(`<div class="tipms"><b>${yr}</b><div class="mrow"><span class="my">${fmtMt(v[yr - y0])}</span><span>Mt CO₂e${split ? ' in total' : ''}</span></div>${split}</div>`, ev);
   });
   hit.addEventListener('mouseleave', () => { hideTip(); vx.setAttribute('opacity', 0); vd.setAttribute('opacity', 0); });
 }
@@ -1047,6 +1066,8 @@ function cmpEmisHtml(es, st){
   const S2 = L.map(r => ({...r, pts: vals(r)}));
   const conv = (r, v) => idx ? (v / r.se.v[1990 - r.se.y0] - 1) * 100 : v;
   S2.forEach((r, i) => { r.tg = st.paths === false || !TG[i] ? null : TG[i].map(p => [p[0], conv(r, p[1]), p[2]]); });
+  for (let i = S2.length - 1; i >= 0; i--) if (!S2[i].pts.length || S2[i].pts.some(p => !isFinite(p[1]))) S2.splice(i, 1);
+  if (!S2.length) return '';
   const W = 900, H = 340, Lm = 64, Rm = 150, T = 20, B = 36, allv = S2.flatMap(r => r.pts.map(p => p[1]).concat((r.tg || []).map(p => p[1]))), ymax = Math.max(...allv, idx ? 10 : 0) * 1.08, ymin = idx ? Math.min(0, ...allv) * 1.08 : 0;
   const x = yr => Lm + (yr - x0) / (x1 - x0) * (W - Lm - Rm), y = v => T + (1 - (v - ymin) / (ymax - ymin)) * (H - T - B);
   const step = (x1 - x0) > 120 ? 25 : (x1 - x0) > 50 ? 10 : 5, ticks = []; for (let t = Math.ceil(x0 / step) * step; t <= x1; t += step) ticks.push(t);
@@ -1073,7 +1094,7 @@ function cmpEmisHtml(es, st){
     ${TG.some(Boolean) ? `<div class="seg segs" id="cmpe-paths" role="group" aria-label="Target paths"><button data-p="1" class="${st.paths === false ? '' : 'on'}"><b>With target paths</b></button><button data-p="0" class="${st.paths === false ? 'on' : ''}"><b>History only</b></button></div>` : ''}
     ${allC && !idx ? `<div class="seg segs" id="cmpe-from" role="group" aria-label="Period"><button data-f="all" class="${st.from === 'all' ? 'on' : ''}"><b>Since ${Math.max(...L.map(r => r.se.y0))}</b></button><button data-f="1970" class="${st.from === '1970' ? 'on' : ''}"><b>Since 1970</b></button></div>` : ''}</div>
     <div class="card emis">${svg}<div class="emis-key">${S2.map(r => `<span><i style="background:${r.c}"></i>${esc(r.e.n)}</span>`).join('')}${S2.some(r => r.tg) ? '<span><i class="dash" style="border-top-color:#6d6677"></i>Straight-line path to each target (illustrative)</span>' : ''}</div>
-    <p class="muted emis-src">${mixed ? 'Countries come from Our World in Data (including land use and forestry) and cities and regions from EDGAR v8.0 (without land use), so their levels are not strictly comparable. The change view shows how each has moved. ' : ''}${missing.length ? `No emissions series for ${esc(missing.join(', '))} (companies are not covered). ` : ''}${idx ? 'Change is measured from 1990, so places of very different sizes can be compared. ' : ''}<a href="#/notes/emissions">How this was built</a>.</p></div>`;
+    <p class="muted emis-src">${mixed ? 'Countries come from Our World in Data (including land use and forestry) and cities and regions from EDGAR v8.0 (without land use), so their levels are not strictly comparable. The change view shows how each has moved. ' : ''}${missing.length ? `No emissions series for ${esc(missing.join(', '))}. ` : ''}${L.some(r => r.e.t === 'company') ? 'Company figures are worldwide Scope 1 and 2 emissions, reported by the company (via Wikirate) or estimated by Climate TRACE, so they are not comparable with the totals for places' + (idx ? '; the change view leaves companies out because there is no 1990 figure' : '') + '. ' : ''}${idx ? 'Change is measured from 1990, so places of very different sizes can be compared. ' : ''}<a href="#/notes/emissions">How this was built</a>.</p></div>`;
 }
 function cmpEmisWire(es, st){
   const box = $('#cmpe'); if (!box) return;
@@ -1661,7 +1682,7 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <div><h3>Choose what to compare with</h3><p>On every profile, "How it compares" can be set to the entry's region, its country, the world, or similar size (or sector and revenue for companies). Regions are our own grouping (for example the Middle East and North Africa, South and Central Asia, China on its own). Cities with fewer than 500,000 people, which the Tracker does not cover, pick a city to compare with instead.</p></div>
       <div><h3>Share it and write to someone who can act</h3><p>The advocates page drafts a post for X, Facebook and LinkedIn, downloads a picture card for Instagram stories or posts, and drafts an email to a policymaker. Emails can be written in 17 languages (English, Spanish, French, Portuguese, German, Italian, Arabic, Chinese, Russian, Hindi, Japanese, Korean, Indonesian, Turkish, Swahili, Dutch and Polish), with local place names, and a “whom to email” box links to the official parliament directory and a search for the right ministry. Nothing is sent from the site.</p></div>
       <div><h3>The live site's menu, rebuilt</h3><p>A "More" menu (and the footer) now has Analysis, Insights, Methodology, Volunteering, In the news, About and The team, plus Bluesky and LinkedIn links. Analysis, Insights and In the news list every item with search and filters and link to the articles on zerotracker.net. Methodology, Volunteering, The team and the terms pages are rebuilt here from the live content.</p></div>
-      <div><h3>Emissions history on every profile</h3><p>Countries show greenhouse gas emissions since 1850 (Our World in Data, from Jones et al. 2024). Cities and regions show 1970 to 2022 from the European Commission's EDGAR v8.0, summed from its 0.1° grid over the region's boundary, or over roughly 6 to 45 km around a city centre depending on its population. A dashed line shows a straight path from today to the target milestone and net zero year. City figures are approximate and will differ from official inventories.</p></div>
+      <div><h3>Emissions history on every profile</h3><p>Countries show greenhouse gas emissions since 1850 (Our World in Data, from Jones et al. 2024). Cities and regions show 1970 to 2022 from the European Commission's EDGAR v8.0, summed from its 0.1° grid over the region's boundary, or over roughly 6 to 45 km around a city centre depending on its population. A dashed line shows a straight path from today to the target milestone and net zero year. City figures are approximate and will differ from official inventories. Companies show worldwide Scope 1 and 2 emissions where a usable figure exists: as reported by the company (compiled by Wikirate) or, for some heavy-industry companies, as estimated by Climate TRACE.</p></div>
       <div><h3>Global emissions and pathways on Explore</h3><p>With countries selected, a chart below the table shows how the largest emitters add up to the global total since 1990, and the Climate Action Tracker's scenarios ahead: a Paris-aligned pathway, current policies, all NDCs met, all pledges met, and a simple "no further action" trend. The Compare page can plot emissions and each entry's target path on one chart, and profiles can be compared with places of similar GDP.</p></div>
       <div><h3>FAQs and About inside the prototype</h3><p>The live site's FAQs and About and contact pages are rebuilt here with the same content, and a dismissible newsletter box replaces the top strip.</p></div>
     </div></div>
@@ -1698,7 +1719,15 @@ P.notes = () => `<section class="tight band"><div class="wrap">
       <p>EDGAR cells are larger than most urban outlines, so a cell that is partly inside an outline counts at three times its overlap (capped at all of it). I chose this factor by comparing against the Global Human Settlement Layer's own EDGAR-based city totals for 2022: across the 1,038 cities that have an outline to themselves it gave a median ratio of 0.97 to their figure, with about 80% of cities within 25%, in each of 1990, 2000, 2010, 2020 and 2022.</p>
       <h3>The dashed path</h3><p>If a profile has a stated reduction against a base year, the milestone is that base year's figure from the same series times one minus the percentage. The line from today to the milestone and to the net zero year is a straight line for illustration, not a forecast.</p></div>
     </div>
-    <div class="note mt2"><b>Limits.</b> These are modelled grid totals, not official inventories, and city boundaries differ from administrative ones. Please treat city numbers as indicative.</div>
+    <h3 class="mt2">Companies</h3>
+    <div class="grid2" style="align-items:start">
+      <div><p>Only <b>worldwide</b> figures are used. Government registries such as the EU Emissions Trading System, the US EPA Greenhouse Gas Reporting Program or Australia's NGER are more tightly checked, but they cover only a company's sites in one country or region, so they are not shown. They were used only as a check: a worldwide total far below the same company's figure in one registry was treated as an error and dropped.</p>
+      <p><b>First choice: what the company reported.</b> Scope 1 (direct) and Scope 2 (bought electricity, heat and steam) emissions from the company's GRI and CDP disclosures, as compiled by <a href="https://wikirate.org" target="_blank" rel="noopener">Wikirate</a> (CC BY 4.0, its "Commons" Scope 1 and Scope 2 metrics). Matched to Tracker companies by name, with doubtful matches checked by hand.</p>
+      <p><b>Scope 2 method.</b> Location-based Scope 2 (the average emissions of the local grid) is used wherever Wikirate records it. Most figures do not say which method was used, so they are labelled as possibly counting renewable-energy certificates: paper claims that, like <a href="#/learn/offsets">offsets</a>, can lower a company's reported emissions without the grid getting cleaner. A Scope 2 of zero can only come from counting certificates and is labelled so. The two layers are shown separately so a fall in Scope 2 can be told apart from a fall in direct emissions.</p></div>
+      <div><p><b>Checks.</b> A year is dropped if it is 30 times or more away from the company's typical value, more than 3 times away from both neighbouring years, or (at either end) more than 2.5 times away from its neighbour. These patterns are almost always tonnes typed as thousands of tonnes. If the series jumps 5 times or more between two reports, the company changed what it counts, and only the longer stretch is kept. A company is left out if its largest figure is under 0.3 tonnes per US$1 million of revenue, or if fewer than two years remain.</p>
+      <p><b>Backup: Climate TRACE estimates.</b> For power, fossil fuel, materials and chemicals companies with no usable reported figures, the chart shows <a href="https://climatetrace.org" target="_blank" rel="noopener">Climate TRACE</a> estimates (CC BY 4.0) for 2021 onwards: the sites owned by the company and by every subsidiary it owns more than half of, from Climate TRACE's ownership data, added up by this prototype. These are independent estimates from satellite and other data, not company figures, and they leave out activities Climate TRACE does not track.</p></div>
+    </div>
+    <div class="note mt2"><b>Limits.</b> These are modelled grid totals, not official inventories, and city boundaries differ from administrative ones. Please treat city numbers as indicative. Company figures depend on what each company chose to report and are not independently verified.</div>
   </div></section>`;
 
 P.notes.after = (params, sub) => { if (sub === 'emissions') setTimeout(() => $('#emissions')?.scrollIntoView(), 30); };
