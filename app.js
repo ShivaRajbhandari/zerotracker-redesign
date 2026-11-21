@@ -211,6 +211,8 @@ const ALIAS_SRC = [
 ];
 const ALIAS = {}; ALIAS_SRC.forEach(([re, ks]) => { const e = D.find(x => x.t === 'company' && re.test(x.n)); if (e) ALIAS[e.s] = ks.split(',').map(t => t.trim().toLowerCase()).filter(Boolean); });
 const skey = e => (e.n + ' ' + (e.cn || '')).toLowerCase();
+const ALIAS_CASE = {'aws':'AWS','youtube':'YouTube','deepmind':'DeepMind','whatsapp':'WhatsApp','linkedin':'LinkedIn','github':'GitHub','iphone':'iPhone','ipad':'iPad','macbook':'MacBook','itunes':'iTunes','playstation':'PlayStation','jlr':'JLR','gmc':'GMC','ram':'Ram','kitkat':'KitKat','nescafe':'Nescafé','nescafé':'Nescafé','ben & jerry':'Ben & Jerry’s','hellmann':'Hellmann’s','oral-b':'Oral-B','p&g':'P&G','pull&bear':'Pull&Bear','sam\'s club':'Sam’s Club','abc':'ABC','nbc':'NBC','nbcuniversal':'NBCUniversal','espn':'ESPN','kfc':'KFC','mufg':'MUFG','cos':'COS','ab inbev':'AB InBev','wechat':'WeChat','aliexpress':'AliExpress','lays':'Lay’s','frito-lay':'Frito-Lay','geico':'GEICO','bnsf':'BNSF','unitedhealthcare':'UnitedHealthcare','mini':'MINI','moet':'Moët','moët':'Moët','citroen':'Citroën','citroën':'Citroën','7-eleven':'7-Eleven','seven-eleven':'Seven-Eleven','band-aid':'Band-Aid','xbox':'Xbox','head & shoulders':'Head & Shoulders','jio':'Jio'};
+const aliasName = a => ALIAS_CASE[a] || a.replace(/(^|\s)([a-zà-ÿ])/g, (m, p, c) => p + c.toUpperCase());
 const aliasHit = (e, q) => e.n.toLowerCase().includes(q) ? '' : ((ALIAS[e.s] || []).find(a => a === q || (q.length >= 4 && (a.startsWith(q) || a.includes(' ' + q)))) || '');
 const SEARCH = D.map(e => ({e, k: skey(e)}));
 function searchBox(id, ph, onPick){
@@ -224,7 +226,7 @@ function wireSearch(id, onPick, filter){
     const q = inp.value.trim().toLowerCase(); act = -1;
     if (q.length < 2) { sg.hidden = true; return; }
     res = SEARCH.filter(x => (x.k.includes(q) || aliasHit(x.e, q)) && (!filter || filter(x.e))).sort((a,b) => (b.e.n.toLowerCase().startsWith(q)) - (a.e.n.toLowerCase().startsWith(q)) || ['country','region','city','company'].indexOf(a.e.t) - ['country','region','city','company'].indexOf(b.e.t)).slice(0, 9).map(x => x.e);
-    sg.innerHTML = res.length ? res.map((e,i) => `<a href="#/e/${e.s}" data-i="${i}">${typeBadge(e.t)}<span>${esc(e.n)}${aliasHit(e, q) ? ` <em style="font-weight:400;color:var(--muted)">(owns ${esc(aliasHit(e, q))})</em>` : ''}</span><small>${esc(targetPhrase(e))}</small></a>`).join('') : '<div class="empty" style="padding:14px">No match. Try a country, city, region or company name.</div>';
+    sg.innerHTML = res.length ? res.map((e,i) => `<a href="#/e/${e.s}" data-i="${i}">${typeBadge(e.t)}<span>${esc(e.n)}${aliasHit(e, q) ? ` <em style="font-weight:400;color:var(--muted)">(owns ${esc(aliasName(aliasHit(e, q)))})</em>` : ''}</span><small>${esc(targetPhrase(e))}</small></a>`).join('') : '<div class="empty" style="padding:14px">No match. Try a country, city, region or company name.</div>';
     sg.hidden = false;
   });
   sg.addEventListener('click', ev => { const a = ev.target.closest('a'); if (!a) return; ev.preventDefault(); sg.hidden = true; inp.value = ''; pick(res[+a.dataset.i]); });
