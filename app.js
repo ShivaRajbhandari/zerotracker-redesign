@@ -864,7 +864,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzm';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzo';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -936,16 +936,22 @@ function fxClusters(feat, hasData){
 function fxComposite(feat, usa, W, boxTop, boxH, hasData){
   const cl = fxClusters(feat, hasData);
   const mk = c => c === cl.main ? (usa ? d3.geoAlbers() : d3.geoNaturalEarth1().rotate([-c.cen[0], 0])) : d3.geoNaturalEarth1().rotate([-c.cen[0], -c.cen[1]]);
-  let colW = 0, main, parts;
-  for (let it = 0; it < 4; it++) {   // the insets sit in a column to the right of the mainland, at the same scale
-    main = mk(cl.main).fitExtent([[10, boxTop], [W - 10 - colW, boxTop + boxH]], cl.main.geom);
-    const k = main.scale(), ins = cl.ins.map(c => { const pr = mk(c).scale(k).translate([0, 0]), b = d3.geoPath(pr).bounds(c.geom); return {c, pr, b}; });
-    colW = ins.length ? Math.max(...ins.map(i => i.b[1][0] - i.b[0][0])) + 22 : 0;
+  let lw = 0, rw = 0, main, parts;
+  const west = c => ((c.cen[0] - cl.main.cen[0] + 540) % 360) - 180 < 0;   // is this part west of the mainland? then it goes on the left
+  for (let it = 0; it < 4; it++) {   // far-away parts sit in columns beside the mainland, at the same scale, on the side they really lie
+    main = mk(cl.main).fitExtent([[10 + lw, boxTop], [W - 10 - rw, boxTop + boxH]], cl.main.geom);
+    const k = main.scale(), ins = cl.ins.map(c => { const pr = mk(c).scale(k).translate([0, 0]), b = d3.geoPath(pr).bounds(c.geom); return {c, pr, b, left: west(c)}; });
+    const wd = side => { const m = ins.filter(i => i.left === side).map(i => i.b[1][0] - i.b[0][0]); return m.length ? Math.max(...m) + 22 : 0; };
+    lw = wd(true); rw = wd(false);
     parts = [{c: cl.main, pr: main}].concat(ins);
   }
-  const mb = d3.geoPath(main).bounds(cl.main.geom), insH = parts.slice(1).reduce((t, q) => t + (q.b[1][1] - q.b[0][1]) + 14, -14);
-  let cy = Math.max(boxTop, mb[1][1] - insH); const cx = mb[1][0] + 22;
-  parts.slice(1).forEach(q => { q.pr.translate([cx - q.b[0][0], cy - q.b[0][1]]); cy += (q.b[1][1] - q.b[0][1]) + 14; });
+  const mb = d3.geoPath(main).bounds(cl.main.geom);
+  [true, false].forEach(side => {
+    const col = parts.slice(1).filter(q => q.left === side); if (!col.length) return;
+    const h = col.reduce((t, q) => t + (q.b[1][1] - q.b[0][1]) + 14, -14), wmax = Math.max(...col.map(q => q.b[1][0] - q.b[0][0]));
+    let cy = Math.max(boxTop, mb[1][1] - h);
+    col.forEach(q => { const x = side ? mb[0][0] - 22 - wmax : mb[1][0] + 22; q.pr.translate([x - q.b[0][0], cy - q.b[0][1]]); cy += (q.b[1][1] - q.b[0][1]) + 14; });
+  });
   parts.forEach(q => { q.path = d3.geoPath(q.pr); q.bb = q.path.bounds(q.c.geom); });
   const near = poly => { const c = d3.geoCentroid(poly); let best = null, bd = Infinity; cl.all.forEach(g => g.m.forEach(x => { const d = d3.geoDistance(c, x.cen); if (d < bd) { bd = d; best = g; } })); return best; };
   const pathOf = f => { const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates, by = new Map(); polys.forEach(c => { const g = near({type: 'Polygon', coordinates: c}); if (!by.has(g)) by.set(g, []); by.get(g).push(c); }); return parts.map(q => by.has(q.c) ? q.path({type: 'MultiPolygon', coordinates: by.get(q.c)}) : '').join(''); };
@@ -1368,7 +1374,7 @@ async function localeMapShow(e){
   if (!mine.length) return;
   const mk = (d, cls, slug, label) => `<path d="${d}" class="${cls}"${slug ? ` data-s="${slug}" tabindex="0" role="link"` : ''} aria-label="${esc(label || '')}"/>`;
   const dotAt = (proj, x, cls) => { if (!x.ll) return ''; const p = proj([x.ll[1], x.ll[0]]); return p ? `<circle cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="4.2" class="${cls}" data-s="${x.s}" tabindex="0" role="link" aria-label="${esc(x.n)}"/>` : ''; };
-  const countryProj = () => cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : d3.geoNaturalEarth1().rotate([-d3.geoCentroid({type:'FeatureCollection', features: mine.map(mainPart)})[0], 0]).fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine.map(mainPart)});
+  const countryProj = () => cEntry.c === 'USA' ? d3.geoAlbersUsa().fitExtent([[6, 6], [W - 6, H - 6]], {type:'FeatureCollection', features: mine}) : (() => { const mf = mine.map(mainPart); let set = mf; if (regs.length && mf.length === 1) { const bb = d3.geoBounds(mf[0]); if (bb[0][0] <= bb[1][0]) { const k = regs.filter(f => { const c = d3.geoCentroid(f); return c[0] >= bb[0][0] - 3 && c[0] <= bb[1][0] + 3 && c[1] >= bb[0][1] - 3 && c[1] <= bb[1][1] + 3; }); if (k.length) set = k; } } const fc = {type:'FeatureCollection', features: set}; return d3.geoNaturalEarth1().rotate([-d3.geoCentroid(fc)[0], 0]).fitExtent([[6, 6], [W - 6, H - 6]], fc); })();
   const regs = e.c === 'EUU' ? [] : topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding);
   const cities = e.c === 'EUU' ? [] : D.filter(x => x.t === 'city' && x.c === e.c && x.ll);
   // a small country with no regions gets the more detailed outline (the main map file is coarse)
