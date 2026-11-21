@@ -1369,8 +1369,8 @@ const CNT_NAMES = ['China', 'United States of America', 'European Union', 'India
 const CNT_SHORT = {'United States of America': 'United States', 'Russian Federation': 'Russia', 'European Union': 'EU (27)'};
 function countingHtml(){
   return `<section class="band" id="counting"><div class="wrap">
-    <h2 class="h-brand">Why the way we count emissions matters</h2>
-    <p class="lede">Ask “who is responsible for climate change?” and the answer depends on how you count. Countries argue hard about this in climate talks, because it decides who should cut first and who should pay. Try the four ways of counting below.</p>
+    <div class="center"><h2 class="h-brand">Why the way we count emissions matters</h2>
+    <p class="lede">Ask “who is responsible for climate change?” and the answer depends on how you count. Countries argue hard about this in climate talks, because it decides who should cut first and who should pay. Try the four ways of counting below.</p></div>
     <div class="cnt-ctl"><div class="seg segs" id="cnt-when" role="group" aria-label="Which years to count"><button data-w="year" class="on"><b>This year</b></button><button data-w="1990"><b>Since 1990</b></button><button data-w="1850"><b>Since 1850</b></button></div>
     <div class="seg segs" id="cnt-how" role="group" aria-label="Total or per person"><button data-h="tot" class="on"><b>Whole country</b></button><button data-h="pp"><b>Per person</b></button></div></div>
     <div class="grid2 mt1 cnt-grid" style="align-items:start">
@@ -1430,12 +1430,12 @@ const RIVALS = ['Coca-Cola Company', 'Microsoft', 'Walmart', 'Shell plc', 'Exxon
 const WORLD_PC = 6.7;  // 54.4 Gt in 2024 over 8.16 billion people (Our World in Data)
 function peopleHtml(){
   return `<section id="people"><div class="wrap">
-    <h2 class="h-brand">Institutional action &gt; individual action</h2>
-    <p class="lede">One person's choices change a few tonnes of emissions a year, while one government's rules or one company's plans can change millions of tonnes. That is why the biggest lever on climate change is what institutions decide, and why the Tracker holds governments and companies to their promises.</p>
+    <div class="center"><h2 class="h-brand">Institutional action &gt; individual action</h2>
+    <p class="lede">One person's choices change a few tonnes of emissions a year, while one government's rules or one company's plans can change millions of tonnes. That is why the biggest lever on climate change is what institutions decide, and why the Tracker holds governments and companies to their promises.</p></div>
     <div class="grid3 mt1">
       <div class="card"><h3>Most emissions are decided upstream</h3><p>Which power stations get built, how homes are heated, what cars are sold and how steel and cement are made are decided by governments and companies. Your choices happen inside the options they create.</p></div>
       <div class="card"><h3>The scale is very different</h3><p>The ${'<span id="pp-n">390</span>'} companies in this prototype with emissions figures add up to <b id="pp-tot">about 5 billion tonnes</b> a year. The average person emits about ${WORLD_PC} tonnes.</p></div>
-      <div class="card"><h3>The “carbon footprint” was an advert</h3><p>The idea of a personal carbon footprint was popularised in the mid-2000s by an advertising campaign from the oil company BP. Personal choices still matter, and voting, organising and choosing where you work or bank shape what governments and companies do. That is what this Tracker watches.</p></div>
+      <div class="card"><h3>The “carbon footprint” was an advert</h3><p>The idea of a personal carbon footprint was popularised in the mid-2000s by an advertising campaign from the oil company BP. Personal choices still count most when they push institutions: voting, organising, and where you work or bank.</p></div>
     </div>
     <div class="game mt2" id="game">
       <div class="game-hd"><span class="game-tag">🎮 Mini game</span><h3>You vs. the giants</h3><p>Build your lifestyle, pick a company to race, and see how long it would take you to catch up.</p></div>
