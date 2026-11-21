@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzu';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261121zzv';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1266,7 +1266,7 @@ function emisChart(e){
   const pcNote = pc ? (e.t === 'country' ? ' Per person: divided by each year\'s population (Our World in Data, CC BY).' : ` Per person: divided by today\'s population (${fmt(+e.pop)}), because yearly population figures are not available here, so earlier years are only indicative.`) + ' Target paths are shown only for totals, because targets are set for total emissions.' : '';
   const full = viewSeries0(e, pc), canFrom = !!full && full.kind !== 'k' && full.y0 < 1990 && full.y0 + full.v.length - 1 >= 1995;
   const html = `${e.t !== 'company' && hasPop(e) || e.t === 'country' || canFrom ? `<div class="emis-ctl">${e.t !== 'company' && hasPop(e) ? `<div class="seg segs" role="group" aria-label="Measure"><button data-pc="0" class="${pc ? '' : 'on'}"><b>Total</b></button><button data-pc="1" class="${pc ? 'on' : ''}"><b>Per person</b></button></div>` : ''}${e.t === 'country' ? `<div class="seg segs" role="group" aria-label="GDP"><button data-gd="1" class="${EGD.on ? 'on' : ''}" aria-pressed="${EGD.on}"><b>Show GDP</b></button></div>` : ''}${canFrom ? `<div class="seg segs" role="group" aria-label="Start of the history"><button data-ef="0" class="${EFR.y === 1990 ? '' : 'on'}"><b>Since ${full.y0}</b></button><button data-ef="1990" class="${EFR.y === 1990 ? 'on' : ''}"><b>Since 1990</b></button></div>` : ''}</div>` : ''}<div class="card emis"><div class="emis-facts">${facts.map(([k, vv]) => `<div><span>${k}</span><b>${vv}</b></div>`).join('')}</div>${svg}
-    <div class="emis-key">${K && K.src === 'wr' ? `<span><i style="background:#A5865C;opacity:.8"></i>Scope 1: direct</span><span><i style="background:#e6d6bd"></i>Scope 2: purchased energy (${m2Sum(K)})</span>` : `<span><i style="background:#A5865C"></i>Emissions</span>`}${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}</div>
+    <div class="emis-key">${K && K.src === 'wr' ? `<span><i style="background:#A5865C;opacity:.8"></i>Scope 1: direct</span><span><i style="background:#e6d6bd"></i>Scope 2: purchased energy (${m2Sum(K)})</span>` : `<span><i style="background:#A5865C"></i>Greenhouse gas emissions</span>`}${nzOk || ims ? `<span><i class="dash"></i>Straight-line path to the target${ims ? ' milestone' : ''}${nzOk ? ' and net zero' : ''} (illustrative)</span>` : ''}</div>
     <p class="muted emis-src">${src}${pcNote}${gdpNote}</p></div>`;
   return GD ? html.replace('<div class="emis-key">', '<div class="emis-key"><span><i style="background:#1f7a8c;height:3px"></i>GDP (right axis)</span>') : html;
 }
