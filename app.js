@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122f';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122g';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1469,6 +1469,10 @@ async function localeMapShow(e){
       fig(mine.map(f => mk(P2(f), 'lm-c lm-base', '', '')).join('') + (regs.length ? regs.map(f => { const r = BY[f.properties.s]; return mk(P2(f), 'lm-r', r.s, r.n); }).join('') : cities.map(c => dotAt(pj, c, 'lm-dot2')).join('')), regs.length ? capW(regTerm(regs.map(f => BY[f.properties.s])[0] || e)[1]) + ' of ' + nm(e) : 'Cities in ' + nm(e));
     }
   } else {
+    if (e.t === 'region') {   // where the country sits in the world, as on country profiles
+      const wp = d3.geoNaturalEarth1().fitExtent([[4, 4], [W - 4, H - 4]], {type:'Sphere'}), WP = d3.geoPath(wp), rfw = regs.find(f => f.properties.s === e.s), cw = rfw ? wp(d3.geoCentroid(rfw)) : null;
+      fig(`<path d="${WP({type:'Sphere'})}" class="lm-sea"/>` + all.map(f => { const x = byIso[f.id], me = mineIds.includes(f.id); return mk(WP(f), me ? 'lm-me' : 'lm-c', x ? x.s : '', x ? x.n : ''); }).join('') + (cw ? `<circle cx="${cw[0].toFixed(1)}" cy="${cw[1].toFixed(1)}" r="3.2" class="lm-dot" pointer-events="none"/>` : ''), 'Location in the world');
+    }
     const pj = countryProj(), P = d3.geoPath(pj);
     fig(mine.map(f => mk(P(f), 'lm-c lm-base', cEntry.s, cEntry.n)).join('') + regs.map(f => { const r = BY[f.properties.s]; return mk(P(f), r.s === e.s ? 'lm-me' : 'lm-r', r.s, r.n); }).join('') + (e.t === 'city' ? dotAt(pj, e, 'lm-dot') .replace('r="4.2"', 'r="5"') + '' : ''), (e.t === 'region' ? placeName(e) + ' in ' : e.n + ' in ') + nm(cEntry));
     if (e.t === 'region') {
