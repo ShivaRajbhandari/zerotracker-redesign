@@ -350,11 +350,9 @@ P.home = () => {
   <section><div class="wrap">
     <div class="grid2" style="align-items:end"><div><p class="eyebrow">The credibility gap</p><h2 class="h-brand">A target is not a plan</h2></div>
     <p class="lede mt0">Most net zero targets are missing the parts that make them believable. Of those <b>with</b> a net zero target, the share that also…</p></div>
-    <div class="tablewrap mt2" style="border:0"><table class="gap-chart" style="min-width:720px">
-      <thead><tr><th></th>${T.map(t => `<th>${TYPE[t][1]} <span style="font-weight:500">(${fmt(G[t].n)})</span></th>`).join('')}</tr></thead>
-      <tbody>${gapRows.map(([k,q,s]) => `<tr><td class="q">${q}<small>${s}</small></td>${T.map(t => `<td><div class="hb" title="${G[t][k]}% of ${TYPE[t][1].toLowerCase()} with a net zero target"><div class="tr"><i style="width:${G[t][k]}%"></i></div><span>${G[t][k]}%</span></div></td>`).join('')}</tr>`).join('')}</tbody>
-    </table></div>
-    <p class="foot-note">Share of entities with a net zero (or similar) target that meet each criterion. "Unknown" counts as not met. <a href="#/learn/method">How we assess targets</a>.</p>
+    <div class="gapcards mt2">${T.map(t => { const g = G[t]; return `<div class="gapcard"><div class="gc-h">${TYPE[t][1]}</div><div class="gc-n">${fmt(g.n)}</div><div class="gc-of">with a net zero target</div><ul class="gc-s">${[['plan', 'have a complete plan'], ['interim', 'have a milestone in the next ten years'], ['rep', 'report their progress every year'], ['nooff', 'rule out carbon offsets']].map(([k, l]) => `<li><b>${g[k]}%</b><span>${l}</span></li>`).join('')}</ul></div>`; }).join('')}</div>
+    <div class="center mt2"><a class="btn btn-purple" href="#/explore">See every country, region, city and company on the map →</a></div>
+    <p class="foot-note">Percentages are of the entities with a net zero (or similar) target. "Unknown" counts as not met. <a href="#/learn/method">How we assess targets</a>.</p>
   </div></section>
 
   <section class="band"><div class="wrap">
@@ -875,7 +873,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261123a';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261123e';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1402,7 +1400,7 @@ async function fxRender(e){
   const panelsHtml = PL.map(([k, nmx, none]) => `<div class="gm-panel" data-l="${k}"${gmOk && k !== 'warm' ? ' hidden' : ''}>${gmOk ? '' : (fxg[k].length ? `<h2 class="fx-ph">${nmx}</h2>` : '')}${fxg[k].join('') || (gmOk && none ? `<p class="muted">${none}</p>` : '')}</div>`).join('');
   body.innerHTML = gmOk ? blocks.join('').replace('<div id="gm-panels" class="gm-panels"></div>', panelsHtml) : blocks.join('') + panelsHtml;
   wires.forEach(w => { try { w(); } catch (x) {} });
-  const sub = $('#fx-sub'); if (sub) sub.textContent = 'A map you can drag around the world, with charts for warming, rainfall' + (SN && SN.d[e.s] ? ', snow' : '') + (HU && HU.d[e.s] ? ', humidity' : '') + (G || (SS && SS.d[e.s]) ? ', sea level' : '') + (dv ? ' and disasters' : '') + '.';
+  const sub = $('#fx-sub'); if (sub) sub.textContent = 'The numbers behind the headlines, with a map you can drag around the world: warming, rainfall' + (SN && SN.d[e.s] ? ', snow' : '') + (HU && HU.d[e.s] ? ', humidity' : '') + (G || (SS && SS.d[e.s]) ? ', sea level' : '') + (dv ? ' and disasters' : '') + '.';
 }
 /* ---------- HOME: climate change so far (global indicators) ---------- */
 async function globalFxShow(){
@@ -1427,9 +1425,10 @@ async function globalFxShow(){
 }
 function effectsShow(e){
   if (e.t === 'company') return;
-  $('#fx-title').textContent = `See the effects of climate change on ${fxPlace(e)}`;
+  $('#fx-title').textContent = `How climate change is harming ${fxPlace(e)}`;
   $('#str-sec').hidden = false;
   const dd = $('#fx-dd'); if (!dd) return;
+  const cta = $('#fx-cta'); if (cta) cta.onclick = () => { dd.open = true; dd.scrollIntoView({behavior: 'smooth', block: 'start'}); };   // opens the section and takes the reader to it
   dd.addEventListener('toggle', () => { if (dd.open && !dd.dataset.r) { dd.dataset.r = '1'; fxRender(e); } });
 }
 function emisSeries(e){ const K = window.NZCE; if (e.t === 'company') { const k = K && K.d[e.s]; return k ? {y0:k.y0, v:k.v, kind:'k', k} : null; } const E = window.NZE; if (!E) return null; if (E.c[e.s]) return {y0:E.c[e.s][0], v:E.c[e.s][1], kind:'c'}; if (E.e[e.s]) return {y0:E.y0, v:E.e[e.s], kind:'e'}; return null; }
@@ -1701,7 +1700,8 @@ P.entity = (params, slug) => {
     <div class="pgrid"><div class="pleft">${typeBadge(e.t, e)}
       <h1>${e.t==='country' ? `<span class="flag">${flag(e.a2)}</span>` : ''}${esc(e.on || e.n)}</h1>
       <div class="facts">${facts.map(([k,v]) => `<span>${k}: <b>${esc(v)}</b></span>`).join('')}</div>
-      <div class="yr yr-inline"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div></div>
+      <div class="yr yr-inline"><div class="n">${isNZ(e) && y ? y : hasAnyTarget(e) && y ? y : '—'}</div><small>${isNZ(e) ? 'Net zero target year' : hasAnyTarget(e) ? 'Target year (not net zero)' : 'No target year'}</small></div>
+      ${e.t !== 'company' ? `<button type="button" class="btn btn-fx" id="fx-cta">How climate change is harming ${esc(fxPlace(e))} <span aria-hidden="true">↓</span></button>` : ''}</div>
       <div class="pmaps" id="lmap"></div>
     </div>
   </div></div>
@@ -1751,7 +1751,7 @@ P.entity = (params, slug) => {
       <ol class="asks">${asks(e).map(([q, s]) => `<li>${esc(q)}<small>${esc(s)}</small></li>`).join('')}</ol></div>
   </div></section>
   <section class="tight" id="share-box"><div class="wrap"><div class="accs">
-    <div id="str-sec" hidden><details class="sharedd" id="fx-dd"><summary><b class="acc-t" id="fx-title">See the effects of climate change here</b><span class="acc-s" id="fx-sub">How much warmer it has become since 1850, one stripe per year.</span></summary>
+    <div id="str-sec" hidden><details class="sharedd" id="fx-dd"><summary><b class="acc-t" id="fx-title">See the effects of climate change here</b><span class="acc-s" id="fx-sub">More very hot days, rising seas, changing rain and snow, wildfire and the cost of disasters: the numbers behind the headlines.</span></summary>
       <div class="mt2" id="fx-body"><p class="muted">Loading…</p></div>
     </details></div>
     <details id="share-dd" class="sharedd"><summary><b class="acc-t">Share it, or write to someone who can act</b><span class="acc-s">Post about this profile, download a picture card, or draft an email to a policymaker, in 17 languages.</span></summary>
