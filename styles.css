@@ -892,3 +892,4 @@ footer.site{padding:26px 0}
 @media(max-width:600px){.gm-hint{display:none}.gm-ticks{font-size:11px}}
 
 .gm-panels{margin-top:26px}.gm-panel .fxblock{margin-top:26px}.gm-panel .fxblock:first-child{margin-top:0}.fx-ph{font-size:20px;margin:24px 0 8px}
+@media(max-width:700px){.gm-top{display:block}.gm-top .seg,.gm-top .segs{display:flex;width:100%;max-width:100%;margin-bottom:8px;box-sizing:border-box}.gm-top .seg button,.gm-top .segs button{flex:1 1 auto;padding:8px 8px;text-align:center;justify-content:center}.gm-top .seg button b{font-size:13.5px}}
