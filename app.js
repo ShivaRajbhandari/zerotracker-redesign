@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122l';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122m';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1603,8 +1603,8 @@ async function localeMapShow(e){
       fig(mine.map(f => mk(P2(f), 'lm-c lm-base', '', '')).join('') + (regs.length ? regs.map(f => { const r = BY[f.properties.s]; return mk(P2(f), 'lm-r', r.s, r.n); }).join('') : cities.map(c => dotAt(pj, c, 'lm-dot2')).join('')), regs.length ? capW(regTerm(regs.map(f => BY[f.properties.s])[0] || e)[1]) + ' of ' + nm(e) : 'Cities in ' + nm(e));
     }
   } else {
-    if (e.t === 'region') {   // where the country sits in the world, as on country profiles
-      const wp = d3.geoNaturalEarth1().fitExtent([[4, 4], [W - 4, H - 4]], {type:'Sphere'}), WP = d3.geoPath(wp), rfw = regs.find(f => f.properties.s === e.s), cw = rfw ? wp(d3.geoCentroid(rfw)) : null;
+    if (e.t === 'region' || e.t === 'city') {   // where the country sits in the world, as on country profiles
+      const wp = d3.geoNaturalEarth1().fitExtent([[4, 4], [W - 4, H - 4]], {type:'Sphere'}), WP = d3.geoPath(wp), rfw = regs.find(f => f.properties.s === e.s), cw = e.t === 'city' ? (e.ll ? wp([e.ll[1], e.ll[0]]) : null) : rfw ? wp(d3.geoCentroid(rfw)) : null;
       fig(`<path d="${WP({type:'Sphere'})}" class="lm-sea"/>` + all.map(f => { const x = byIso[f.id], me = mineIds.includes(f.id); return mk(WP(f), me ? 'lm-me' : 'lm-c', x ? x.s : '', x ? x.n : ''); }).join('') + (cw ? `<circle cx="${cw[0].toFixed(1)}" cy="${cw[1].toFixed(1)}" r="3.2" class="lm-dot" pointer-events="none"/>` : ''), 'Location in the world');
     }
     const pj = countryProj(), P = d3.geoPath(pj);
@@ -1616,6 +1616,13 @@ async function localeMapShow(e){
       const CITY_REGION = {'new-york-cit-0101': 'new-york-state-reg-0015'};   // the simplified outlines put Manhattan inside New Jersey
       const inside = rf ? cities.filter(c => { if (CITY_REGION[c.s]) return CITY_REGION[c.s] === e.s; const p = [c.ll[1], c.ll[0]]; return d3.geoContains(rf, p) || (!regs.some(f => d3.geoContains(f, p)) && near(rf, p) < 0.35); }) : [];
       if (rf) { const pj2 = d3.geoNaturalEarth1().rotate([-d3.geoCentroid(rf)[0], 0]).fitExtent([[8, 8], [W - 8, H - 8]], rf), P2 = d3.geoPath(pj2); fig(mk(P2(rf), 'lm-me lm-self', '', e.n) + inside.map(c => dotAt(pj2, c, 'lm-dot2')).join(''), (inside.length === 1 ? 'The city in ' : inside.length ? 'Cities in ' : '') + e.n); }
+    }
+    if (e.t === 'city' && e.ll && regs.length) {   // the region the city sits in, with the city marked
+      const p = [e.ll[1], e.ll[0]], CITY_REGION2 = {'new-york-cit-0101': 'new-york-state-reg-0015'};
+      const nearD = (f, q) => { let best = Infinity; const rings = f.geometry.type === 'Polygon' ? f.geometry.coordinates : f.geometry.coordinates.flat(); rings.forEach(r => r.forEach(z => { const d = Math.hypot((z[0] - q[0]) * Math.cos(q[1] * Math.PI / 180), z[1] - q[1]); if (d < best) best = d; })); return best; };
+      let rf = CITY_REGION2[e.s] ? regs.find(f => f.properties.s === CITY_REGION2[e.s]) : regs.find(f => d3.geoContains(f, p));
+      if (!rf) { const c = regs.map(f => [f, nearD(f, p)]).sort((a, b) => a[1] - b[1])[0]; if (c && c[1] < 0.35) rf = c[0]; }
+      if (rf) { const rr = BY[rf.properties.s], pj2 = d3.geoNaturalEarth1().rotate([-d3.geoCentroid(rf)[0], 0]).fitExtent([[8, 8], [W - 8, H - 8]], rf), P2 = d3.geoPath(pj2), cp = pj2(p); fig(mk(P2(rf), 'lm-c lm-self', rr.s, rr.n) + (cp ? `<circle cx="${cp[0].toFixed(1)}" cy="${cp[1].toFixed(1)}" r="5" class="lm-dot" pointer-events="none"/>` : ''), rr.n); }
     }
   }
   box.classList.toggle('pm3', figs.length >= 3);   // world, country, region: three side by side
