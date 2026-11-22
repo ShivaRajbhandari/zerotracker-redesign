@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122a';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122b';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -966,7 +966,7 @@ function fxComposite(feat, usa, W, boxTop, boxH, hasData){
   parts.forEach(q => { q.path = d3.geoPath(q.pr); q.bb = q.path.bounds(q.c.geom); });
   const near = poly => { const c = d3.geoCentroid(poly); let best = null, bd = Infinity; cl.all.forEach(g => g.m.forEach(x => { const d = d3.geoDistance(c, x.cen); if (d < bd) { bd = d; best = g; } })); return best; };
   const pathOf = f => { const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates, by = new Map(); polys.forEach(c => { const g = near({type: 'Polygon', coordinates: c}); if (!by.has(g)) by.set(g, []); by.get(g).push(c); }); return parts.map(q => by.has(q.c) ? q.path({type: 'MultiPolygon', coordinates: by.get(q.c)}) : '').join(''); };
-  const inv = (x, y) => { for (const q of parts) if (x >= q.bb[0][0] - 2 && x <= q.bb[1][0] + 2 && y >= q.bb[0][1] - 2 && y <= q.bb[1][1] + 2) { const ll = q.pr.invert([x, y]); if (ll) return ll; } return null; };
+  const inv = (x, y, pad = 2) => { for (const q of parts) if (x >= q.bb[0][0] - pad && x <= q.bb[1][0] + pad && y >= q.bb[0][1] - pad && y <= q.bb[1][1] + pad) { const ll = q.pr.invert([x, y]); if (ll) return ll; } return null; };
   const bb = [[Math.min(...parts.map(q => q.bb[0][0])), Math.min(...parts.map(q => q.bb[0][1]))], [Math.max(...parts.map(q => q.bb[1][0])), Math.max(...parts.map(q => q.bb[1][1]))]];
   return {pathOf, inv, bb};
 }
@@ -988,22 +988,23 @@ async function fxCellMap(id, e, rec, cfg){
   const pick = (lo, la) => { const v = smooth(lo, la); if (v != null) return v; if (lo < west) lo += 360; const c0 = Math.floor((lo - west) / step), r0 = Math.floor((north - la) / step); let best = null, bd = Infinity; for (let dr = -3; dr <= 3; dr++) for (let dc = -3; dc <= 3; dc++) { const x = cell(c0 + dc, r0 + dr); if (x != null && dr * dr + dc * dc < bd) { bd = dr * dr + dc * dc; best = x; } } return best; };
   const hasData = bx => { const w = bx[0][0], e2 = bx[1][0] < w ? bx[1][0] + 360 : bx[1][0]; for (let la = bx[0][1]; la <= bx[1][1] + step; la += step) for (let lo = w; lo <= e2 + step; lo += step) if (val(lo > 180 ? lo - 360 : lo, la) != null) return true; return false; };   // does a far-away part have any data?
   const CP = fxComposite(feat, usa, W, 8, MH - 8, hasData);
-  const cv = document.createElement('canvas'); cv.width = W; cv.height = Math.ceil(CP.bb[1][1]) + 10;
+  const PAD = cfg.ocean ? 34 : 0;   // sea maps colour the water around the coast, outside the outline
+  const cv = document.createElement('canvas'); cv.width = W; cv.height = Math.ceil(CP.bb[1][1]) + 10 + PAD;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(cv.width, cv.height), rgb = cfg.cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
-  const bb = CP.bb, xa = Math.max(0, Math.floor(bb[0][0]) - 1), xb = Math.min(W - 1, Math.ceil(bb[1][0]) + 1), ya = Math.max(0, Math.floor(bb[0][1]) - 1), yb = Math.min(cv.height - 1, Math.ceil(bb[1][1]) + 1);
+  const bb = CP.bb, xa = Math.max(0, Math.floor(bb[0][0]) - 1 - PAD), xb = Math.min(W - 1, Math.ceil(bb[1][0]) + 1 + PAD), ya = Math.max(0, Math.floor(bb[0][1]) - 1 - PAD), yb = Math.min(cv.height - 1, Math.ceil(bb[1][1]) + 1 + PAD);
   for (let y = ya; y <= yb; y++) for (let x = xa; x <= xb; x++) {
-    const ll = CP.inv(x + .5, y + .5); if (!ll) continue;
+    const ll = CP.inv(x + .5, y + .5, PAD || 2); if (!ll) continue;
     const v = pick(ll[0], ll[1]); if (v == null) continue;   // colour runs right up to the outline (the picture is clipped to it)
     const c = rgb[cfg.bin(v)], o = (y * cv.width + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
-  const regF = e.t === 'country' && e.c !== 'EUU' ? topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c && cfg.regAvg(f.properties.s) != null).map(fixWinding) : [];
+  const regF = e.t === 'country' && e.c !== 'EUU' && !cfg.ocean ? topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c && cfg.regAvg(f.properties.s) != null).map(fixWinding) : [];
   const regSvg = regF.length ? `<g class="cm-regs" clip-path="url(#${id}-cp)">${regF.map(f => `<path class="cm-r" d="${CP.pathOf(f)}" data-rs="${f.properties.s}"/>`).join('')}</g>` : '';
-  const outline = CP.pathOf(feat), n = cfg.cols.length, lw = 62, lx = (W - n * lw) / 2, vy = Math.max(0, Math.floor(bb[0][1]) - 10), ly = Math.ceil(bb[1][1]) + 30, H = ly + 44;   // crop the picture to the place, legend just underneath
+  const outline = CP.pathOf(feat), n = cfg.cols.length, lw = 62, lx = (W - n * lw) / 2, vy = Math.max(0, Math.floor(bb[0][1]) - 10 - PAD), ly = Math.ceil(bb[1][1]) + 30 + PAD, H = ly + 44;   // crop the picture to the place, legend just underneath
   const legend = cfg.cols.map((c, i) => `<rect x="${lx + i * lw}" y="${ly}" width="${lw}" height="13" fill="${c}"/>`).join('') + cfg.edges.map((t, i) => `<text x="${lx + i * lw}" y="${ly + 30}" text-anchor="middle" font-size="12" fill="#5f5869">${t}</text>`).join('') + `<text x="${W / 2}" y="${ly - 6}" text-anchor="middle" font-size="12" fill="#7a7385">${cfg.legend}</text>`;
-  const svg = `<svg viewBox="0 ${vy} ${W} ${H - vy}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect x="0" y="${vy}" width="${W}" height="${H - vy}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" clip-path="url(#${id}-cp)" style="image-rendering:pixelated"/><path d="${outline}" fill="none" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${regSvg}${legend}</svg>`;
+  const svg = `<svg viewBox="0 ${vy} ${W} ${H - vy}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect x="0" y="${vy}" width="${W}" height="${H - vy}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" ${cfg.ocean ? '' : `clip-path="url(#${id}-cp)"`} style="image-rendering:pixelated"/><path d="${outline}" fill="${cfg.ocean ? '#ece8e1' : 'none'}" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${regSvg}${legend}</svg>`;
   const wire = () => { const sv = $('#' + id + '-svg'); if (!sv) return;
-    sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = CP.inv((ev.clientX - r.left) / r.width * W, vy + (ev.clientY - r.top) / r.height * (H - vy)), v = ll && val(ll[0], ll[1]), rg = ev.target.closest && ev.target.closest('[data-rs]'), rs = rg && rg.dataset.rs, rx = rs && BY[rs];
+    sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = CP.inv((ev.clientX - r.left) / r.width * W, vy + (ev.clientY - r.top) / r.height * (H - vy), PAD || 2), v = ll && val(ll[0], ll[1]), rg = ev.target.closest && ev.target.closest('[data-rs]'), rs = rg && rg.dataset.rs, rx = rs && BY[rs];
       if (v == null && !rx) { hideTip(); return; }
       if (rg && rg.parentNode.lastChild !== rg) rg.parentNode.appendChild(rg);   // bring the hovered outline to the front
       showTip(`<div class="tipms">${rx ? `<b>${esc(rx.n)}</b><div class="mrow"><span class="my">${cfg.fmt(cfg.regAvg(rs))}</span><span>average, ${cfg.what}</span></div>` : ''}${v != null ? `<div class="mrow"><span class="my">${cfg.fmt(v)}</span><span>${rx ? 'this square' : cfg.what}</span></div>` : ''}${rx ? '<div class="mrow"><span class="my"></span><span>Click to open its profile</span></div>' : ''}</div>`, ev); });
@@ -1014,7 +1015,7 @@ async function fxCellMap(id, e, rec, cfg){
 
 async function fxRender(e){
   const body = $('#fx-body'); if (!body) return;
-  let S, F, SL, DS, SN, PR, WM, PM, HU; try { [S, F, SL, DS, SN, PR, WM, PM, HU] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('wmap.js', 'NZWM'), loadScr('pmap.js', 'NZPM'), loadScr('hum.js', 'NZHU')]); } catch (err) { console.error(err); }
+  let S, F, SL, DS, SN, PR, WM, PM, HU, SS; try { [S, F, SL, DS, SN, PR, WM, PM, HU, SS] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('wmap.js', 'NZWM'), loadScr('pmap.js', 'NZPM'), loadScr('hum.js', 'NZHU'), e.t === 'country' || e.t === 'region' ? loadScr('sealsat.js', 'NZSS') : null]); } catch (err) { console.error(err); }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
   const P = fxPlace(e), blocks = [], wires = [], fxg = {snow: [], precip: [], humid: []};   // the three weather groups sit in their own dropdowns at the bottom
   let G = null, dv = null;   // set inside the sections, used for the sub-title
@@ -1155,6 +1156,31 @@ async function fxRender(e){
     wires.push(() => { fxLineWire('fx-s'); fxShare('fx-s', e, 'sea-level', 'Sea level: ' + P, `Sea level at the ${gname} tide gauge near ${P} has risen ${Math.abs(rise)} mm since ${y0}${slope != null ? ` (about ${slope.toFixed(1)} mm a year over the last 50 years)` : ''}. #ClimateAction`); });
   }
   } catch (err) { console.error(err); }
+  // 5b. satellite sea level around the coast (countries and regions)
+  try {
+  const SSD = SS && SS.d[e.s];
+  if (SSD) {
+    const [slope, ser, grid] = SSD, y0 = SS.y0, pts = ser.map((v, i) => [y0 + i, v]), have = ser.filter(v => v != null), rise = have[have.length - 1] - have[0];
+    const sgn = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1);
+    if (e.t === 'country') {
+      const svg = fxLine('fx-ss', {x0: y0, x1: SS.y1, zero: false, series: [{name: 'Each year', color: '#9ecae1', pts, w: 1.2, op: .9}, {name: '3-year average', color: '#08519c', smooth: true, pts: fxMean(pts, 3), w: 2.8}], aria: `Sea level around the coast of ${P}, ${y0} to ${SS.y1}, from satellites`, yfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v), vfmt: v => (v >= 0 ? '+' : '−') + Math.round(Math.abs(v)) + ' mm', snap: 2, note: 'mm, compared with the 1993–2002 average'});
+      blocks.push(fxBlock('fx-ss', 'Rising seas', `Average sea level in the waters within about 100 km of the coast of ${esc(P)}, measured by satellites, compared with the 1993–2002 average.`, `<div class="emis-facts"><div><span>Average rise a year</span><b>${sgn(slope)} mm</b></div><div><span>Rise since ${y0}</span><b>${rise >= 0 ? '+' : '−'}${Math.abs(rise)} mm</b></div></div>${svg}<div class="emis-key"><span><i style="background:#08519c;height:4px"></i>3-year average</span><span><i style="background:#9ecae1;height:2px"></i>Each year</span></div>`,
+        `<b>Source:</b> Generated using E.U. Copernicus Marine Service information; Copernicus Climate Change Service: <a href="https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global" target="_blank" rel="noopener">Sea level gridded data from satellite observations for the global ocean</a> (vDT2024, 0.25° grid, monthly), CC BY. We averaged the sea-surface height of every grid square of open water within about 100 km of the coast, weighting by area. Satellites measure the height of the sea itself, not its height against the land, so this does not include land that is sinking or rising, which can make the rise at a particular harbour faster or slower. Satellite readings are also less reliable very close to shore.`));
+      wires.push(() => { fxLineWire('fx-ss'); fxShare('fx-ss', e, 'sea-satellite', 'Sea level: ' + P, `Satellites show the sea around ${P} rising about ${Math.abs(slope).toFixed(1)} mm a year since ${y0}, ${Math.abs(rise)} mm in total (Copernicus). #ClimateAction`); });
+    }
+    if (grid) {
+      const vs = grid[5].filter(v => v !== 999).sort((a, b) => a - b), q = f => vs[Math.min(vs.length - 1, Math.floor(f * (vs.length - 1)))];
+      const lo0 = q(0.05), hi0 = q(0.95), lo = Math.floor(lo0 / 10) * 10, hi = Math.max(Math.ceil(hi0 / 10) * 10, lo + 30), n = 7;
+      const cols = ['#e3eef9', '#bcd7ee', '#8fbbe0', '#5f9ad0', '#3c76b8', '#27519a', '#17306f'], f1 = t => (t / 10 >= 0 ? '+' : '−') + Math.abs(t / 10).toFixed(1);
+      const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n));
+      const m = await fxCellMap('fx-sm', e, grid, {ocean: true, cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: `Sea level change, mm a year, ${y0}–${SS.y1}`, aria: `Map of how fast sea level has risen in the waters around ${P} since ${y0}.`, fmt: v => f1(v) + ' mm', what: 'sea level rise a year', regAvg: () => null});
+      if (m) blocks.push(fxBlock('fx-sm', 'Where is the sea rising fastest?', `How fast the sea surface has risen, in each square of water within about 100 km of the coast of ${esc(P)}, as an average over ${y0}–${SS.y1}. Darker blue is faster. The land is shaded grey.`,
+        `<div class="emis-facts"><div><span>Fastest-rising waters</span><b>${f1(hi0)} mm a year</b></div><div><span>Slowest-rising waters</span><b>${f1(lo0)} mm a year</b></div><div><span>Average</span><b>${sgn(slope)} mm a year</b></div></div>` + m.svg,
+        `<b>Source:</b> Copernicus Climate Change Service, <a href="https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global" target="_blank" rel="noopener">satellite sea level</a> (vDT2024), CC BY. The trend in each 0.25° square is a straight line through its yearly averages, shown in squares of ${m.step}°; the fastest and slowest figures leave out the extreme 5% at each end. Changes in sea level are partly natural (ocean currents and cycles such as El Niño move water around), so differences between neighbouring areas over 30 years do not all come from climate change. It measures the sea itself, not its height against the land.`));
+      if (m) wires.push(() => { m.wire(); fxShare('fx-sm', e, 'sea-satellite-map', 'Where the sea is rising fastest near ' + P, `Sea level around ${P} has risen by as much as ${f1(hi0)} mm a year since ${y0}, and as little as ${f1(lo0)} mm in other places (Copernicus satellites). #ClimateAction`); });
+    }
+  }
+  } catch (err) { console.error(err); }
   // 6. disasters: damage as a share of GDP (countries only: it makes little sense at region or city scale)
   try {
   dv = e.t === 'country' && e.c !== 'EUU' && DS && DS.d.c[e.c];
@@ -1182,7 +1208,7 @@ async function fxRender(e){
   body.innerHTML = blocks.join('') + (groups.length ? `<div class="fxtabs">${groups.map(g => `<button type="button" class="fxtab" data-g="${g[0]}" aria-expanded="false" aria-controls="fxp-${g[0]}"><b>${g[1]}</b><span>${g[2]}</span></button>`).join('')}</div>${groups.map(g => `<div class="fxpanel" id="fxp-${g[0]}" hidden>${g[3].join('')}</div>`).join('')}` : '');
   $$('#fx-body .fxtab').forEach(btn => btn.onclick = () => { const open = btn.getAttribute('aria-expanded') !== 'true'; $$('#fx-body .fxtab').forEach(x => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('on'); }); $$('#fx-body .fxpanel').forEach(p => p.hidden = true); if (open) { btn.setAttribute('aria-expanded', 'true'); btn.classList.add('on'); $('#fxp-' + btn.dataset.g).hidden = false; } });
   wires.forEach(w => { try { w(); } catch (x) {} });
-  const sub = $('#fx-sub'); if (sub) sub.textContent = 'Warming so far, what the models project, very hot days, rainfall' + (SN && SN.d[e.s] ? ', snow' : '') + (HU && HU.d[e.s] ? ', humidity' : '') + (G ? ', sea level' : '') + (dv ? ' and disasters' : '') + '.';
+  const sub = $('#fx-sub'); if (sub) sub.textContent = 'Warming so far, what the models project, very hot days, rainfall' + (SN && SN.d[e.s] ? ', snow' : '') + (HU && HU.d[e.s] ? ', humidity' : '') + (G || (SS && SS.d[e.s]) ? ', sea level' : '') + (dv ? ' and disasters' : '') + '.';
 }
 /* ---------- HOME: climate change so far (global indicators) ---------- */
 async function globalFxShow(){
@@ -1574,7 +1600,7 @@ function svgToPng(svg, title, name){
   const xml = new XMLSerializer().serializeToString(c), img = new Image(), url = URL.createObjectURL(new Blob([xml], {type: 'image/svg+xml;charset=utf-8'}));
   img.onload = () => { const k = 2, cv = document.createElement('canvas'); cv.width = W * k; cv.height = (H + TOP + BOT) * k; const g = cv.getContext('2d'); g.scale(k, k);
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H + TOP + BOT); g.fillStyle = '#271039'; g.font = '700 20px Outfit, Helvetica, Arial, sans-serif'; g.fillText(title.slice(0, 90), 16, 30);
-    g.drawImage(img, 0, TOP, W, H); g.fillStyle = '#5f5869'; g.font = '13px Outfit, Helvetica, Arial, sans-serif'; g.fillText('Net Zero Tracker (design prototype). Sources: ' + (name.includes('timeline') ? 'Net Zero Tracker' : /^warming-(stripes|map)/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^(projected-warming|hot-days|rainfall-change)/.test(name) ? 'World Bank Climate Change Knowledge Portal, CMIP6' : /^global-warming/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^global-co2/.test(name) ? 'NOAA Global Monitoring Laboratory' : /^global-disasters/.test(name) ? 'EM-DAT via Our World in Data' : /^(snow|humidity)/.test(name) ? 'Copernicus ERA5 (CC BY)' : /^rainfall-(history|map)/.test(name) ? 'CRU TS 4.08 (University of East Anglia)' : /^sea-level/.test(name) ? 'PSMSL tide gauges' : /^disaster-damage/.test(name) ? 'EM-DAT via Our World in Data' : 'Our World in Data, EDGAR v8.0'), 16, H + TOP + 20);
+    g.drawImage(img, 0, TOP, W, H); g.fillStyle = '#5f5869'; g.font = '13px Outfit, Helvetica, Arial, sans-serif'; g.fillText('Net Zero Tracker (design prototype). Sources: ' + (name.includes('timeline') ? 'Net Zero Tracker' : /^warming-(stripes|map)/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^(projected-warming|hot-days|rainfall-change)/.test(name) ? 'World Bank Climate Change Knowledge Portal, CMIP6' : /^global-warming/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^global-co2/.test(name) ? 'NOAA Global Monitoring Laboratory' : /^global-disasters/.test(name) ? 'EM-DAT via Our World in Data' : /^(snow|humidity)/.test(name) ? 'Copernicus ERA5 (CC BY)' : /^rainfall-(history|map)/.test(name) ? 'CRU TS 4.08 (University of East Anglia)' : /^sea-level/.test(name) ? 'PSMSL tide gauges' : /^sea-satellite/.test(name) ? 'Copernicus satellite sea level (CC BY)' : /^disaster-damage/.test(name) ? 'EM-DAT via Our World in Data' : 'Our World in Data, EDGAR v8.0'), 16, H + TOP + 20);
     URL.revokeObjectURL(url); const a = document.createElement('a'); a.download = name + '.png'; a.href = cv.toDataURL('image/png'); a.click(); };
   img.src = url;
 }
