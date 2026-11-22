@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122c';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122f';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -968,7 +968,8 @@ function fxComposite(feat, usa, W, boxTop, boxH, hasData){
   const pathOf = f => { const polys = f.geometry.type === 'Polygon' ? [f.geometry.coordinates] : f.geometry.coordinates, by = new Map(); polys.forEach(c => { const g = near({type: 'Polygon', coordinates: c}); if (!by.has(g)) by.set(g, []); by.get(g).push(c); }); return parts.map(q => by.has(q.c) ? q.path({type: 'MultiPolygon', coordinates: by.get(q.c)}) : '').join(''); };
   const inv = (x, y, pad = 2) => { for (const q of parts) if (x >= q.bb[0][0] - pad && x <= q.bb[1][0] + pad && y >= q.bb[0][1] - pad && y <= q.bb[1][1] + pad) { const ll = q.pr.invert([x, y]); if (ll) return ll; } return null; };
   const bb = [[Math.min(...parts.map(q => q.bb[0][0])), Math.min(...parts.map(q => q.bb[0][1]))], [Math.max(...parts.map(q => q.bb[1][0])), Math.max(...parts.map(q => q.bb[1][1]))]];
-  return {pathOf, inv, bb};
+  const clipTo = (x0, y0, x1, y1) => parts.forEach(q => q.pr.clipExtent([[x0, y0], [x1, y1]]));
+  return {pathOf, inv, bb, clipTo};
 }
 async function fxCellMap(id, e, rec, cfg){
   await loadGeo();
@@ -989,6 +990,7 @@ async function fxCellMap(id, e, rec, cfg){
   const hasData = bx => { const w = bx[0][0], e2 = bx[1][0] < w ? bx[1][0] + 360 : bx[1][0]; for (let la = bx[0][1]; la <= bx[1][1] + step; la += step) for (let lo = w; lo <= e2 + step; lo += step) if (val(lo > 180 ? lo - 360 : lo, la) != null) return true; return false; };   // does a far-away part have any data?
   const CP = fxComposite(feat, usa, W, 8, MH - 8, hasData);
   const PAD = cfg.ocean ? 34 : 0;   // sea maps colour the water around the coast, outside the outline
+  const vy0 = Math.max(0, Math.floor(CP.bb[0][1]) - 10 - PAD);
   const cv = document.createElement('canvas'); cv.width = W; cv.height = Math.ceil(CP.bb[1][1]) + 10 + PAD;
   const ctx = cv.getContext('2d'), img = ctx.createImageData(cv.width, cv.height), rgb = cfg.cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)));
   const bb = CP.bb, xa = Math.max(0, Math.floor(bb[0][0]) - 1 - PAD), xb = Math.min(W - 1, Math.ceil(bb[1][0]) + 1 + PAD), ya = Math.max(0, Math.floor(bb[0][1]) - 1 - PAD), yb = Math.min(cv.height - 1, Math.ceil(bb[1][1]) + 1 + PAD);
@@ -998,13 +1000,26 @@ async function fxCellMap(id, e, rec, cfg){
     const c = rgb[cfg.bin(v)], o = (y * cv.width + x) * 4; img.data[o] = c[0]; img.data[o + 1] = c[1]; img.data[o + 2] = c[2]; img.data[o + 3] = 255;
   }
   ctx.putImageData(img, 0, 0);
+  // sea maps: the neighbouring land is drawn in grey underneath, and says what it is when hovered
+  let nbr = '';
+  if (cfg.ocean) {
+    const fb = d3.geoBounds(feat), pd = 3, iv = b => [b[0][0], b[1][0] < b[0][0] ? b[1][0] + 360 : b[1][0]];
+    const near = f => { const b = d3.geoBounds(f); if (b[0][1] > fb[1][1] + pd || b[1][1] < fb[0][1] - pd) return false; const a = iv(fb), c = iv(b); return [-360, 0, 360].some(sh => c[0] + sh <= a[1] + pd && c[1] + sh >= a[0] - pd); };
+    const isoName = {}; D.forEach(x => { if (x.t === 'country' && x.iso) isoName[x.iso] = x.n; });
+    const cands = [];
+    topojson.feature(WORLD, WORLD.objects.countries).features.forEach(f => { if (f.id !== e.iso && near(f)) cands.push([f, isoName[f.id] || (f.properties && f.properties.name) || 'Land', '#e0dde6']); });
+    if (e.t === 'region') topojson.feature(REG, REG.objects.regions).features.forEach(f => { const x = BY[f.properties.s]; if (x && x.c === e.c && f.properties.s !== e.s) { const g = fixWinding(f); if (near(g)) cands.push([g, x.n, '#d3cfdb']); } });
+    CP.clipTo(Math.max(0, CP.bb[0][0] - PAD), vy0, Math.min(W, CP.bb[1][0] + PAD), Math.ceil(CP.bb[1][1]) + 6 + PAD);
+    nbr = `<g class="cm-nb">${cands.map(c => `<path d="${CP.pathOf(c[0])}" fill="${c[2]}" stroke="#bdb8c9" stroke-width=".8" stroke-linejoin="round" data-nm="${esc(c[1])}"/>`).join('')}</g>`;
+  }
   const regF = e.t === 'country' && e.c !== 'EUU' && !cfg.ocean ? topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c && cfg.regAvg(f.properties.s) != null).map(fixWinding) : [];
   const regSvg = regF.length ? `<g class="cm-regs" clip-path="url(#${id}-cp)">${regF.map(f => `<path class="cm-r" d="${CP.pathOf(f)}" data-rs="${f.properties.s}"/>`).join('')}</g>` : '';
   const outline = CP.pathOf(feat), n = cfg.cols.length, lw = 62, lx = (W - n * lw) / 2, vy = Math.max(0, Math.floor(bb[0][1]) - 10 - PAD), ly = Math.ceil(bb[1][1]) + 30 + PAD, H = ly + 44;   // crop the picture to the place, legend just underneath
   const legend = cfg.cols.map((c, i) => `<rect x="${lx + i * lw}" y="${ly}" width="${lw}" height="13" fill="${c}"/>`).join('') + cfg.edges.map((t, i) => `<text x="${lx + i * lw}" y="${ly + 30}" text-anchor="middle" font-size="12" fill="#5f5869">${t}</text>`).join('') + `<text x="${W / 2}" y="${ly - 6}" text-anchor="middle" font-size="12" fill="#7a7385">${cfg.legend}</text>`;
-  const svg = `<svg viewBox="0 ${vy} ${W} ${H - vy}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect x="0" y="${vy}" width="${W}" height="${H - vy}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" ${cfg.ocean ? '' : `clip-path="url(#${id}-cp)"`} style="image-rendering:pixelated"/><path d="${outline}" fill="${cfg.ocean ? '#ece8e1' : 'none'}" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${regSvg}${legend}</svg>`;
+  const svg = `<svg viewBox="0 ${vy} ${W} ${H - vy}" id="${id}-svg" role="img" aria-label="${esc(cfg.aria)}" style="width:100%;height:auto;display:block;max-height:560px"><rect x="0" y="${vy}" width="${W}" height="${H - vy}" fill="#fff"/><defs><clipPath id="${id}-cp"><path d="${outline}"/></clipPath></defs><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${cv.width}" height="${cv.height}" ${cfg.ocean ? 'pointer-events="none"' : `clip-path="url(#${id}-cp)"`} style="image-rendering:pixelated"/>${nbr}<path d="${outline}" fill="${cfg.ocean ? '#ece8e1' : 'none'}" stroke="#5d5668" stroke-width="1.1" stroke-linejoin="round"/>${regSvg}${legend}</svg>`;
   const wire = () => { const sv = $('#' + id + '-svg'); if (!sv) return;
-    sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = CP.inv((ev.clientX - r.left) / r.width * W, vy + (ev.clientY - r.top) / r.height * (H - vy), PAD || 2), v = ll && val(ll[0], ll[1]), rg = ev.target.closest && ev.target.closest('[data-rs]'), rs = rg && rg.dataset.rs, rx = rs && BY[rs];
+    sv.addEventListener('mousemove', ev => { const r = sv.getBoundingClientRect(), ll = CP.inv((ev.clientX - r.left) / r.width * W, vy + (ev.clientY - r.top) / r.height * (H - vy), PAD || 2), v = ll && val(ll[0], ll[1]), rg = ev.target.closest && ev.target.closest('[data-rs]'), rs = rg && rg.dataset.rs, rx = rs && BY[rs], nm = ev.target.getAttribute && ev.target.getAttribute('data-nm');
+      if (nm && v == null) { showTip(`<div class="tipms"><b>${nm}</b><div class="mrow"><span class="my"></span><span>land</span></div></div>`, ev); return; }
       if (v == null && !rx) { hideTip(); return; }
       if (rg && rg.parentNode.lastChild !== rg) rg.parentNode.appendChild(rg);   // bring the hovered outline to the front
       showTip(`<div class="tipms">${rx ? `<b>${esc(rx.n)}</b><div class="mrow"><span class="my">${cfg.fmt(cfg.regAvg(rs))}</span><span>average, ${cfg.what}</span></div>` : ''}${v != null ? `<div class="mrow"><span class="my">${cfg.fmt(v)}</span><span>${rx ? 'this square' : cfg.what}</span></div>` : ''}${rx ? '<div class="mrow"><span class="my"></span><span>Click to open its profile</span></div>' : ''}</div>`, ev); });
