@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122y';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261123a';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1076,7 +1076,8 @@ async function fxGlobe(e, P, o){
   else if (e.t === 'region') { const f = topojson.feature(REG, REG.objects.regions).features.find(f => f.properties.s === e.s); feat = f ? fixWinding(f) : null; }
   if (e.t !== 'city' && !feat) return null;
   const regsF = e.c !== 'EUU' && cEntry ? topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding) : [];
-  const boundsOf = f => { const b = d3.geoBounds(f); return [b[0][0], b[0][1], b[1][0] < b[0][0] ? b[1][0] + 360 : b[1][0], b[1][1]]; };
+  // bounds that cope with places that cross the 180° line (Alaska's Aleutians, Russia, Fiji): d3.geoBounds gives the whole globe for those
+  const boundsOf = f => { let la0 = 90, la1 = -90; const lons = [], walk = c => { if (typeof c[0] === 'number') { lons.push(c[0]); if (c[1] < la0) la0 = c[1]; if (c[1] > la1) la1 = c[1]; } else c.forEach(walk); }, geo = g => g.type === 'FeatureCollection' ? g.features.forEach(geo) : g.type === 'Feature' ? geo(g.geometry) : g.type === 'GeometryCollection' ? g.geometries.forEach(geo) : walk(g.coordinates); geo(f); let lo = Infinity, hi = -Infinity; lons.forEach(x => { if (x < lo) lo = x; if (x > hi) hi = x; }); if (hi - lo > 180) { lo = Infinity; hi = -Infinity; lons.forEach(x => { const y = x < 0 ? x + 360 : x; if (y < lo) lo = y; if (y > hi) hi = y; }); } return [lo, la0, hi, la1]; };
   const inBox = (bx, lon, lat) => lat >= bx[1] && lat <= bx[3] && [-360, 0, 360].some(sh => lon + sh >= bx[0] && lon + sh <= bx[2]);
   const wB = worldF.map(f => [f, boundsOf(f)]), rB = regsF.map(f => [f, boundsOf(f)]);
   // ---- the map's own projection and the vector layers
@@ -1107,21 +1108,20 @@ async function fxGlobe(e, P, o){
   const wire = () => {
     const wrap = $('#gm-wrap'), cv = $('#gm-cv'), svgEl = $('#' + uid + '-svg'); if (!wrap || !cv || !svgEl) return;
     const ctx = cv.getContext('2d'), gG = $('#gm-g'), cityEl = $('#gm-city'), masks = $('#gm-masks'), sel = d3.select(svgEl);
-    const img = ctx.createImageData(GM_CW, GM_CH), px = new Uint32Array(img.data.buffer);
-    let T = {k: T0.k, x: T0.x, y: T0.y}, raf = 0, L = null;
-    const cc0 = new Int32Array(GM_CW), cc1 = new Int32Array(GM_CW), cfx = new Float32Array(GM_CW);
-    const draw = () => {
-      raf = 0; if (e.t === 'city') return;   // a city profile has no map, only the numbers and charts
-      gG.setAttribute('transform', `translate(${T.x} ${T.y}) scale(${T.k})`);
-      if (e.t === 'city') { let wx = mx(e.ll[1]); const sx = T.x + T.k * wx; const n = Math.round((GM_CW / 2 - sx) / (T.k * GM_W)); cityEl.setAttribute('cx', (sx + n * T.k * GM_W).toFixed(1)); cityEl.setAttribute('cy', (T.y + T.k * my(e.ll[0])).toFixed(1)); cityEl.setAttribute('opacity', 1); }
+    const IM = {}; [1, 2].forEach(k => { const im = ctx.createImageData(GM_CW * k, GM_CH * k); IM[k] = {im, px: new Uint32Array(im.data.buffer)}; });
+    let T = {k: T0.k, x: T0.x, y: T0.y}, raf = 0, L = null, hiT = 0;
+    const cc0 = new Int32Array(GM_CW * 2), cc1 = new Int32Array(GM_CW * 2), cfx = new Float32Array(GM_CW * 2);
+    // the picture is painted at normal size while the map is moving and at double size once it stops, so it stays quick and looks sharp
+    const paint = sc => {
       if (!L || !L.g) return;
+      const W2 = GM_CW * sc, H2 = GM_CH * sc, px = IM[sc].px; if (cv.width !== W2) { cv.width = W2; cv.height = H2; }
       const g = L.g, F = g._fill, nc = g.nc, nr = g.nr, st = g.s, lo = L.lo, hi = L.hi, lut = L.lut;
-      for (let x = 0; x < GM_CW; x++) { const lon = ((((x - T.x) / T.k) / GM_W * 360 - 180) % 360 + 540) % 360 - 180, fc = (lon + 180) / st - .5, c = Math.floor(fc); cfx[x] = fc - c; cc0[x] = (c + nc) % nc; cc1[x] = (c + 1 + nc) % nc; }
-      for (let y = 0; y < GM_CH; y++) {
-        const wy = (y - T.y) / T.k, o2 = y * GM_CW;
-        if (wy < 0 || wy > GM_W) { px.fill(0, o2, o2 + GM_CW); continue; }
+      for (let x = 0; x < W2; x++) { const lon = (((((x + .5) / sc - T.x) / T.k) / GM_W * 360 - 180) % 360 + 540) % 360 - 180, fc = (lon + 180) / st - .5, c = Math.floor(fc); cfx[x] = fc - c; cc0[x] = (c + nc) % nc; cc1[x] = (c + 1 + nc) % nc; }
+      for (let y = 0; y < H2; y++) {
+        const wy = ((y + .5) / sc - T.y) / T.k, o2 = y * W2;
+        if (wy < 0 || wy > GM_W) { px.fill(0, o2, o2 + W2); continue; }
         const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * wy / GM_W))) * 180 / Math.PI, fr = (90 - lat) / st - .5, r0 = Math.max(0, Math.min(nr - 1, Math.floor(fr))), r1 = Math.min(nr - 1, r0 + 1), fy = Math.max(0, Math.min(1, fr - Math.floor(fr))), a = r0 * nc, b = r1 * nc;
-        for (let x = 0; x < GM_CW; x++) {
+        for (let x = 0; x < W2; x++) {
           const tx = cfx[x], v00 = F[a + cc0[x]], v10 = F[a + cc1[x]], v01 = F[b + cc0[x]], v11 = F[b + cc1[x]];
           let sw = 0, sv = 0, w;
           if (v00 !== -128) { w = (1 - tx) * (1 - fy); sw += w; sv += w * v00; }
@@ -1132,7 +1132,12 @@ async function fxGlobe(e, P, o){
           let q = Math.round((sv / sw - lo) / (hi - lo) * 255); px[o2 + x] = lut[q < 0 ? 0 : q > 255 ? 255 : q];
         }
       }
-      ctx.putImageData(img, 0, 0);
+      ctx.putImageData(IM[sc].im, 0, 0);
+    };
+    const draw = () => {
+      raf = 0; if (e.t === 'city') return;   // a city profile has no map, only the numbers and charts
+      gG.setAttribute('transform', `translate(${T.x} ${T.y}) scale(${T.k})`);
+      paint(1); clearTimeout(hiT); hiT = setTimeout(() => paint(2), 140);
     };
     const sched = () => { if (!raf) raf = requestAnimationFrame(draw); };
     const zoom = d3.zoom().scaleExtent([kmin, kmax]).extent([[0, 0], [GM_CW, GM_CH]]).translateExtent([[-1e7, 0], [1e7, GM_W]])
