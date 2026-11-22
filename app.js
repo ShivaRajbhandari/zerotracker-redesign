@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261121zzv';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122a';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1014,7 +1014,7 @@ async function fxCellMap(id, e, rec, cfg){
 
 async function fxRender(e){
   const body = $('#fx-body'); if (!body) return;
-  let S, F, SL, DS, SN, PR, WM, PM; try { [S, F, SL, DS, SN, PR, WM, PM] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('wmap.js', 'NZWM'), loadScr('pmap.js', 'NZPM')]); } catch (err) { console.error(err); }
+  let S, F, SL, DS, SN, PR, WM, PM, HU; try { [S, F, SL, DS, SN, PR, WM, PM, HU] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('wmap.js', 'NZWM'), loadScr('pmap.js', 'NZPM'), loadScr('hum.js', 'NZHU')]); } catch (err) { console.error(err); }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
   const P = fxPlace(e), blocks = [], wires = [], fxg = {snow: [], precip: [], humid: []};   // the three weather groups sit in their own dropdowns at the bottom
   let G = null, dv = null;   // set inside the sections, used for the sub-title
@@ -1133,6 +1133,18 @@ async function fxRender(e){
     wires.push(() => { fxLineWire('fx-sn'); fxShare('fx-sn', e, 'snow', 'Snow: ' + P, `The deepest snow each year in ${P} averages ${small ? Math.abs(dmm).toFixed(1) + ' mm' : Math.round(Math.abs(ch)) + '%'} ${ch < 0 ? 'less' : 'more'} in 2005–2024 than in 1981–2000 (ERA5, Copernicus). #ClimateAction`); });
   }
   } catch (err) { console.error(err); }
+  // 4c. humidity (ERA5, relative humidity worked out from temperature and dew point)
+  try {
+  const HUW = HU && HU.d[e.s];
+  if (HUW) {
+    const y0 = 1979, raw = HUW.map((v, i) => [HU.y0 + i, v == null ? null : v / 10]).filter(p => p[0] >= y0), sm = fxMean(raw, 11), seg = (a, b) => raw.filter(p => p[0] >= a && p[0] <= b && p[1] != null).map(p => p[1]), avg = xs => xs.reduce((t, c) => t + c, 0) / xs.length;
+    const a1 = avg(seg(1981, 2000)), a2 = avg(seg(2005, 2024)), dd = a2 - a1;
+    const svg = fxLine('fx-hu', {x0: y0, x1: HU.y1, zero: false, series: [{name: 'Each year', color: '#cdb9e3', pts: raw, w: 1.2, op: .9}, {name: '11-year average', color: '#6a3d9a', smooth: true, pts: sm, w: 2.8}], aria: `Average relative humidity each year in ${P}, ${y0} to ${HU.y1}`, yfmt: v => Math.round(v) + '%', vfmt: v => v.toFixed(1) + '%', snap: 2, note: 'average relative humidity, %'});
+    const facts = `<div class="emis-facts"><div><span>1981–2000 average</span><b>${a1.toFixed(1)}%</b></div><div><span>2005–2024 average</span><b>${a2.toFixed(1)}%</b></div><div><span>Change</span><b>${Math.abs(dd) < 0.05 ? '0.0' : (dd >= 0 ? '+' : '−') + Math.abs(dd).toFixed(1)} points</b></div></div>`;
+    fxg.humid.push(fxBlock('fx-hu', 'Is the air getting more or less humid?', `Relative humidity is how much water vapour the air holds compared with the most it could hold at that temperature. This is the yearly average for ${esc(P)}. Warmer air can hold more water, so humidity can fall even as the amount of water vapour in the air rises.`, facts + svg + `<div class="emis-key"><span><i style="background:#6a3d9a;height:4px"></i>11-year average</span><span><i style="background:#cdb9e3;height:2px"></i>Each year</span></div>`, `<b>Source:</b> Generated using Copernicus Climate Change Service information (2026): <a href="https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels-monthly-means" target="_blank" rel="noopener">ERA5 reanalysis</a>, CC BY. We worked out relative humidity from ERA5’s monthly average 2 m air temperature and dew point (Magnus formula) on a 0.25° grid (about 25 km), then averaged it over ${e.t === 'city' ? 'the grid cell nearest the city' : 'the place’s outline'}. Because this uses monthly averages it runs a little different from humidity measured at weather stations, and a reanalysis blends a weather model with observations, so trends are less certain than for temperature. We start in 1979, when satellite data entered the reanalysis.`));
+    wires.push(() => { fxLineWire('fx-hu'); fxShare('fx-hu', e, 'humidity', 'Humidity: ' + P, `Average relative humidity in ${P} was ${a2.toFixed(1)}% in 2005–2024, ${Math.abs(dd) < 0.05 ? 'unchanged from' : Math.abs(dd).toFixed(1) + ' points ' + (dd < 0 ? 'lower than' : 'higher than')} 1981–2000 (ERA5, Copernicus). #ClimateAction`); });
+  }
+  } catch (err) { console.error(err); }
   // 5. sea level (coastal cities and regions)
   try {
   G = SL && SL[e.s];
@@ -1170,7 +1182,7 @@ async function fxRender(e){
   body.innerHTML = blocks.join('') + (groups.length ? `<div class="fxtabs">${groups.map(g => `<button type="button" class="fxtab" data-g="${g[0]}" aria-expanded="false" aria-controls="fxp-${g[0]}"><b>${g[1]}</b><span>${g[2]}</span></button>`).join('')}</div>${groups.map(g => `<div class="fxpanel" id="fxp-${g[0]}" hidden>${g[3].join('')}</div>`).join('')}` : '');
   $$('#fx-body .fxtab').forEach(btn => btn.onclick = () => { const open = btn.getAttribute('aria-expanded') !== 'true'; $$('#fx-body .fxtab').forEach(x => { x.setAttribute('aria-expanded', 'false'); x.classList.remove('on'); }); $$('#fx-body .fxpanel').forEach(p => p.hidden = true); if (open) { btn.setAttribute('aria-expanded', 'true'); btn.classList.add('on'); $('#fxp-' + btn.dataset.g).hidden = false; } });
   wires.forEach(w => { try { w(); } catch (x) {} });
-  const sub = $('#fx-sub'); if (sub) sub.textContent = 'Warming so far, what the models project, very hot days, rainfall' + (SN && SN.d[e.s] ? ', snow' : '') + (G ? ', sea level' : '') + (dv ? ' and disasters' : '') + '.';
+  const sub = $('#fx-sub'); if (sub) sub.textContent = 'Warming so far, what the models project, very hot days, rainfall' + (SN && SN.d[e.s] ? ', snow' : '') + (HU && HU.d[e.s] ? ', humidity' : '') + (G ? ', sea level' : '') + (dv ? ' and disasters' : '') + '.';
 }
 /* ---------- HOME: climate change so far (global indicators) ---------- */
 async function globalFxShow(){
@@ -1562,7 +1574,7 @@ function svgToPng(svg, title, name){
   const xml = new XMLSerializer().serializeToString(c), img = new Image(), url = URL.createObjectURL(new Blob([xml], {type: 'image/svg+xml;charset=utf-8'}));
   img.onload = () => { const k = 2, cv = document.createElement('canvas'); cv.width = W * k; cv.height = (H + TOP + BOT) * k; const g = cv.getContext('2d'); g.scale(k, k);
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H + TOP + BOT); g.fillStyle = '#271039'; g.font = '700 20px Outfit, Helvetica, Arial, sans-serif'; g.fillText(title.slice(0, 90), 16, 30);
-    g.drawImage(img, 0, TOP, W, H); g.fillStyle = '#5f5869'; g.font = '13px Outfit, Helvetica, Arial, sans-serif'; g.fillText('Net Zero Tracker (design prototype). Sources: ' + (name.includes('timeline') ? 'Net Zero Tracker' : /^warming-(stripes|map)/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^(projected-warming|hot-days|rainfall-change)/.test(name) ? 'World Bank Climate Change Knowledge Portal, CMIP6' : /^global-warming/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^global-co2/.test(name) ? 'NOAA Global Monitoring Laboratory' : /^global-disasters/.test(name) ? 'EM-DAT via Our World in Data' : /^snow/.test(name) ? 'Copernicus ERA5 (CC BY)' : /^rainfall-(history|map)/.test(name) ? 'CRU TS 4.08 (University of East Anglia)' : /^sea-level/.test(name) ? 'PSMSL tide gauges' : /^disaster-damage/.test(name) ? 'EM-DAT via Our World in Data' : 'Our World in Data, EDGAR v8.0'), 16, H + TOP + 20);
+    g.drawImage(img, 0, TOP, W, H); g.fillStyle = '#5f5869'; g.font = '13px Outfit, Helvetica, Arial, sans-serif'; g.fillText('Net Zero Tracker (design prototype). Sources: ' + (name.includes('timeline') ? 'Net Zero Tracker' : /^warming-(stripes|map)/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^(projected-warming|hot-days|rainfall-change)/.test(name) ? 'World Bank Climate Change Knowledge Portal, CMIP6' : /^global-warming/.test(name) ? 'Berkeley Earth (CC BY-NC 4.0)' : /^global-co2/.test(name) ? 'NOAA Global Monitoring Laboratory' : /^global-disasters/.test(name) ? 'EM-DAT via Our World in Data' : /^(snow|humidity)/.test(name) ? 'Copernicus ERA5 (CC BY)' : /^rainfall-(history|map)/.test(name) ? 'CRU TS 4.08 (University of East Anglia)' : /^sea-level/.test(name) ? 'PSMSL tide gauges' : /^disaster-damage/.test(name) ? 'EM-DAT via Our World in Data' : 'Our World in Data, EDGAR v8.0'), 16, H + TOP + 20);
     URL.revokeObjectURL(url); const a = document.createElement('a'); a.download = name + '.png'; a.href = cv.toDataURL('image/png'); a.click(); };
   img.src = url;
 }
