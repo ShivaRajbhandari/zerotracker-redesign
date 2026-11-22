@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122h';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122l';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1028,9 +1028,183 @@ async function fxCellMap(id, e, rec, cfg){
   return {svg, wire, step};
 }
 
+/* ---------- the interactive climate map: warming, rainfall and sea level on one draggable, zoomable world map ---------- */
+const GM_W = 1024, GM_CW = 960, GM_CH = 540;   // world square in map units; the picture is 960 x 540
+const GM_LAYERS = {
+  warm: {label: 'Warming', file: 'gm_warm.js', key: 'NZGMw', cols: ['#fff3d6', '#fdd9a0', '#fbb06a', '#f27f4d', '#d9482f', '#b01f24', '#7a0c1c'], lo: 0, hi: 35, minSpan: 10, R: 2, share: 'warming-map'},
+  rain: {label: 'Rainfall', file: 'gm_rain.js', key: 'NZGMr', cols: ['#8c510a', '#bf812d', '#dfc27d', '#f1ece2', '#80cdc1', '#35978f', '#01665e'], lo: -70, hi: 70, minSpan: 30, R: 2, sym: true, share: 'rainfall-map'},
+  sea: {label: 'Sea level', file: 'gm_sea.js', key: 'NZGMs', cols: ['#e3eef9', '#bcd7ee', '#8fbbe0', '#5f9ad0', '#3c76b8', '#27519a', '#17306f'], lo: 0, hi: 70, minSpan: 20, R: 2, share: 'sea-satellite-map'}
+};
+let GM_PREF = 'warm';
+function gmLut(cols){ const rgb = cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))), lut = new Uint32Array(256); for (let i = 0; i < 256; i++) { const x = i / 255 * (cols.length - 1), a = Math.min(cols.length - 2, Math.floor(x)), t = x - a, c = [0, 1, 2].map(j => Math.round(rgb[a][j] * (1 - t) + rgb[a + 1][j] * t)); lut[i] = (255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]; } return lut; }
+function gmPrep(g, R){   // decode the grid and fill squares without data from the nearest square that has some, so colour reaches the coast
+  if (!g._raw) { const bin = atob(g.b), a = new Int8Array(bin.length); for (let i = 0; i < a.length; i++) a[i] = bin.charCodeAt(i) << 24 >> 24; g._raw = a; }
+  if (!g._fill) { const nc = g.nc, nr = g.nr, raw = g._raw, f = new Int8Array(raw); for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) { if (raw[r * nc + c] !== -128) continue; let best = -128, bd = 1e9; for (let dr = -R; dr <= R; dr++) { const rr = r + dr; if (rr < 0 || rr >= nr) continue; for (let dc = -R; dc <= R; dc++) { const v = raw[rr * nc + ((c + dc + nc) % nc)]; if (v !== -128) { const d = dr * dr + dc * dc; if (d < bd) { bd = d; best = v; } } } } f[r * nc + c] = best; } g._fill = f; }
+}
+function gmSample(g, arr, lon, lat){   // bilinear value at a point from the squares that have data (null if none)
+  const nc = g.nc, nr = g.nr, st = g.s, l = ((lon + 180) % 360 + 360) % 360, fc = l / st - .5, fr = (90 - lat) / st - .5, c0 = Math.floor(fc), r0 = Math.floor(fr), tx = fc - c0, ty = fr - r0; let sw = 0, sv = 0;
+  [[c0, r0, (1 - tx) * (1 - ty)], [c0 + 1, r0, tx * (1 - ty)], [c0, r0 + 1, (1 - tx) * ty], [c0 + 1, r0 + 1, tx * ty]].forEach(([c, r, w]) => { if (r < 0 || r >= nr) return; const v = arr[r * nc + ((c % nc) + nc) % nc]; if (v !== -128 && w > 0) { sw += w; sv += v * w; } });
+  return sw > 0 ? sv / sw : null;
+}
+function gmStats(feat, g, pad){   // the values of every grid square inside a place (plus a margin of `pad` degrees, for the sea around the coast)
+  const raw = g._raw, nc = g.nc, st = g.s, b = d3.geoBounds(feat); let lo = b[0][0], hi = b[1][0]; if (hi < lo) hi += 360;
+  const lon0 = lo - pad, lat1 = Math.min(90, b[1][1] + pad), lat0 = Math.max(-90, b[0][1] - pad), w = Math.min(1400, Math.ceil((hi - lo + 2 * pad) / st) + 2), h = Math.min(1000, Math.ceil((lat1 - lat0) / st) + 2);
+  const cv = document.createElement('canvas'); cv.width = w; cv.height = h; const ctx = cv.getContext('2d');
+  const tr = d3.geoTransform({point(x, y){ if (x < lon0) x += 360; this.stream.point((x - lon0) / st, (lat1 - y) / st); }}), path = d3.geoPath(tr, ctx);
+  ctx.fillStyle = '#000'; ctx.beginPath(); path(feat); ctx.fill(); if (pad > 0) { ctx.lineWidth = 2 * pad / st; ctx.lineJoin = 'round'; ctx.strokeStyle = '#000'; ctx.stroke(); }
+  const im = ctx.getImageData(0, 0, w, h).data, vals = [], ws = [];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { if (im[(y * w + x) * 4 + 3] < 128) continue; const lon = lon0 + (x + .5) * st, lat = lat1 - (y + .5) * st, c = Math.floor((((lon + 180) % 360 + 360) % 360) / st), r = Math.floor((90 - lat) / st); if (r < 0 || r >= g.nr) continue; const v = raw[r * nc + c]; if (v !== -128) { vals.push(v); ws.push(Math.cos(lat * Math.PI / 180)); } }
+  return {vals, ws};
+}
+const gmPct = (vals, q) => { if (!vals.length) return null; const s = vals.slice().sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(q * (s.length - 1)))]; };
+const gmMean = (vals, ws) => { let a = 0, b = 0; vals.forEach((v, i) => { a += v * ws[i]; b += ws[i]; }); return b ? a / b : null; };
+function gmWorldMean(g){ if (g._wm == null) { let a = 0, b = 0; for (let r = 0; r < g.nr; r++) { const w = Math.cos((90 - (r + .5) * g.s) * Math.PI / 180); for (let c = 0; c < g.nc; c++) { const v = g._raw[r * g.nc + c]; if (v !== -128) { a += v * w; b += w; } } } g._wm = b ? a / b : 0; } return g._wm; }
+async function fxGlobe(e, P, o){
+  await loadGeo();
+  const U = o.U, NS = 'http://www.w3.org/2000/svg';
+  if (e.t === 'city' && !e.ll) return null;
+  const byIso = {}; D.forEach(x => { if (x.t === 'country' && x.iso) byIso[x.iso] = x; });
+  const worldF = topojson.feature(WORLD, WORLD.objects.countries).features.filter(f => f.id !== '010');
+  const cEntry = e.t === 'country' ? e : D.find(x => x.t === 'country' && x.c === e.c);
+  // the place's own outline (small countries use the finer file)
+  let feat = null;
+  if (e.t === 'country' && e.c === 'EUU') feat = {type: 'FeatureCollection', features: worldF.filter(f => EU27N.includes(f.id))};
+  else if (e.t === 'country') { if (window.__w50 === undefined) { try { window.__w50 = await fetch('world50.json?v=' + FX_V).then(r => r.json()); } catch (x) { window.__w50 = null; } } feat = (window.__w50 ? topojson.feature(window.__w50, window.__w50.objects.countries).features.find(f => f.id === e.iso) : null) || worldF.find(f => f.id === e.iso) || null; }
+  else if (e.t === 'region') { const f = topojson.feature(REG, REG.objects.regions).features.find(f => f.properties.s === e.s); feat = f ? fixWinding(f) : null; }
+  if (e.t !== 'city' && !feat) return null;
+  const regsF = e.c !== 'EUU' && cEntry ? topojson.feature(REG, REG.objects.regions).features.filter(f => BY[f.properties.s] && BY[f.properties.s].c === e.c).map(fixWinding) : [];
+  const boundsOf = f => { const b = d3.geoBounds(f); return [b[0][0], b[0][1], b[1][0] < b[0][0] ? b[1][0] + 360 : b[1][0], b[1][1]]; };
+  const inBox = (bx, lon, lat) => lat >= bx[1] && lat <= bx[3] && [-360, 0, 360].some(sh => lon + sh >= bx[0] && lon + sh <= bx[2]);
+  const wB = worldF.map(f => [f, boundsOf(f)]), rB = regsF.map(f => [f, boundsOf(f)]);
+  // ---- the map's own projection and the vector layers
+  const proj = d3.geoMercator().scale(GM_W / (2 * Math.PI)).translate([GM_W / 2, GM_W / 2]).clipExtent([[-1, -1], [GM_W + 1, GM_W + 1]]), PW = d3.geoPath(proj);
+  const land = PW(topojson.feature(WORLD, WORLD.objects.land)), borders = PW(topojson.mesh(WORLD, WORLD.objects.countries, (a, b) => a !== b));
+  const regB = regsF.length ? regsF.map(f => PW(f)).join('') : '', placeD = feat ? PW(feat) : '';
+  const my = lat => (1 - Math.log(Math.tan(Math.PI / 4 + lat * Math.PI / 360)) / Math.PI) / 2 * GM_W, mx = lon => (lon + 180) / 360 * GM_W;
+  // ---- where to start: centred on the place
+  let T0;
+  const kmin = GM_CH / GM_W, kmax = 40;
+  if (e.t === 'city') { const k = 22; T0 = {k, x: GM_CW / 2 - k * mx(e.ll[1]), y: GM_CH / 2 - k * my(e.ll[0])}; }
+  else { let g = feat; if (feat.geometry && feat.geometry.type === 'MultiPolygon' && boundsOf(feat)[2] - boundsOf(feat)[0] > 120) { try { g = fxClusters(feat, () => true).main.geom; } catch (x) { g = feat; } } const b = boundsOf(g), span = Math.max(b[2] - b[0], 0.5), cl = (b[0] + b[2]) / 2, y0 = my(Math.min(85, b[3])), y1 = my(Math.max(-85, b[1])), k = Math.max(kmin, Math.min(30, 0.78 * GM_CW / (span / 360 * GM_W), 0.78 * GM_CH / Math.max(y1 - y0, 1))); T0 = {k, x: GM_CW / 2 - k * mx(cl), y: GM_CH / 2 - k * (y0 + y1) / 2}; }
+  const uid = 'fx-gm', gp = id => `${uid}-${id}`;
+  const avail = ['warm', 'rain'].concat(o.seaOk ? ['sea'] : []);
+  let layer = avail.includes(GM_PREF) ? GM_PREF : 'warm', mode = 'world';   // 'world' scale or 'place' scale
+  const cur = {};   // per layer: {g, lut}
+  const copies = (href, extra) => [-GM_W, 0, GM_W].map(dx => `<use href="#${href}" x="${dx}" ${extra || ''}/>`).join('');
+  const btn = k => `<button type="button" class="gm-lay${k === layer ? ' on' : ''}" data-l="${k}" aria-pressed="${k === layer}"><b>${GM_LAYERS[k].label}</b></button>`;
+  const html = `<div class="gm-top"><div class="seg segs" role="group" aria-label="Map layer">${avail.map(btn).join('')}</div>${e.t !== 'city' ? `<div class="seg segs" role="group" aria-label="Colour scale"><button type="button" class="gm-sc on" data-m="world" aria-pressed="true"><b>Compare places</b></button><button type="button" class="gm-sc" data-m="place" aria-pressed="false"><b>Highlight ${esc(e.t === 'country' ? 'this country' : 'this place')}</b></button></div>` : ''}</div>
+    <p class="muted mt0" id="gm-lede" style="margin:10px 0 12px"></p>
+    <div id="gm-facts" class="emis-facts"></div>
+    <div class="gm-wrap" id="gm-wrap" tabindex="0" role="application" aria-label="Interactive map. Drag to move, plus and minus keys to zoom."><canvas id="gm-cv" width="${GM_CW}" height="${GM_CH}"></canvas>
+      <svg id="${uid}-svg" class="gm-svg" viewBox="0 0 ${GM_CW} ${GM_CH}" role="img" aria-label="Map of ${esc(P)} and the world"><defs><path id="gm-ocean" fill-rule="evenodd" fill="#e8eef4" d="M0 0H${GM_W}V${GM_W}H0Z${land}"/><path id="gm-land" fill="#dcd8e2" d="${land}"/><g id="gm-rest"><path d="${land}" fill="none" stroke="rgba(39,16,57,.55)" stroke-width=".6" vector-effect="non-scaling-stroke"/><path d="${borders}" fill="none" stroke="rgba(39,16,57,.35)" stroke-width=".5" vector-effect="non-scaling-stroke"/>${regB ? `<path d="${regB}" fill="none" stroke="rgba(39,16,57,.3)" stroke-width=".5" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"/>` : ''}${placeD ? `<path d="${placeD}" fill="none" stroke="#fff" stroke-width="4.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><path d="${placeD}" fill="none" stroke="#271039" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` : ''}</g></defs>
+        <g id="gm-g"><g id="gm-masks">${copies('gm-ocean')}</g>${copies('gm-rest')}</g><circle id="gm-city" r="6.5" fill="#E13B26" stroke="#fff" stroke-width="2.5" opacity="0"/></svg>
+      <div class="gm-zoom"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">−</button><button type="button" data-z="reset" aria-label="Back to ${esc(P)}" title="Back to ${esc(P)}">⌖</button></div>
+      <div class="gm-hint">Drag to move · pinch, or Ctrl/⌘ + scroll, to zoom</div></div>
+    <div class="gm-leg" id="gm-leg"></div>`;
+  const wire = () => {
+    const wrap = $('#gm-wrap'), cv = $('#gm-cv'), svgEl = $('#' + uid + '-svg'); if (!wrap || !cv || !svgEl) return;
+    const ctx = cv.getContext('2d'), gG = $('#gm-g'), cityEl = $('#gm-city'), masks = $('#gm-masks'), sel = d3.select(svgEl);
+    const img = ctx.createImageData(GM_CW, GM_CH), px = new Uint32Array(img.data.buffer);
+    let T = {k: T0.k, x: T0.x, y: T0.y}, raf = 0, L = null;
+    const cc0 = new Int32Array(GM_CW), cc1 = new Int32Array(GM_CW), cfx = new Float32Array(GM_CW);
+    const draw = () => {
+      raf = 0; gG.setAttribute('transform', `translate(${T.x} ${T.y}) scale(${T.k})`);
+      if (e.t === 'city') { let wx = mx(e.ll[1]); const sx = T.x + T.k * wx; const n = Math.round((GM_CW / 2 - sx) / (T.k * GM_W)); cityEl.setAttribute('cx', (sx + n * T.k * GM_W).toFixed(1)); cityEl.setAttribute('cy', (T.y + T.k * my(e.ll[0])).toFixed(1)); cityEl.setAttribute('opacity', 1); }
+      if (!L || !L.g) return;
+      const g = L.g, F = g._fill, nc = g.nc, nr = g.nr, st = g.s, lo = L.lo, hi = L.hi, lut = L.lut;
+      for (let x = 0; x < GM_CW; x++) { const lon = ((((x - T.x) / T.k) / GM_W * 360 - 180) % 360 + 540) % 360 - 180, fc = (lon + 180) / st - .5, c = Math.floor(fc); cfx[x] = fc - c; cc0[x] = (c + nc) % nc; cc1[x] = (c + 1 + nc) % nc; }
+      for (let y = 0; y < GM_CH; y++) {
+        const wy = (y - T.y) / T.k, o2 = y * GM_CW;
+        if (wy < 0 || wy > GM_W) { px.fill(0, o2, o2 + GM_CW); continue; }
+        const lat = Math.atan(Math.sinh(Math.PI * (1 - 2 * wy / GM_W))) * 180 / Math.PI, fr = (90 - lat) / st - .5, r0 = Math.max(0, Math.min(nr - 1, Math.floor(fr))), r1 = Math.min(nr - 1, r0 + 1), fy = Math.max(0, Math.min(1, fr - Math.floor(fr))), a = r0 * nc, b = r1 * nc;
+        for (let x = 0; x < GM_CW; x++) {
+          const tx = cfx[x], v00 = F[a + cc0[x]], v10 = F[a + cc1[x]], v01 = F[b + cc0[x]], v11 = F[b + cc1[x]];
+          let sw = 0, sv = 0, w;
+          if (v00 !== -128) { w = (1 - tx) * (1 - fy); sw += w; sv += w * v00; }
+          if (v10 !== -128) { w = tx * (1 - fy); sw += w; sv += w * v10; }
+          if (v01 !== -128) { w = (1 - tx) * fy; sw += w; sv += w * v01; }
+          if (v11 !== -128) { w = tx * fy; sw += w; sv += w * v11; }
+          if (sw < 0.05) { px[o2 + x] = 0; continue; }
+          let q = Math.round((sv / sw - lo) / (hi - lo) * 255); px[o2 + x] = lut[q < 0 ? 0 : q > 255 ? 255 : q];
+        }
+      }
+      ctx.putImageData(img, 0, 0);
+    };
+    const sched = () => { if (!raf) raf = requestAnimationFrame(draw); };
+    const zoom = d3.zoom().scaleExtent([kmin, kmax]).extent([[0, 0], [GM_CW, GM_CH]]).translateExtent([[-1e7, 0], [1e7, GM_W]])
+      .filter(ev => ev.type === 'wheel' ? (ev.ctrlKey || ev.metaKey) : ev.type.startsWith('touch') ? ev.touches.length > 1 : !ev.button)
+      .on('zoom', ev => { T = {k: ev.transform.k, x: ev.transform.x, y: ev.transform.y}; sched(); });
+    sel.call(zoom).on('dblclick.zoom', null);
+    const home = () => d3.zoomIdentity.translate(T0.x, T0.y).scale(T0.k);
+    sel.call(zoom.transform, home()); T = {k: T0.k, x: T0.x, y: T0.y};
+    $$('.gm-zoom button').forEach(b => b.onclick = () => { const z = b.dataset.z; if (z === 'reset') sel.transition().duration(600).call(zoom.transform, home()); else sel.transition().duration(250).call(zoom.scaleBy, z === 'in' ? 1.7 : 1 / 1.7); });
+    wrap.addEventListener('keydown', ev => { const m = {ArrowLeft: [60, 0], ArrowRight: [-60, 0], ArrowUp: [0, 60], ArrowDown: [0, -60]}[ev.key]; if (m) { ev.preventDefault(); sel.call(zoom.translateBy, m[0] / T.k, m[1] / T.k); } else if (ev.key === '+' || ev.key === '=') sel.transition().duration(200).call(zoom.scaleBy, 1.5); else if (ev.key === '-') sel.transition().duration(200).call(zoom.scaleBy, 1 / 1.5); else if (ev.key === '0') sel.transition().duration(400).call(zoom.transform, home()); });
+    // ---- what is under the pointer
+    const lonlat = ev => { const r = svgEl.getBoundingClientRect(), x = (ev.clientX - r.left) / r.width * GM_CW, y = (ev.clientY - r.top) / r.height * GM_CH, wy = (y - T.y) / T.k; if (wy < 0 || wy > GM_W) return null; return [((((x - T.x) / T.k) / GM_W * 360 - 180) % 360 + 540) % 360 - 180, Math.atan(Math.sinh(Math.PI * (1 - 2 * wy / GM_W))) * 180 / Math.PI]; };
+    const hit = ll => { const rg = rB.find(([f, bx]) => inBox(bx, ll[0], ll[1]) && d3.geoContains(f, ll)); if (rg) return {slug: rg[0].properties.s, name: BY[rg[0].properties.s].n}; const c = wB.find(([f, bx]) => inBox(bx, ll[0], ll[1]) && d3.geoContains(f, ll)); if (c) { const x = byIso[c[0].id]; return {slug: x ? x.s : null, name: x ? x.n : (c[0].properties && c[0].properties.name) || 'Land', land: true}; } return null; };
+    const fmtV = (v, lay) => lay === 'warm' ? (v >= 0 ? '+' : '−') + Math.abs(v / 10 * U.k).toFixed(1) + ' ' + U.u : lay === 'rain' ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)) + '%' : (v >= 0 ? '+' : '−') + Math.abs(v / 10).toFixed(1) + ' mm a year';
+    const WHAT = {warm: 'warmer than in 1951–1980', rain: 'rain and snow a year, vs 1951–1980', sea: 'sea level rise a year since 1993'};
+    sel.on('mousemove.tip', ev => { const ll = lonlat(ev); if (!ll) { hideTip(); return; } const h = hit(ll); let v = null; if (L && L.g) { v = gmSample(L.g, L.g._raw, ll[0], ll[1]); if (v == null && h && layer !== 'sea') v = gmSample(L.g, L.g._fill, ll[0], ll[1]); if (layer === 'sea' && h && v != null && !gmSample(L.g, L.g._raw, ll[0], ll[1])) v = null; }
+      if (!h && v == null) { hideTip(); return; }
+      showTip(`<div class="tipms">${h ? `<b>${esc(h.name)}</b>` : `<b>Open water</b>`}${v != null ? `<div class="mrow"><span class="my">${fmtV(v, layer)}</span><span>${WHAT[layer]}</span></div>` : `<div class="mrow"><span class="my"></span><span>${layer === 'sea' && h ? 'Land: satellites measure the sea' : 'No data here'}</span></div>`}${h && h.slug && h.slug !== e.s ? '<div class="mrow"><span class="my"></span><span style="color:#7a7385">Click to open its profile</span></div>' : ''}</div>`, ev); });
+    sel.on('mouseleave.tip', hideTip);
+    sel.on('click.go', ev => { if (ev.defaultPrevented) return; const ll = lonlat(ev); if (!ll) return; const h = hit(ll); if (h && h.slug && h.slug !== e.s) { hideTip(); location.hash = '#/e/' + h.slug; } });
+    // ---- layers
+    const place = {};   // cached stats per layer for this place
+    const fx = (v, lay) => lay === 'warm' ? (v >= 0 ? '+' : '−') + Math.abs(v / 10 * U.k).toFixed(1) + U.u : lay === 'rain' ? (v > 0 ? '+' : v < 0 ? '−' : '') + Math.abs(Math.round(v)) + '%' : (v >= 0 ? '+' : '−') + Math.abs(v / 10).toFixed(1);
+    const TXT = {
+      warm: {lede: () => `How much warmer ${esc(P)} and the rest of the world is in 2015–2024 than it was in 1951–1980. Darker is hotter.`, src: `<b>Source:</b> Berkeley Earth, <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">High Resolution Dataset</a> (CC BY-NC 4.0), land air temperature on a 0.25° grid, averaged into 0.5° squares and smoothed on screen. Places with few weather stations are estimated from nearby ones, so small differences between neighbouring squares are not reliable. Land only.`, legend: 'Warming, 2015–2024 compared with 1951–1980'},
+      rain: {lede: () => `How much more or less rain and snow falls in a year in 1994–2023 than in 1951–1980. Green-blue is wetter and brown drier. Rainfall changes are patchy and swing from decade to decade, so read this as a broad pattern.`, src: `<b>Source:</b> Climatic Research Unit, University of East Anglia, <a href="https://crudata.uea.ac.uk/cru/data/hrg/" target="_blank" rel="noopener">CRU TS 4.08</a> (Harris et al., 2020), via the World Bank Climate Change Knowledge Portal; Open Database License. 0.5° grid, smoothed on screen. Very dry areas (under 25 mm a year in 1951–1980) are left blank because a percentage change there means little. Land only.`, legend: 'Change in yearly rain and snow, 1994–2023 compared with 1951–1980'},
+      sea: {lede: () => `How fast the sea surface has risen, 1993–${SSY1}, measured by satellites. Darker blue is faster. The land is grey.`, src: `<b>Source:</b> Generated using E.U. Copernicus Marine Service information; Copernicus Climate Change Service: <a href="https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global" target="_blank" rel="noopener">satellite sea level</a> (vDT2024), CC BY. The trend in each 0.25° square is a straight line through its yearly averages, averaged into 0.5° squares. Changes in sea level are partly natural (ocean currents and cycles such as El Niño move water around), so differences between areas over 30 years do not all come from climate change. It measures the sea itself, not its height against the land, and is less reliable very close to shore.`, legend: 'Sea level change, mm a year'}
+    };
+    const SSY1 = 2025;
+    const setScale = () => { const d = GM_LAYERS[layer]; let lo = d.lo, hi = d.hi; const ps = place[layer]; if (mode === 'place' && ps && ps.p5 != null) { if (d.sym) { const m = Math.max(15, Math.ceil(Math.max(Math.abs(ps.p5), Math.abs(ps.p95)) / 5) * 5); lo = -m; hi = m; } else { lo = Math.floor(ps.p5 / 5) * 5; hi = Math.max(Math.ceil(ps.p95 / 5) * 5, lo + d.minSpan); } } L.lo = lo; L.hi = hi; };
+    const legend = () => { const d = GM_LAYERS[layer], n = 7, ed = Array.from({length: n + 1}, (_, i) => L.lo + (L.hi - L.lo) * i / n); $('#gm-leg').innerHTML = `<div class="gm-cap">${TXT[layer].legend}${mode === 'place' ? ` <i>(colours stretched to ${esc(P)})</i>` : ''}</div><div class="gm-bar" style="background:linear-gradient(90deg,${d.cols.join(',')})"></div><div class="gm-ticks">${ed.map(t => `<span>${fx(t, layer)}</span>`).join('')}</div>`; };
+    const facts = () => {
+      const g = L.g, d = GM_LAYERS[layer], ps = place[layer], wm = gmWorldMean(g), out = [];
+      if (e.t === 'city') { const v = gmSample(g, g._fill, e.ll[1], e.ll[0]); if (v != null) out.push([layer === 'sea' ? 'Sea level rise nearby' : layer === 'warm' ? 'Warming here' : 'Rain and snow here', fx(v, layer) + (layer === 'sea' ? ' mm a year' : layer === 'warm' ? ' ' : ''), '']); }
+      else if (ps && ps.n) {
+        if (layer === 'warm') out.push(['Fastest-warming areas', fx(ps.p95, 'warm'), ''], ['Slowest-warming areas', fx(ps.p5, 'warm'), ''], ['Typical', fx(ps.mean, 'warm'), '']);
+        else if (layer === 'rain') out.push(['Area with more rain (over 5%)', Math.round(ps.up * 100) + '%', ''], ['Area with less rain (over 5%)', Math.round(ps.dn * 100) + '%', '']);
+        else out.push(['Fastest-rising waters', fx(ps.p95, 'sea') + ' mm a year', ''], ['Slowest-rising waters', fx(ps.p5, 'sea') + ' mm a year', ''], ['Average', fx(ps.mean, 'sea') + ' mm a year', '']);
+      } else if (layer === 'sea') out.push(['Satellite data', 'None near this place', '']);
+      out.push([layer === 'sea' ? 'World ocean average' : 'World land average', layer === 'warm' ? fx(wm, 'warm') : layer === 'rain' ? fx(wm, 'rain') : fx(wm, 'sea') + ' mm a year', '']);
+      $('#gm-facts').innerHTML = out.map(r => `<div><span>${r[0]}</span><b>${r[1]}</b></div>`).join('');
+    };
+    const apply = async lay => {
+      layer = lay; GM_PREF = lay; const d = GM_LAYERS[lay];
+      if (!window[d.key]) { $('#gm-facts').innerHTML = '<div><span>Loading the map…</span><b></b></div>'; await loadScr(d.file, d.key); }
+      if (layer !== lay) return;
+      const g = window[d.key]; gmPrep(g, d.R); if (!cur[lay]) cur[lay] = {g, lut: gmLut(d.cols)};
+      L = Object.assign({lo: d.lo, hi: d.hi}, cur[lay]);
+      if (feat && !place[lay]) { const s = gmStats(feat, g, lay === 'sea' ? 1.0 : 0); place[lay] = s.vals.length ? {n: s.vals.length, p5: gmPct(s.vals, .05), p95: gmPct(s.vals, .95), mean: gmMean(s.vals, s.ws), up: s.vals.filter(v => v > 5).length / s.vals.length, dn: s.vals.filter(v => v < -5).length / s.vals.length} : {n: 0}; }
+      setScale(); masks.innerHTML = copies(lay === 'sea' ? 'gm-land' : 'gm-ocean');
+      $('#gm-lede').innerHTML = TXT[lay].lede(); $('#gm-src').innerHTML = TXT[lay].src; legend(); facts(); draw();
+      $$('.gm-lay').forEach(b => { const on = b.dataset.l === lay; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
+    };
+    $$('.gm-lay').forEach(b => b.onclick = () => apply(b.dataset.l));
+    $$('.gm-sc').forEach(b => b.onclick = () => { mode = b.dataset.m; $$('.gm-sc').forEach(x => { x.classList.toggle('on', x === b); x.setAttribute('aria-pressed', x === b); }); setScale(); legend(); draw(); });
+    apply(layer);
+    // ---- sharing: a picture of what is on screen
+    const snap = () => {
+      if (!L) return null; const H = GM_CH + 56, s = document.createElementNS(NS, 'svg'); s.setAttribute('viewBox', `0 0 ${GM_CW} ${H}`);
+      const d = GM_LAYERS[layer], defs = svgEl.querySelector('defs').cloneNode(true), g2 = gG.cloneNode(true);
+      s.innerHTML = `<rect width="${GM_CW}" height="${H}" fill="#fff"/><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${GM_CW}" height="${GM_CH}"/>`;
+      s.appendChild(defs); s.appendChild(g2);
+      const lw = 520, lx = (GM_CW - lw) / 2, n = 7, ed = Array.from({length: n + 1}, (_, i) => L.lo + (L.hi - L.lo) * i / n);
+      s.insertAdjacentHTML('beforeend', `<linearGradient id="gm-lgr"><stop offset="0" stop-color="${d.cols[0]}"/>${d.cols.map((c, i) => `<stop offset="${i / (d.cols.length - 1)}" stop-color="${c}"/>`).join('')}</linearGradient><rect x="${lx}" y="${GM_CH + 18}" width="${lw}" height="11" fill="url(#gm-lgr)"/>${ed.map((t, i) => `<text x="${lx + lw * i / n}" y="${GM_CH + 46}" text-anchor="middle" font-size="12" fill="#5f5869">${fx(t, layer)}</text>`).join('')}<text x="${GM_CW / 2}" y="${GM_CH + 12}" text-anchor="middle" font-size="12" fill="#7a7385">${esc(TXT[layer].legend)}</text>`);
+      if (e.t === 'city') s.insertAdjacentHTML('beforeend', `<circle cx="${cityEl.getAttribute('cx')}" cy="${cityEl.getAttribute('cy')}" r="6.5" fill="#E13B26" stroke="#fff" stroke-width="2.5"/>`);
+      return s;
+    };
+    const shareText = () => { const ps = place[layer], d = GM_LAYERS[layer]; if (layer === 'warm') return ps && ps.n ? `Parts of ${P} have warmed by as much as ${fx(ps.p95, 'warm')} since 1951–1980, while others have warmed by ${fx(ps.p5, 'warm')} (Berkeley Earth). #ClimateAction` : `See how fast the climate is warming around ${P} (Berkeley Earth). #ClimateAction`; if (layer === 'rain') return ps && ps.n ? `${Math.round(ps.up * 100)}% of ${P} gets noticeably more rain and snow than in 1951–1980, and ${Math.round(ps.dn * 100)}% gets noticeably less (CRU TS). #ClimateAction` : `See where rainfall is changing around ${P} (CRU TS). #ClimateAction`; return ps && ps.n ? `Sea level around ${P} has risen by as much as ${fx(ps.p95, 'sea')} mm a year since 1993, and by as little as ${fx(ps.p5, 'sea')} mm in other places (Copernicus satellites). #ClimateAction` : `See how fast the sea is rising around ${P} (Copernicus satellites). #ClimateAction`; };
+    shareWire('sh-fx-gm', {url: () => location.href.split('#')[0] + '#/e/' + e.s, get name() { return GM_LAYERS[layer].share + '-' + e.s; }, title: () => ({warm: 'Where ' + P + ' is warming fastest', rain: 'Where rainfall is changing near ' + P, sea: 'Where the sea is rising fastest near ' + P})[layer], svg: snap, text: shareText});
+  };
+  return {html, wire};
+}
+
 async function fxRender(e){
   const body = $('#fx-body'); if (!body) return;
-  let S, F, SL, DS, SN, PR, WM, PM, HU, SS; try { [S, F, SL, DS, SN, PR, WM, PM, HU, SS] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('wmap.js', 'NZWM'), loadScr('pmap.js', 'NZPM'), loadScr('hum.js', 'NZHU'), e.t === 'country' || e.t === 'region' ? loadScr('sealsat.js', 'NZSS') : null]); } catch (err) { console.error(err); }
+  let S, F, SL, DS, SN, PR, HU, SS; try { [S, F, SL, DS, SN, PR, HU, SS] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('hum.js', 'NZHU'), e.t === 'country' || e.t === 'region' ? loadScr('sealsat.js', 'NZSS') : null]); } catch (err) { console.error(err); }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
   const P = fxPlace(e), blocks = [], wires = [], fxg = {snow: [], precip: [], humid: []};   // the three weather groups sit in their own dropdowns at the bottom
   let G = null, dv = null;   // set inside the sections, used for the sub-title
@@ -1040,22 +1214,10 @@ async function fxRender(e){
   if (r) { blocks.push(`<div class="fxblock" id="fxb-str"><div class="shead"><h3>Warming stripes</h3>${shareBarHtml('sh-str')}</div><p class="muted mt0" style="margin-bottom:8px">How the average temperature in ${esc(e.t === 'region' ? placeName(e) : P)} has changed since ${r.y0}. Each stripe is one year: blue years were cooler than the 1971–2000 average, red years warmer.</p><div class="card emis"><div class="emis-facts">${r.facts}</div>${r.svg}<p class="muted emis-src"><b>Source:</b> <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">Berkeley Earth</a> High Resolution Dataset (April 2026), land air temperature on a 0.25° grid (about 25 km), CC BY-NC 4.0. ${e.t === 'city' ? 'This is the temperature at the city’s location, not for a wider area.' : `This averages the land inside the ${regTerm(e)[0]}’s outline.`} Light grey stripes are years with no usable record; the early decades rest on few weather stations and are less certain. The colours follow the “warming stripes” by climate scientist <a href="https://showyourstripes.info" target="_blank" rel="noopener">Ed Hawkins</a>: the scale runs ±2.6 standard deviations around the 1971–2000 average.</p></div></div>`);
     wires.push(() => { stripesWire(e, r); const d1 = r.d1951; fxShare('str', e, 'warming-stripes', 'Warming stripes: ' + P, `${P} has warmed ${d1 != null ? fxSign(d1 * r.k) + r.u + ' in the last 10 years compared with 1951–1980' : 'since 1850'}${r.hot != null ? `, and ${r.hot} of its 10 hottest years on record have come since 2015` : ''}. Each stripe is one year, from 1850 to 2025. #ClimateAction`); }); }
   } catch (err) { console.error(err); }
-  // 1b. where within the place it is warming fastest
+  // 1b. the interactive climate map: warming, rainfall and (for coasts) sea level on one draggable world map
   try {
-  const WR = WM && WM.d[e.s];
-  if (WR && e.t !== 'city') {
-    const U = fxU(e), vs = WR[5].filter(v => v !== 999), lo0 = Math.min(...vs), hi0 = Math.max(...vs), mid = (lo0 + hi0) / 2, span = Math.max(hi0 - lo0, 10), lo = mid - span / 2, hi = mid + span / 2, n = 7;   // at least a 1° spread, so an even place looks even
-    const cols = ['#fff3d6', '#fdd9a0', '#fbb06a', '#f27f4d', '#d9482f', '#b01f24', '#7a0c1c'], f1 = t => { const x = t / 10 * U.k; return (x >= 0 ? '+' : '−') + Math.abs(x).toFixed(1) + U.u; };
-    const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n)), mean = vs.reduce((a, b) => a + b, 0) / vs.length;
-    const m = await fxCellMap('fx-wm', e, WR, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Warming, 2015–2024 compared with 1951–1980', aria: `Map of how much each part of ${P} has warmed since 1951–1980. Areas range from ${f1(lo0)} to ${f1(hi0)}.`, fmt: v => f1(v), what: 'warmer than 1951–1980', regAvg: sl => { const r = WM.d[sl]; if (!r) return null; const a = r[5].filter(x => x !== 999); return a.length ? a.reduce((p, c) => p + c, 0) / a.length : null; }});
-    if (m) {
-      const fast = f1(hi0), slow = f1(lo0);
-      blocks.push(fxBlock('fx-wm', 'Which parts are warming fastest?', `How much warmer each part of ${esc(P)} is in 2015–2024 than it was in 1951–1980. Darker areas have warmed more. The colours are scaled to ${esc(P)} itself, so the map shows which parts are warming faster or slower than the rest, not how ${esc(P)} compares with other places.${hi0 - lo0 < 5 ? ` Warming is fairly even across ${esc(P)}: the difference between its fastest and slowest areas is under half a degree Celsius.` : ''}`,
-        `<div class="emis-facts"><div><span>Fastest-warming areas</span><b>${fast}</b></div><div><span>Slowest-warming areas</span><b>${slow}</b></div><div><span>Typical</span><b>${f1(mean)}</b></div></div>` + m.svg,
-        `<b>Source:</b> Berkeley Earth, <a href="https://berkeleyearth.org/data/" target="_blank" rel="noopener">High Resolution Dataset</a> (CC BY-NC 4.0), land air temperature on a 0.25° grid, shown in squares of ${m.step}°. Hover over the map to read a square; on countries, hover over a region outline to see its average and click to open it. Places with few weather stations are estimated from nearby ones, so small differences between neighbouring squares are not reliable.`));
-      wires.push(() => { m.wire(); fxShare('fx-wm', e, 'warming-map', 'Where ' + P + ' is warming fastest', `Parts of ${P} have warmed by as much as ${fast} since 1951–1980, while others have warmed by ${slow} (Berkeley Earth). #ClimateAction`); });
-    }
-  }
+  const sD = SS && SS.d[e.s], gm = await fxGlobe(e, P, {U: fxU(e), seaOk: !!sD || (e.t !== 'country' && !!(SL && SL[e.s])), sD});
+  if (gm) { blocks.push(fxBlock('fx-gm', 'Explore the climate map', 'Drag the map to explore the world, starting from ' + esc(P) + '. Switch between how much warmer it is, how rainfall has changed and, on coasts, how fast the sea is rising.', gm.html, '<span id="gm-src"></span>')); wires.push(gm.wire); }
   } catch (err) { console.error(err); }
   // 2. temperature ahead
   try {
@@ -1107,23 +1269,6 @@ async function fxRender(e){
     const facts = `<div class="emis-facts"><div><span>1951–1980 average</span><b>${fm(a1)} a year</b></div><div><span>1994–2023 average</span><b>${fm(a2)} a year</b></div><div><span>Change</span><b>${ch >= 0 ? '+' : '−'}${Math.abs(Math.round(ch))}%</b></div></div>`;
     fxg.precip.push(fxBlock('fx-pr', 'How much rain has fallen?', `The total rain and snow that fell in a year in ${esc(P)}, measured by weather stations and mapped on a grid.`, facts + svg + `<div class="emis-key"><span><i style="background:#0b7a6b;height:4px"></i>11-year average</span><span><i style="background:#8fd3c4;height:2px"></i>Each year</span></div>`, `<b>Source:</b> Climatic Research Unit, University of East Anglia, <a href="https://crudata.uea.ac.uk/cru/data/hrg/" target="_blank" rel="noopener">CRU TS 4.08</a> (Harris et al., 2020), via the World Bank Climate Change Knowledge Portal; Open Database License. Gridded at 0.5° (about 50 km) from rain-gauge records, averaged over ${e.t === 'city' ? 'the grid cell around the city' : 'the place’s outline'}. Where there are few weather stations the maps are smoother and less certain, and individual years are noisier than the average.`));
     wires.push(() => { fxLineWire('fx-pr'); fxShare('fx-pr', e, 'rainfall-history', 'Rainfall: ' + P, `${P} received about ${fm(a2)} of rain and snow a year in 1994–2023, ${Math.abs(Math.round(ch)) < 1 ? 'about the same as' : Math.abs(Math.round(ch)) + '% ' + (ch < 0 ? 'less than' : 'more than')} in 1951–1980 (CRU TS). #ClimateAction`); });
-  }
-  } catch (err) { console.error(err); }
-  // 4a-2. where within the place the rain has changed
-  try {
-  const PQ = PM && PM.d[e.s];
-  if (PQ && e.t !== 'city') {
-    const vs = PQ[5].filter(v => v !== 999), mx = Math.max(20, Math.ceil(Math.max(...vs.map(Math.abs)) / 10) * 10), n = 7, lo = -mx, hi = mx;
-    const cols = ['#8c510a', '#bf812d', '#dfc27d', '#f1ece2', '#80cdc1', '#35978f', '#01665e'], f1 = t => (t > 0 ? '+' : t < 0 ? '−' : '') + Math.abs(Math.round(t)) + '%';
-    const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n));
-    const m = await fxCellMap('fx-pm', e, PQ, {cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: 'Change in yearly rain and snow, 1994–2023 compared with 1951–1980', aria: `Map of where rain and snow have increased or decreased in ${P} between 1951–1980 and 1994–2023.`, fmt: v => f1(v), what: 'rain and snow a year vs 1951–1980', regAvg: sl => { const r = PM.d[sl]; if (!r) return null; const a = r[5].filter(x => x !== 999); return a.length ? a.reduce((p, c) => p + c, 0) / a.length : null; }});
-    if (m) {
-      const wet = vs.filter(v => v > 5).length / vs.length, dry = vs.filter(v => v < -5).length / vs.length;
-      fxg.precip.push(fxBlock('fx-pm', 'Which parts are getting wetter or drier?', `The change in yearly rain and snow across ${esc(P)}, comparing 1994–2023 with 1951–1980. Brown areas have become drier and green-blue areas wetter. Rainfall changes are patchy and vary a lot from decade to decade, so read this as a broad pattern.`,
-        `<div class="emis-facts"><div><span>Area with more rain (over 5%)</span><b>${Math.round(wet * 100)}%</b></div><div><span>Area with less rain (over 5%)</span><b>${Math.round(dry * 100)}%</b></div></div>` + m.svg,
-        `<b>Source:</b> Climatic Research Unit, University of East Anglia, <a href="https://crudata.uea.ac.uk/cru/data/hrg/" target="_blank" rel="noopener">CRU TS 4.08</a> (Harris et al., 2020), via the World Bank Climate Change Knowledge Portal; Open Database License. 0.5° grid, shown in squares of ${m.step}°. Very dry areas (under 25 mm a year in 1951–1980) are left blank because a percentage change there means little.`));
-      wires.push(() => { m.wire(); fxShare('fx-pm', e, 'rainfall-map', 'Where rainfall is changing in ' + P, `${Math.round(wet * 100)}% of ${P} gets noticeably more rain and snow than in 1951–1980, and ${Math.round(dry * 100)}% gets noticeably less (CRU TS). #ClimateAction`); });
-    }
   }
   } catch (err) { console.error(err); }
   // 4. rain
@@ -1182,17 +1327,6 @@ async function fxRender(e){
       blocks.push(fxBlock('fx-ss', 'Rising seas', `Average sea level in the waters within about 100 km of the coast of ${esc(P)}, measured by satellites, compared with the 1993–2002 average.`, `<div class="emis-facts"><div><span>Average rise a year</span><b>${sgn(slope)} mm</b></div><div><span>Rise since ${y0}</span><b>${rise >= 0 ? '+' : '−'}${Math.abs(rise)} mm</b></div></div>${svg}<div class="emis-key"><span><i style="background:#08519c;height:4px"></i>3-year average</span><span><i style="background:#9ecae1;height:2px"></i>Each year</span></div>`,
         `<b>Source:</b> Generated using E.U. Copernicus Marine Service information; Copernicus Climate Change Service: <a href="https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global" target="_blank" rel="noopener">Sea level gridded data from satellite observations for the global ocean</a> (vDT2024, 0.25° grid, monthly), CC BY. We averaged the sea-surface height of every grid square of open water within about 100 km of the coast, weighting by area. Satellites measure the height of the sea itself, not its height against the land, so this does not include land that is sinking or rising, which can make the rise at a particular harbour faster or slower. Satellite readings are also less reliable very close to shore.`));
       wires.push(() => { fxLineWire('fx-ss'); fxShare('fx-ss', e, 'sea-satellite', 'Sea level: ' + P, `Satellites show the sea around ${P} rising about ${Math.abs(slope).toFixed(1)} mm a year since ${y0}, ${Math.abs(rise)} mm in total (Copernicus). #ClimateAction`); });
-    }
-    if (grid) {
-      const vs = grid[5].filter(v => v !== 999).sort((a, b) => a - b), q = f => vs[Math.min(vs.length - 1, Math.floor(f * (vs.length - 1)))];
-      const lo0 = q(0.05), hi0 = q(0.95), lo = Math.floor(lo0 / 10) * 10, hi = Math.max(Math.ceil(hi0 / 10) * 10, lo + 30), n = 7;
-      const cols = ['#e3eef9', '#bcd7ee', '#8fbbe0', '#5f9ad0', '#3c76b8', '#27519a', '#17306f'], f1 = t => (t / 10 >= 0 ? '+' : '−') + Math.abs(t / 10).toFixed(1);
-      const edges = Array.from({length: n + 1}, (_, i) => f1(lo + (hi - lo) * i / n));
-      const m = await fxCellMap('fx-sm', e, grid, {ocean: true, cols, edges, bin: v => Math.max(0, Math.min(n - 1, Math.floor((v - lo) / (hi - lo) * n))), legend: `Sea level change, mm a year, ${y0}–${SS.y1}`, aria: `Map of how fast sea level has risen in the waters around ${P} since ${y0}.`, fmt: v => f1(v) + ' mm', what: 'sea level rise a year', regAvg: () => null});
-      if (m) blocks.push(fxBlock('fx-sm', 'Where is the sea rising fastest?', `How fast the sea surface has risen, in each square of water within about 100 km of the coast of ${esc(P)}, as an average over ${y0}–${SS.y1}. Darker blue is faster. The land is shaded grey.`,
-        `<div class="emis-facts"><div><span>Fastest-rising waters</span><b>${f1(hi0)} mm a year</b></div><div><span>Slowest-rising waters</span><b>${f1(lo0)} mm a year</b></div><div><span>Average</span><b>${sgn(slope)} mm a year</b></div></div>` + m.svg,
-        `<b>Source:</b> Copernicus Climate Change Service, <a href="https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global" target="_blank" rel="noopener">satellite sea level</a> (vDT2024), CC BY. The trend in each 0.25° square is a straight line through its yearly averages, shown in squares of ${m.step}°; the fastest and slowest figures leave out the extreme 5% at each end. Changes in sea level are partly natural (ocean currents and cycles such as El Niño move water around), so differences between neighbouring areas over 30 years do not all come from climate change. It measures the sea itself, not its height against the land.`));
-      if (m) wires.push(() => { m.wire(); fxShare('fx-sm', e, 'sea-satellite-map', 'Where the sea is rising fastest near ' + P, `Sea level around ${P} has risen by as much as ${f1(hi0)} mm a year since ${y0}, and as little as ${f1(lo0)} mm in other places (Copernicus satellites). #ClimateAction`); });
     }
   }
   } catch (err) { console.error(err); }
@@ -1889,7 +2023,7 @@ function countingHtml(){
   return `<section class="band" id="counting"><div class="wrap">
     <div class="center"><h2 class="h-brand">Why the way we count emissions matters</h2>
     <p class="lede">Ask “who is responsible for climate change?” and the answer depends on how you count. Countries argue hard about this in climate talks, because it decides who should cut first and who should pay. Try the six ways of counting below: three time periods, each for the whole country or per person.</p></div>
-    <div class="cnt-ctl"><div class="seg segs" id="cnt-when" role="group" aria-label="Which years to count"><button data-w="year" class="on"><b>This year</b></button><button data-w="1990"><b>Since 1990</b></button><button data-w="1850"><b>Since 1850</b></button></div>
+    <div class="cnt-ctl"><div class="seg segs" id="cnt-when" role="group" aria-label="Which years to count"><button data-w="year" class="on"><b>Latest year</b></button><button data-w="1990"><b>Since 1990</b></button><button data-w="1850"><b>Since 1850</b></button></div>
     <div class="seg segs" id="cnt-how" role="group" aria-label="Total or per person"><button data-h="tot" class="on"><b>Whole country</b></button><button data-h="pp"><b>Per person</b></button></div></div>
     <div class="grid2 mt1 cnt-grid" style="align-items:start">
       <div class="card"><p id="cnt-unit" class="muted" style="margin:0 0 12px;font-size:14px"></p><div id="cnt-bars" class="cnt-bars" aria-live="polite"><div class="empty">Loading…</div></div></div>
@@ -1903,23 +2037,26 @@ function wireCounting(){
   const st = {w: 'year', h: 'tot'};
   Promise.all([loadEmis0(), loadPop()]).then(([E, P]) => {
     if (!E || !P || !$('#cnt-bars')) { box.innerHTML = '<div class="empty">The data did not load.</div>'; return; }
-    const rows = CNT_NAMES.map(n => D.find(e => e.n === n && e.t === 'country')).filter(e => e && E.c[e.s] && P[e.s]).map(e => {
+    const rows = D.filter(e => e.t === 'country' && !EU27N.includes(e.iso) && E.c[e.s] && P[e.s]).map(e => {   // every country with data (EU members count inside the EU bloc); the chart shows the top 12 for the chosen view
       const [y0, v] = E.c[e.s], Y = y0 + v.length - 1, [p0, pv] = P[e.s], popY = y => (pv[y - p0] || 0) * 1e3, sum = from => v.slice(Math.max(0, from - y0)).reduce((a, b) => a + (b || 0), 0);
       const ppSum = from => v.reduce((a, x, i) => { const yr = y0 + i, p = popY(yr); return yr >= from && p > 0 && x ? a + x * 1e6 / p : a; }, 0);
       return {e, name: CNT_SHORT[e.n] || e.n, Y, year: v[v.length - 1], s1990: sum(1990), s1850: sum(1850), pp1990: ppSum(1990), pp1850: ppSum(1850), pop: popY(Y)};
     });
+    const LY = Math.max(...rows.map(r => r.Y)); $('#cnt-when [data-w=year] b').textContent = LY;   // the real year of the latest figures
     const val = r => { const t = st.w === 'year' ? r.year : st.w === '1990' ? r.s1990 : r.s1850; return st.h === 'tot' ? t : st.w === 'year' ? t * 1e6 / r.pop : st.w === '1990' ? r.pp1990 : r.pp1850; };
         const show = (r) => { const v = val(r); return st.h === 'tot' && st.w !== 'year' ? (v / 1000).toFixed(v >= 10000 ? 0 : 1) : v >= 100 ? fmt(Math.round(v)) : v.toFixed(1); };
     box.innerHTML = rows.map(r => `<div class="cnt-row" data-k="${r.e.s}"><span class="cnt-n">${r.e.a2 ? flag(r.e.a2) + ' ' : ''}${esc(r.name)}</span><span class="cnt-b"><i></i></span><span class="cnt-v"></span></div>`).join('');
     const draw = () => {
-      const srt = rows.slice().sort((a, b) => val(b) - val(a)), mx = val(srt[0]);
+      const pool = st.h === 'pp' ? rows.filter(r => r.pop >= 1e6) : rows, srt = pool.slice().sort((a, b) => val(b) - val(a)).slice(0, 12), mx = val(srt[0]), inTop = new Set(srt.map(r => r.e.s));
+      rows.forEach(r => { const el = box.querySelector(`[data-k="${r.e.s}"]`); if (el) el.style.display = inTop.has(r.e.s) ? '' : 'none'; });
       srt.forEach((r, i) => { const el = box.querySelector(`[data-k="${r.e.s}"]`); el.style.transform = `translateY(${i * 34}px)`; el.querySelector('i').style.width = (val(r) / mx * 100).toFixed(1) + '%'; el.querySelector('.cnt-v').textContent = show(r); });
-      $('#cnt-unit').textContent = st.h === 'pp' ? (st.w === 'year' ? 'Tonnes of CO₂e per person this year' : 'Tonnes of CO₂e per person: each year’s emissions divided by that year’s population, added up. This is what one resident would have emitted had they lived through the whole period') : (st.w === 'year' ? 'Million tonnes (Mt) of CO₂e emitted this year' : 'Billion tonnes (Gt) of CO₂e emitted over the period');
-      box.style.height = rows.length * 34 + 'px';
-      const t = srt.slice(0, 3).map(r => r.name), find = n => rows.find(r => r.e.n === n), us = find('United States of America'), ind = find('India'), cn = find('China');
+      $('#cnt-unit').textContent = st.h === 'pp' ? (st.w === 'year' ? 'Tonnes of CO₂e per person in ' + LY : 'Tonnes of CO₂e per person: each year’s emissions divided by that year’s population, added up. This is what one resident would have emitted had they lived through the whole period') : (st.w === 'year' ? 'Million tonnes (Mt) of CO₂e emitted in ' + LY : 'Billion tonnes (Gt) of CO₂e emitted over the period');
+      if (st.h === 'pp') $('#cnt-unit').textContent += '. Countries with at least 1 million people';
+      box.style.height = srt.length * 34 + 'px';
+      const t = srt.slice(0, 3).map(r => r.name), find = n => rows.find(r => r.e.n === n || r.name === n), us = rows.find(r => r.e.c === 'USA'), ind = find('India'), cn = find('China');
       const k = st.w + st.h, ratio = (a, b) => a && b ? (val(a) / val(b)) : null;
       const W = {
-        yeartot: `<h3>Who emits most today?</h3><p>Counting each country's emissions this year puts <b>${t[0]}</b> first, then ${t[1]} and ${t[2]}. This is the view behind “the biggest emitters must cut fastest”: what happens in these few countries decides most of the world's emissions over the next decade.</p>`,
+        yeartot: `<h3>Who emits most in ${LY}?</h3><p>Counting each country's emissions in ${LY} puts <b>${t[0]}</b> first, then ${t[1]} and ${t[2]}. This is the view behind “the biggest emitters must cut fastest”: what happens in these few countries decides most of the world's emissions over the next decade.</p>`,
         yearpp: `<h3>Who emits most per person?</h3><p>Divide by population and the order changes. The average person in the United States emits about <b>${ratio(us, ind) ? ratio(us, ind).toFixed(0) : 'several'} times</b> as much as the average person in India, and China's per-person figure is now above the EU's. Countries with low emissions per person, such as India and Nigeria, argue that fairness should be judged person by person: everyone should have a similar share of what the atmosphere can still absorb.</p>`,
         '1990tot': `<h3>Counting from 1990</h3><p>1990 is when the UN climate science panel (the IPCC) published its first report, so the risks were widely known from then on. It is also the base year of the Kyoto Protocol, and many developed countries prefer counting from here. On this view <b>${t[0]}</b> has emitted the most, because its emissions grew fastest after 1990.</p>`,
         '1850tot': `<h3>Counting since the Industrial Revolution</h3><p>Carbon dioxide stays in the air for centuries, so emissions from the 1800s are still warming the planet today. Counting from 1850 puts <b>${t[0]}</b> and ${t[1]} ahead. Many developing countries argue that those who emitted first and most should cut fastest and help pay for others to adapt. The UN climate convention (1992) calls this <i>common but differentiated responsibilities</i>.</p>`,
