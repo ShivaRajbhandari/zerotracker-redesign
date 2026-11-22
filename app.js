@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122s';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122t';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1097,8 +1097,8 @@ async function fxGlobe(e, P, o){
   const html = `<div class="gm-top"><div class="seg segs" role="group" aria-label="Map layer">${avail.map(btn).join('')}</div>${e.t !== 'city' ? `<div class="seg segs" role="group" aria-label="Colour scale"><button type="button" class="gm-sc on" data-m="world" aria-pressed="true"><b id="gm-abs">Absolute warming</b></button><button type="button" class="gm-sc" data-m="place" aria-pressed="false"><b>Relative to ${esc(P)}</b></button></div>` : ''}</div>
     <p class="muted mt0" id="gm-lede" style="margin:10px 0 12px"></p>
     <div id="gm-facts" class="emis-facts"></div>
-    <div class="gm-leg" id="gm-leg"></div>
-    <div class="gm-wrap" id="gm-wrap" tabindex="0" role="application" aria-label="Interactive map. Drag to move, plus and minus keys to zoom."><canvas id="gm-cv" width="${GM_CW}" height="${GM_CH}"></canvas>
+    <div class="gm-leg" id="gm-leg"${e.t === 'city' ? ' hidden' : ''}></div>
+    <div class="gm-wrap" id="gm-wrap"${e.t === 'city' ? ' hidden' : ''} tabindex="0" role="application" aria-label="Interactive map. Drag to move, plus and minus keys to zoom."><canvas id="gm-cv" width="${GM_CW}" height="${GM_CH}"></canvas>
       <svg id="${uid}-svg" class="gm-svg" viewBox="0 0 ${GM_CW} ${GM_CH}" role="img" aria-label="Map of ${esc(P)} and the world"><defs><path id="gm-ocean" fill-rule="evenodd" fill="#e8eef4" d="M0 0H${GM_W}V${GM_W}H0Z${land}"/><path id="gm-land" fill="#dcd8e2" d="${land}"/><g id="gm-rest"><path d="${land}" fill="none" stroke="rgba(39,16,57,.55)" stroke-width=".6" vector-effect="non-scaling-stroke"/><path d="${borders}" fill="none" stroke="rgba(39,16,57,.35)" stroke-width=".5" vector-effect="non-scaling-stroke"/>${regB ? `<path d="${regB}" fill="none" stroke="rgba(39,16,57,.3)" stroke-width=".5" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"/>` : ''}${placeD ? `<path d="${placeD}" fill="none" stroke="#fff" stroke-width="4.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><path d="${placeD}" fill="none" stroke="#271039" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` : ''}</g></defs>
         <g id="gm-g"><g id="gm-masks">${copies('gm-ocean')}</g>${copies('gm-rest')}</g><circle id="gm-city" r="6.5" fill="#E13B26" stroke="#fff" stroke-width="2.5" opacity="0"/></svg>
       <div class="gm-zoom"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">−</button><button type="button" data-z="reset" aria-label="Back to ${esc(P)}" title="Back to ${esc(P)}">⌖</button></div>
@@ -1110,7 +1110,8 @@ async function fxGlobe(e, P, o){
     let T = {k: T0.k, x: T0.x, y: T0.y}, raf = 0, L = null;
     const cc0 = new Int32Array(GM_CW), cc1 = new Int32Array(GM_CW), cfx = new Float32Array(GM_CW);
     const draw = () => {
-      raf = 0; gG.setAttribute('transform', `translate(${T.x} ${T.y}) scale(${T.k})`);
+      raf = 0; if (e.t === 'city') return;   // a city profile has no map, only the numbers and charts
+      gG.setAttribute('transform', `translate(${T.x} ${T.y}) scale(${T.k})`);
       if (e.t === 'city') { let wx = mx(e.ll[1]); const sx = T.x + T.k * wx; const n = Math.round((GM_CW / 2 - sx) / (T.k * GM_W)); cityEl.setAttribute('cx', (sx + n * T.k * GM_W).toFixed(1)); cityEl.setAttribute('cy', (T.y + T.k * my(e.ll[0])).toFixed(1)); cityEl.setAttribute('opacity', 1); }
       if (!L || !L.g) return;
       const g = L.g, F = g._fill, nc = g.nc, nr = g.nr, st = g.s, lo = L.lo, hi = L.hi, lut = L.lut;
@@ -1188,7 +1189,7 @@ async function fxGlobe(e, P, o){
       if (feat && !place[lay]) { const s = gmStats(feat, g, lay === 'sea' ? 1.0 : 0); place[lay] = s.vals.length ? {n: s.vals.length, p5: gmPct(s.vals, .05), p95: gmPct(s.vals, .95), mean: gmMean(s.vals, s.ws), up: s.vals.filter(v => v > (lay === 'snow' ? 10 : 5)).length / s.vals.length, dn: s.vals.filter(v => v < -(lay === 'snow' ? 10 : 5)).length / s.vals.length} : {n: 0}; }
       const ab = $('#gm-abs'); if (ab) ab.textContent = ({warm: 'Absolute warming', rain: 'Absolute rainfall', snow: 'Absolute snowpack', humid: 'Absolute humidity', sea: 'Absolute sea level rise'})[lay];
       setScale(); masks.innerHTML = copies(lay === 'sea' ? 'gm-land' : 'gm-ocean');
-      $('#gm-lede').innerHTML = TXT[lay].lede(); $('#gm-src').innerHTML = TXT[lay].src; legend(); facts(); draw();
+      $('#gm-lede').innerHTML = e.t === 'city' ? ({warm: `How much warmer the area around ${esc(P)} is in 2015–2024 than it was in 1951–1980.`, rain: `How much more or less rain and snow falls in a year around ${esc(P)} in 1994–2023 than in 1951–1980.`, snow: `How much the deepest snow of the year around ${esc(P)} has changed, 2005–2024 compared with 1981–2000.`, humid: `How much the moisture in the air around ${esc(P)} has changed, in percentage points of relative humidity, 2005–2024 compared with 1981–2000.`, sea: `How fast the sea near ${esc(P)} has risen since 1993, measured by satellites.`})[lay] : TXT[lay].lede(); $('#gm-src').innerHTML = TXT[lay].src; legend(); facts(); draw();
       $$('.gm-panel').forEach(pn => { pn.hidden = pn.dataset.l !== lay; });
       $$('.gm-lay').forEach(b => { const on = b.dataset.l === lay; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
     };
@@ -1207,6 +1208,7 @@ async function fxGlobe(e, P, o){
       return s;
     };
     const shareText = () => { const ps = place[layer], n = ps && ps.n; if (layer === 'warm') return n ? `Parts of ${P} have warmed by as much as ${fx(ps.p95, 'warm')} since 1951–1980, while others have warmed by ${fx(ps.p5, 'warm')} (Berkeley Earth). #ClimateAction` : `See how fast the climate is warming around ${P} (Berkeley Earth). #ClimateAction`; if (layer === 'rain') return n ? `${Math.round(ps.up * 100)}% of ${P} gets noticeably more rain and snow than in 1951–1980, and ${Math.round(ps.dn * 100)}% gets noticeably less (CRU TS). #ClimateAction` : `See where rainfall is changing around ${P} (CRU TS). #ClimateAction`; if (layer === 'snow') return n ? `The deepest snow has shrunk across ${Math.round(ps.dn * 100)}% of ${P} since 1981–2000 (ERA5, Copernicus). #ClimateAction` : `See where snow is changing around ${P} (ERA5, Copernicus). #ClimateAction`; if (layer === 'humid') return n ? `Relative humidity in ${P} has changed by ${fx(ps.mean, 'humid')} points on average since 1981–2000 (ERA5, Copernicus). #ClimateAction` : `See where the air is getting drier or more humid around ${P} (ERA5, Copernicus). #ClimateAction`; return n ? `Sea level around ${P} has risen by as much as ${fx(ps.p95, 'sea')} mm a year since 1993, and by as little as ${fx(ps.p5, 'sea')} mm in other places (Copernicus satellites). #ClimateAction` : `See how fast the sea is rising around ${P} (Copernicus satellites). #ClimateAction`; };
+    if (e.t === 'city') { const im = $('#sh-fx-gm [data-act=img]'); if (im) im.remove(); }   // no map picture for a city
     shareWire('sh-fx-gm', {url: () => location.href.split('#')[0] + '#/e/' + e.s, get name() { return GM_LAYERS[layer].share + '-' + e.s; }, title: () => ({warm: 'Where ' + P + ' is warming fastest', rain: 'Where rainfall is changing near ' + P, snow: 'Where snow is changing near ' + P, humid: 'Where humidity is changing near ' + P, sea: 'Where the sea is rising fastest near ' + P})[layer], svg: snap, text: shareText});
   };
   return {html, wire};
@@ -1214,7 +1216,7 @@ async function fxGlobe(e, P, o){
 
 async function fxRender(e){
   const body = $('#fx-body'); if (!body) return;
-  let S, F, SL, DS, SN, PR, HU, SS; try { [S, F, SL, DS, SN, PR, HU, SS] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('hum.js', 'NZHU'), e.t === 'country' || e.t === 'region' ? loadScr('sealsat.js', 'NZSS') : null]); } catch (err) { console.error(err); }
+  let S, F, SL, DS, SN, PR, HU, SS; try { [S, F, SL, DS, SN, PR, HU, SS] = await Promise.all([loadStripes(), loadScr('fx.js', 'NZF'), loadScr('sea.js', 'NZSL'), loadScr('disasters.js', 'NZD'), loadScr('snow.js', 'NZSN'), loadScr('precip.js', 'NZPR'), loadScr('hum.js', 'NZHU'), e.t === 'country' || e.t === 'region' || e.t === 'city' ? loadScr('sealsat.js', 'NZSS') : null]); } catch (err) { console.error(err); }
   if (location.hash.indexOf('/e/' + e.s) < 0) return;
   const P = fxPlace(e), blocks = [], wires = [], fxg = {warm: [], rain: [], snow: [], humid: [], sea: []};   // the three weather groups sit in their own dropdowns at the bottom
   let G = null, dv = null;   // set inside the sections, used for the sub-title
@@ -1228,7 +1230,7 @@ async function fxRender(e){
   // 1b. the interactive climate map: warming, rainfall and (for coasts) sea level on one draggable world map
   try {
   const sD = SS && SS.d[e.s], gm = await fxGlobe(e, P, {U: fxU(e), seaOk: !!sD || (e.t !== 'country' && !!(SL && SL[e.s])), sD});
-  if (gm) { gmOk = true; blocks.unshift(fxBlock('fx-gm', 'Explore the effects of climate change', 'Pick a topic to see where it is changing on the map, with the charts for ' + esc(P) + ' underneath. Drag the map to explore the rest of the world.', gm.html, '<span id="gm-src"></span>')); wires.push(gm.wire); }
+  if (gm) { gmOk = true; blocks.unshift(fxBlock('fx-gm', 'Explore the effects of climate change', (e.t === 'city' ? 'Pick a topic to see how it is changing around ' + esc(P) + ', with the charts underneath.' : 'Pick a topic to see where it is changing on the map, with the charts for ' + esc(P) + ' underneath. Drag the map to explore the rest of the world.'), gm.html, '<span id="gm-src"></span>')); wires.push(gm.wire); }
   } catch (err) { console.error(err); }
   // 2. temperature ahead
   try {
@@ -1333,9 +1335,9 @@ async function fxRender(e){
   if (SSD) {
     const [slope, ser, grid] = SSD, y0 = SS.y0, pts = ser.map((v, i) => [y0 + i, v]), have = ser.filter(v => v != null), rise = have[have.length - 1] - have[0];
     const sgn = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(1);
-    if (e.t === 'country') {
+    if (e.t === 'country' || (e.t === 'city' && !(SL && SL[e.s]))) {   // cities with a tide gauge keep the gauge chart
       const svg = fxLine('fx-ss', {x0: y0, x1: SS.y1, zero: false, series: [{name: 'Each year', color: '#9ecae1', pts, w: 1.2, op: .9}, {name: '3-year average', color: '#08519c', smooth: true, pts: fxMean(pts, 3), w: 2.8}], aria: `Sea level around the coast of ${P}, ${y0} to ${SS.y1}, from satellites`, yfmt: v => (v >= 0 ? '+' : '−') + Math.abs(v), vfmt: v => (v >= 0 ? '+' : '−') + Math.round(Math.abs(v)) + ' mm', snap: 2, note: 'mm, compared with the 1993–2002 average'});
-      fxg.sea.push(fxBlock('fx-ss', 'Rising seas', `Average sea level in the waters within about 100 km of the coast of ${esc(P)}, measured by satellites, compared with the 1993–2002 average.`, `<div class="emis-facts"><div><span>Average rise a year</span><b>${sgn(slope)} mm</b></div><div><span>Rise since ${y0}</span><b>${rise >= 0 ? '+' : '−'}${Math.abs(rise)} mm</b></div></div>${svg}<div class="emis-key"><span><i style="background:#08519c;height:4px"></i>3-year average</span><span><i style="background:#9ecae1;height:2px"></i>Each year</span></div>`,
+      fxg.sea.push(fxBlock('fx-ss', 'Rising seas', `Average sea level in the waters within about 100 km of ${e.t === 'city' ? '' : 'the coast of '}${esc(P)}, measured by satellites, compared with the 1993–2002 average.`, `<div class="emis-facts"><div><span>Average rise a year</span><b>${sgn(slope)} mm</b></div><div><span>Rise since ${y0}</span><b>${rise >= 0 ? '+' : '−'}${Math.abs(rise)} mm</b></div></div>${svg}<div class="emis-key"><span><i style="background:#08519c;height:4px"></i>3-year average</span><span><i style="background:#9ecae1;height:2px"></i>Each year</span></div>`,
         `<b>Source:</b> Generated using E.U. Copernicus Marine Service information; Copernicus Climate Change Service: <a href="https://cds.climate.copernicus.eu/datasets/satellite-sea-level-global" target="_blank" rel="noopener">Sea level gridded data from satellite observations for the global ocean</a> (vDT2024, 0.25° grid, monthly), CC BY. We averaged the sea-surface height of every grid square of open water within about 100 km of the coast, weighting by area. Satellites measure the height of the sea itself, not its height against the land, so this does not include land that is sinking or rising, which can make the rise at a particular harbour faster or slower. Satellite readings are also less reliable very close to shore.`));
       wires.push(() => { fxLineWire('fx-ss'); fxShare('fx-ss', e, 'sea-satellite', 'Sea level: ' + P, `Satellites show the sea around ${P} rising about ${Math.abs(slope).toFixed(1)} mm a year since ${y0}, ${Math.abs(rise)} mm in total (Copernicus). #ClimateAction`); });
     }
