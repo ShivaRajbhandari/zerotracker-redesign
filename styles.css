@@ -870,3 +870,6 @@ footer.site{padding:26px 0}
 .fxpanel{margin-top:14px}.fxpanel .fxblock:first-child{margin-top:0}
 
 .cm-r{fill:transparent;stroke:#fff;stroke-opacity:.6;stroke-width:.6;cursor:pointer;pointer-events:all}.cm-r:hover{stroke:#271039;stroke-opacity:1;stroke-width:1.8;fill:rgba(255,255,255,.12)}
+
+.pgrid .pmaps.pm3{flex-wrap:wrap;justify-content:flex-end;max-width:660px}.pgrid .pmaps.pm3 .lmapfig{width:200px}
+@media(max-width:520px){.pgrid .pmaps.pm3 .lmapfig{width:calc(33.3% - 7px)}}

@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122g';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122h';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1481,9 +1481,10 @@ async function localeMapShow(e){
       const near = (f, p) => { let best = Infinity; const rings = f.geometry.type === 'Polygon' ? f.geometry.coordinates : f.geometry.coordinates.flat(); rings.forEach(r => r.forEach(q => { const d = Math.hypot((q[0] - p[0]) * Math.cos(p[1] * Math.PI / 180), q[1] - p[1]); if (d < best) best = d; })); return best; };
       const CITY_REGION = {'new-york-cit-0101': 'new-york-state-reg-0015'};   // the simplified outlines put Manhattan inside New Jersey
       const inside = rf ? cities.filter(c => { if (CITY_REGION[c.s]) return CITY_REGION[c.s] === e.s; const p = [c.ll[1], c.ll[0]]; return d3.geoContains(rf, p) || (!regs.some(f => d3.geoContains(f, p)) && near(rf, p) < 0.35); }) : [];
-      if (rf && inside.length) { const pj2 = d3.geoNaturalEarth1().rotate([-d3.geoCentroid(rf)[0], 0]).fitExtent([[8, 8], [W - 8, H - 8]], rf), P2 = d3.geoPath(pj2); fig(mk(P2(rf), 'lm-me lm-self', '', e.n) + inside.map(c => dotAt(pj2, c, 'lm-dot2')).join(''), (inside.length === 1 ? 'The city in ' : 'Cities in ') + e.n); }
+      if (rf) { const pj2 = d3.geoNaturalEarth1().rotate([-d3.geoCentroid(rf)[0], 0]).fitExtent([[8, 8], [W - 8, H - 8]], rf), P2 = d3.geoPath(pj2); fig(mk(P2(rf), 'lm-me lm-self', '', e.n) + inside.map(c => dotAt(pj2, c, 'lm-dot2')).join(''), (inside.length === 1 ? 'The city in ' : inside.length ? 'Cities in ' : '') + e.n); }
     }
   }
+  box.classList.toggle('pm3', figs.length >= 3);   // world, country, region: three side by side
   box.innerHTML = figs.join('') + `<div class="lm-cap">Click an area or a dot to open its profile</div>`;
   const go = el => { const sl = el && el.dataset && el.dataset.s; if (sl && sl !== e.s) location.hash = '#/e/' + sl; };
   box.addEventListener('click', ev => go(ev.target.closest('[data-s]')));
