@@ -885,8 +885,8 @@ footer.site{padding:26px 0}
 .gm-zoom button{width:36px;height:36px;border-radius:8px;border:1px solid #cfc8da;background:#fff;color:var(--ink,#271039);font-size:20px;line-height:1;cursor:pointer;box-shadow:0 1px 3px rgba(39,16,57,.18)}
 .gm-zoom button:hover{background:#f3eef8}
 .gm-hint{position:absolute;left:10px;bottom:8px;font-size:12px;color:#5f5869;background:rgba(255,255,255,.82);padding:3px 8px;border-radius:6px;pointer-events:none}
-.gm-leg{margin:12px auto 0;max-width:640px}
+.gm-leg{margin:14px auto 0;max-width:640px}
 .gm-cap{font-size:13px;color:#7a7385;text-align:center;margin-bottom:6px}
-.gm-bar{height:12px;border-radius:6px}
+.gm-bar{display:grid;grid-template-columns:repeat(7,1fr);height:12px;border-radius:6px;overflow:hidden}.gm-bar i{display:block}
 .gm-ticks{display:flex;justify-content:space-between;font-size:12.5px;color:#5f5869;margin-top:4px}
 @media(max-width:600px){.gm-hint{display:none}.gm-ticks{font-size:11px}}

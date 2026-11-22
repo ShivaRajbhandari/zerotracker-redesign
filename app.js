@@ -875,7 +875,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261122m';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261122p';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
@@ -1033,10 +1033,10 @@ const GM_W = 1024, GM_CW = 960, GM_CH = 540;   // world square in map units; the
 const GM_LAYERS = {
   warm: {label: 'Warming', file: 'gm_warm.js', key: 'NZGMw', cols: ['#fff3d6', '#fdd9a0', '#fbb06a', '#f27f4d', '#d9482f', '#b01f24', '#7a0c1c'], lo: 0, hi: 35, minSpan: 10, R: 2, share: 'warming-map'},
   rain: {label: 'Rainfall', file: 'gm_rain.js', key: 'NZGMr', cols: ['#8c510a', '#bf812d', '#dfc27d', '#f1ece2', '#80cdc1', '#35978f', '#01665e'], lo: -70, hi: 70, minSpan: 30, R: 2, sym: true, share: 'rainfall-map'},
-  sea: {label: 'Sea level', file: 'gm_sea.js', key: 'NZGMs', cols: ['#e3eef9', '#bcd7ee', '#8fbbe0', '#5f9ad0', '#3c76b8', '#27519a', '#17306f'], lo: 0, hi: 70, minSpan: 20, R: 2, share: 'sea-satellite-map'}
+  sea: {label: 'Sea level rise', file: 'gm_sea.js', key: 'NZGMs', cols: ['#e3eef9', '#bcd7ee', '#8fbbe0', '#5f9ad0', '#3c76b8', '#27519a', '#17306f'], lo: 0, hi: 70, minSpan: 20, R: 2, share: 'sea-satellite-map'}
 };
 let GM_PREF = 'warm';
-function gmLut(cols){ const rgb = cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))), lut = new Uint32Array(256); for (let i = 0; i < 256; i++) { const x = i / 255 * (cols.length - 1), a = Math.min(cols.length - 2, Math.floor(x)), t = x - a, c = [0, 1, 2].map(j => Math.round(rgb[a][j] * (1 - t) + rgb[a + 1][j] * t)); lut[i] = (255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]; } return lut; }
+function gmLut(cols){ const rgb = cols.map(h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16))), lut = new Uint32Array(256); for (let i = 0; i < 256; i++) { const c = rgb[Math.min(cols.length - 1, Math.floor(i * cols.length / 256))]; lut[i] = (255 << 24) | (c[2] << 16) | (c[1] << 8) | c[0]; } return lut; }   // seven distinct bands, so each colour means one range
 function gmPrep(g, R){   // decode the grid and fill squares without data from the nearest square that has some, so colour reaches the coast
   if (!g._raw) { const bin = atob(g.b), a = new Int8Array(bin.length); for (let i = 0; i < a.length; i++) a[i] = bin.charCodeAt(i) << 24 >> 24; g._raw = a; }
   if (!g._fill) { const nc = g.nc, nr = g.nr, raw = g._raw, f = new Int8Array(raw); for (let r = 0; r < nr; r++) for (let c = 0; c < nc; c++) { if (raw[r * nc + c] !== -128) continue; let best = -128, bd = 1e9; for (let dr = -R; dr <= R; dr++) { const rr = r + dr; if (rr < 0 || rr >= nr) continue; for (let dc = -R; dc <= R; dc++) { const v = raw[rr * nc + ((c + dc + nc) % nc)]; if (v !== -128) { const d = dr * dr + dc * dc; if (d < bd) { bd = d; best = v; } } } } f[r * nc + c] = best; } g._fill = f; }
@@ -1092,15 +1092,15 @@ async function fxGlobe(e, P, o){
   const cur = {};   // per layer: {g, lut}
   const copies = (href, extra) => [-GM_W, 0, GM_W].map(dx => `<use href="#${href}" x="${dx}" ${extra || ''}/>`).join('');
   const btn = k => `<button type="button" class="gm-lay${k === layer ? ' on' : ''}" data-l="${k}" aria-pressed="${k === layer}"><b>${GM_LAYERS[k].label}</b></button>`;
-  const html = `<div class="gm-top"><div class="seg segs" role="group" aria-label="Map layer">${avail.map(btn).join('')}</div>${e.t !== 'city' ? `<div class="seg segs" role="group" aria-label="Colour scale"><button type="button" class="gm-sc on" data-m="world" aria-pressed="true"><b>Compare places</b></button><button type="button" class="gm-sc" data-m="place" aria-pressed="false"><b>Highlight ${esc(e.t === 'country' ? 'this country' : 'this place')}</b></button></div>` : ''}</div>
+  const html = `<div class="gm-top"><div class="seg segs" role="group" aria-label="Map layer">${avail.map(btn).join('')}</div>${e.t !== 'city' ? `<div class="seg segs" role="group" aria-label="Colour scale"><button type="button" class="gm-sc on" data-m="world" aria-pressed="true"><b id="gm-abs">Absolute warming</b></button><button type="button" class="gm-sc" data-m="place" aria-pressed="false"><b>Relative to ${esc(P)}</b></button></div>` : ''}</div>
     <p class="muted mt0" id="gm-lede" style="margin:10px 0 12px"></p>
     <div id="gm-facts" class="emis-facts"></div>
+    <div class="gm-leg" id="gm-leg"></div>
     <div class="gm-wrap" id="gm-wrap" tabindex="0" role="application" aria-label="Interactive map. Drag to move, plus and minus keys to zoom."><canvas id="gm-cv" width="${GM_CW}" height="${GM_CH}"></canvas>
       <svg id="${uid}-svg" class="gm-svg" viewBox="0 0 ${GM_CW} ${GM_CH}" role="img" aria-label="Map of ${esc(P)} and the world"><defs><path id="gm-ocean" fill-rule="evenodd" fill="#e8eef4" d="M0 0H${GM_W}V${GM_W}H0Z${land}"/><path id="gm-land" fill="#dcd8e2" d="${land}"/><g id="gm-rest"><path d="${land}" fill="none" stroke="rgba(39,16,57,.55)" stroke-width=".6" vector-effect="non-scaling-stroke"/><path d="${borders}" fill="none" stroke="rgba(39,16,57,.35)" stroke-width=".5" vector-effect="non-scaling-stroke"/>${regB ? `<path d="${regB}" fill="none" stroke="rgba(39,16,57,.3)" stroke-width=".5" stroke-dasharray="3 2" vector-effect="non-scaling-stroke"/>` : ''}${placeD ? `<path d="${placeD}" fill="none" stroke="#fff" stroke-width="4.5" stroke-linejoin="round" vector-effect="non-scaling-stroke"/><path d="${placeD}" fill="none" stroke="#271039" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke"/>` : ''}</g></defs>
         <g id="gm-g"><g id="gm-masks">${copies('gm-ocean')}</g>${copies('gm-rest')}</g><circle id="gm-city" r="6.5" fill="#E13B26" stroke="#fff" stroke-width="2.5" opacity="0"/></svg>
       <div class="gm-zoom"><button type="button" data-z="in" aria-label="Zoom in">+</button><button type="button" data-z="out" aria-label="Zoom out">−</button><button type="button" data-z="reset" aria-label="Back to ${esc(P)}" title="Back to ${esc(P)}">⌖</button></div>
-      <div class="gm-hint">Drag to move · pinch, or Ctrl/⌘ + scroll, to zoom</div></div>
-    <div class="gm-leg" id="gm-leg"></div>`;
+      <div class="gm-hint">Drag to move · pinch, or Ctrl/⌘ + scroll, to zoom</div></div>`;
   const wire = () => {
     const wrap = $('#gm-wrap'), cv = $('#gm-cv'), svgEl = $('#' + uid + '-svg'); if (!wrap || !cv || !svgEl) return;
     const ctx = cv.getContext('2d'), gG = $('#gm-g'), cityEl = $('#gm-city'), masks = $('#gm-masks'), sel = d3.select(svgEl);
@@ -1159,7 +1159,7 @@ async function fxGlobe(e, P, o){
     };
     const SSY1 = 2025;
     const setScale = () => { const d = GM_LAYERS[layer]; let lo = d.lo, hi = d.hi; const ps = place[layer]; if (mode === 'place' && ps && ps.p5 != null) { if (d.sym) { const m = Math.max(15, Math.ceil(Math.max(Math.abs(ps.p5), Math.abs(ps.p95)) / 5) * 5); lo = -m; hi = m; } else { lo = Math.floor(ps.p5 / 5) * 5; hi = Math.max(Math.ceil(ps.p95 / 5) * 5, lo + d.minSpan); } } L.lo = lo; L.hi = hi; };
-    const legend = () => { const d = GM_LAYERS[layer], n = 7, ed = Array.from({length: n + 1}, (_, i) => L.lo + (L.hi - L.lo) * i / n); $('#gm-leg').innerHTML = `<div class="gm-cap">${TXT[layer].legend}${mode === 'place' ? ` <i>(colours stretched to ${esc(P)})</i>` : ''}</div><div class="gm-bar" style="background:linear-gradient(90deg,${d.cols.join(',')})"></div><div class="gm-ticks">${ed.map(t => `<span>${fx(t, layer)}</span>`).join('')}</div>`; };
+    const legend = () => { const d = GM_LAYERS[layer], n = 7, ed = Array.from({length: n + 1}, (_, i) => L.lo + (L.hi - L.lo) * i / n); $('#gm-leg').innerHTML = `<div class="gm-cap">${TXT[layer].legend}${mode === 'place' ? ` <i>(colours relative to ${esc(P)}, so they cannot be compared with other places)</i>` : ''}</div><div class="gm-bar">${d.cols.map(c => `<i style="background:${c}"></i>`).join('')}</div><div class="gm-ticks">${ed.map(t => `<span>${fx(t, layer)}</span>`).join('')}</div>`; };
     const facts = () => {
       const g = L.g, d = GM_LAYERS[layer], ps = place[layer], wm = gmWorldMean(g), out = [];
       if (e.t === 'city') { const v = gmSample(g, g._fill, e.ll[1], e.ll[0]); if (v != null) out.push([layer === 'sea' ? 'Sea level rise nearby' : layer === 'warm' ? 'Warming here' : 'Rain and snow here', fx(v, layer) + (layer === 'sea' ? ' mm a year' : layer === 'warm' ? ' ' : ''), '']); }
@@ -1175,9 +1175,10 @@ async function fxGlobe(e, P, o){
       layer = lay; GM_PREF = lay; const d = GM_LAYERS[lay];
       if (!window[d.key]) { $('#gm-facts').innerHTML = '<div><span>Loading the map…</span><b></b></div>'; await loadScr(d.file, d.key); }
       if (layer !== lay) return;
-      const g = window[d.key]; gmPrep(g, d.R); if (!cur[lay]) cur[lay] = {g, lut: gmLut(d.cols)};
+      const g = window[d.key]; gmPrep(g, Math.round(1 / g.s)); if (!cur[lay]) cur[lay] = {g, lut: gmLut(d.cols)};
       L = Object.assign({lo: d.lo, hi: d.hi}, cur[lay]);
       if (feat && !place[lay]) { const s = gmStats(feat, g, lay === 'sea' ? 1.0 : 0); place[lay] = s.vals.length ? {n: s.vals.length, p5: gmPct(s.vals, .05), p95: gmPct(s.vals, .95), mean: gmMean(s.vals, s.ws), up: s.vals.filter(v => v > 5).length / s.vals.length, dn: s.vals.filter(v => v < -5).length / s.vals.length} : {n: 0}; }
+      const ab = $('#gm-abs'); if (ab) ab.textContent = ({warm: 'Absolute warming', rain: 'Absolute rainfall', sea: 'Absolute sea level rise'})[lay];
       setScale(); masks.innerHTML = copies(lay === 'sea' ? 'gm-land' : 'gm-ocean');
       $('#gm-lede').innerHTML = TXT[lay].lede(); $('#gm-src').innerHTML = TXT[lay].src; legend(); facts(); draw();
       $$('.gm-lay').forEach(b => { const on = b.dataset.l === lay; b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); });
@@ -1192,7 +1193,7 @@ async function fxGlobe(e, P, o){
       s.innerHTML = `<rect width="${GM_CW}" height="${H}" fill="#fff"/><image href="${cv.toDataURL('image/png')}" x="0" y="0" width="${GM_CW}" height="${GM_CH}"/>`;
       s.appendChild(defs); s.appendChild(g2);
       const lw = 520, lx = (GM_CW - lw) / 2, n = 7, ed = Array.from({length: n + 1}, (_, i) => L.lo + (L.hi - L.lo) * i / n);
-      s.insertAdjacentHTML('beforeend', `<linearGradient id="gm-lgr"><stop offset="0" stop-color="${d.cols[0]}"/>${d.cols.map((c, i) => `<stop offset="${i / (d.cols.length - 1)}" stop-color="${c}"/>`).join('')}</linearGradient><rect x="${lx}" y="${GM_CH + 18}" width="${lw}" height="11" fill="url(#gm-lgr)"/>${ed.map((t, i) => `<text x="${lx + lw * i / n}" y="${GM_CH + 46}" text-anchor="middle" font-size="12" fill="#5f5869">${fx(t, layer)}</text>`).join('')}<text x="${GM_CW / 2}" y="${GM_CH + 12}" text-anchor="middle" font-size="12" fill="#7a7385">${esc(TXT[layer].legend)}</text>`);
+      s.insertAdjacentHTML('beforeend', `${d.cols.map((c, i) => `<rect x="${lx + lw * i / n}" y="${GM_CH + 18}" width="${lw / n + .5}" height="11" fill="${c}"/>`).join('')}${ed.map((t, i) => `<text x="${lx + lw * i / n}" y="${GM_CH + 46}" text-anchor="middle" font-size="12" fill="#5f5869">${fx(t, layer)}</text>`).join('')}<text x="${GM_CW / 2}" y="${GM_CH + 12}" text-anchor="middle" font-size="12" fill="#7a7385">${esc(TXT[layer].legend)}</text>`);
       if (e.t === 'city') s.insertAdjacentHTML('beforeend', `<circle cx="${cityEl.getAttribute('cx')}" cy="${cityEl.getAttribute('cy')}" r="6.5" fill="#E13B26" stroke="#fff" stroke-width="2.5"/>`);
       return s;
     };
