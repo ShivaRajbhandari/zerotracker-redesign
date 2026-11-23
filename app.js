@@ -841,7 +841,7 @@ function treatyWire(svg, ents){
   svg.addEventListener('mousemove', ev => { const t = ev.target.closest && ev.target.closest('.trl'); if (t) showTip(treatyTip(t.dataset.tr, typeof ents === 'function' ? ents() : ents), ev); });
   svg.addEventListener('mouseout', ev => { if (ev.target.closest && ev.target.closest('.trl')) hideTip(); });
 }
-function loadComp(){ return window.NZCE ? Promise.resolve(window.NZCE) : new Promise(res => { const t = document.createElement('script'); t.src = 'compemis.js?v=20261120e'; t.onload = () => res(window.NZCE); t.onerror = () => res(null); document.head.appendChild(t); }); }
+function loadComp(){ return window.NZCE ? Promise.resolve(window.NZCE) : new Promise(res => { const t = document.createElement('script'); t.src = 'compemis.js?v=20261123i'; t.onload = () => res(window.NZCE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 function loadEmis(){ return Promise.all([loadEmis0(), loadComp()]).then(a => a[0]); }
 function loadEmis0(){ return window.NZE ? Promise.resolve(window.NZE) : new Promise(res => { const t = document.createElement('script'); t.src = 'emis.js?v=20261120bz'; t.onload = () => res(window.NZE); t.onerror = () => res(null); document.head.appendChild(t); }); }
 /* ---------- WARMING STRIPES (Berkeley Earth High Resolution Dataset, April 2026, land air temperature; CC BY-NC 4.0) ---------- */
@@ -873,7 +873,7 @@ function stripesWire(e, st){
 }
 
 /* ---------- EFFECTS of climate change: stripes, projections, hot days, rain, sea level, disasters ---------- */
-const FX_V = '20261123g';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
+const FX_V = '20261123i';  // bump whenever stripes.js, fx.js, sea.js or disasters.js change
 function loadScr(src, key){ return window[key] ? Promise.resolve(window[key]) : new Promise(res => { const t = document.createElement('script'); t.src = src + '?v=' + FX_V; t.onload = () => res(window[key] || null); t.onerror = () => res(null); document.head.appendChild(t); }); }
 const F_LANDS = new Set(['USA', 'BHS', 'BLZ', 'CYM', 'PLW', 'FSM', 'MHL', 'LBR', 'PRI', 'GUM', 'VIR', 'ASM', 'MNP']);   // places that use Fahrenheit
 const fxU = e => F_LANDS.has(e.c) ? {k: 1.8, u: '°F', th: '95°F', abs: c => c * 1.8 + 32} : {k: 1, u: '°C', th: '35°C', abs: c => c};
